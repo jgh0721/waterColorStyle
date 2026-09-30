@@ -25,7 +25,8 @@ set "VSCMAKE=%VSROOT%\Common7\IDE\CommonExtensions\Microsoft\CMake"
 set "PATH=%VSCMAKE%\CMake\bin;%VSCMAKE%\Ninja;%PATH%"
 
 pushd "%ROOT%" || exit /b 1
-cmake --preset %PRESET% || (popd & exit /b 1)
+rem FMSTYLE_CONFIGURE_ARGS: extra configure arguments, e.g. -DQTITAN_SOURCE_DIR=...
+cmake --preset %PRESET% %FMSTYLE_CONFIGURE_ARGS% || (popd & exit /b 1)
 cmake --build --preset %PRESET% %1 %2 %3 %4 %5 %6
 set "RC=%ERRORLEVEL%"
 popd

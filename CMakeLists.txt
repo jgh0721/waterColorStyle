@@ -18,6 +18,18 @@ qt_standard_project_setup()
 add_subdirectory(src/fmstyle)
 add_subdirectory(src/fmwidgets)
 
+# QtitanDataGrid — third_party/QtitanDataGrid/upstream 원본 + patches 를 정적 라이브러리로 빌드한다.
+option(FMSTYLE_WITH_QTITAN "Build QtitanDataGrid (patched) and the targets that use it" ON)
+if(FMSTYLE_WITH_QTITAN)
+    # Qtitan 정적 라이브러리는 Qt 비공개 모듈을 링크 의존으로 넘긴다. 가져온 대상은 디렉터리 범위라
+    # 소비자(실행 파일 · 플러그인)가 있는 모든 디렉터리에서 보이도록 여기서 찾는다.
+    # 비공개 API는 Qtitan 원본이 쓰는 것이므로 경고를 끈다(qmake 빌드의 CONFIG += private_headers와 같음).
+    set(QT_NO_PRIVATE_MODULE_WARNING ON)
+    find_package(Qt6 REQUIRED COMPONENTS PrintSupport Sql CorePrivate GuiPrivate WidgetsPrivate)
+    add_subdirectory(third_party/QtitanDataGrid)
+    add_subdirectory(app/qtitan_spike)
+endif()
+
 option(FMSTYLE_BUILD_GALLERY "Build the widget gallery used to compare against the mockups" ON)
 if(FMSTYLE_BUILD_GALLERY)
     add_subdirectory(gallery)

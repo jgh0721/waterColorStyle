@@ -70,19 +70,33 @@ inline void applyPreviewState(const QStyleOption *option, const QWidget *w)
     }
 }
 
-// 활성 패널 판단: 명시 속성 → 창 활성 + 포커스.
+// 그리기를 대신 맡은 숨은 위젯이면 보이는 가장 가까운 상위 위젯. Qtitan 그리드는 셀 · 행을 그릴 때
+// 그리드의 자식인 숨은 대리 QTableView를 넘긴다(third_party/QtitanDataGrid 패치 Q1).
+inline const QWidget *paintingWidget(const QWidget *w)
+{
+    while (w && w->isHidden() && !w->isWindow() && w->parentWidget())
+        w = w->parentWidget();
+    return w;
+}
+
+// 활성 패널 판단: 명시 속성(위젯 또는 상위 — 패널 컨테이너에 한 번 걸어 둘 수 있다) → 창 활성 + 포커스.
 inline bool paneActive(const QStyleOption *option, const QWidget *w)
 {
-    if (w) {
-        const QVariant v = w->property(props::kPaneActive);
+    for (const QWidget *p = w; p; p = p->parentWidget()) {
+        const QVariant v = p->property(props::kPaneActive);
         if (v.isValid())
             return v.toBool();
+        if (p->isWindow())
+            break;
     }
     if (!(option->state & QStyle::State_Active))
         return false;
     if (!w)
         return true;
-    return w->hasFocus() || (w->window() && w->window()->windowType() == Qt::Popup);
+    if (w->window() && w->window()->windowType() == Qt::Popup)
+        return true;
+    const QWidget *painting = paintingWidget(w);
+    return painting->hasFocus() || painting->isAncestorOf(painting->window()->focusWidget());
 }
 
 inline QRectF crisp(const QRect &r, qreal width = 1.0)
