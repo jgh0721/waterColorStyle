@@ -23,6 +23,10 @@ echo [build] Visual Studio: %VSROOT%
 rem vcvars64 calls vswhere.exe without a path; put the installer folder on PATH so it does not print an error.
 set "PATH=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer;%PATH%"
 call "%VSROOT%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
+rem Ninja reads header dependencies from cl /showIncludes lines and expects the English prefix
+rem "Note: including file:". A localized cl prints a translated prefix, the dependencies are lost
+rem and header edits stop rebuilding their users. Force English compiler output.
+set "VSLANG=1033"
 set "VSCMAKE=%VSROOT%\Common7\IDE\CommonExtensions\Microsoft\CMake"
 set "PATH=%VSCMAKE%\CMake\bin;%VSCMAKE%\Ninja;%PATH%"
 

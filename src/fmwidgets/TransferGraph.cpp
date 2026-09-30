@@ -165,7 +165,10 @@ void TransferGraph::addSample(qint64 bytesDone, qint64 elapsedMs)
         if (!m_paused)
             m_activeMs += dt;
     }
-    m_peak = std::max(m_peak, m_current);
+    if (m_current > m_peak) {
+        m_peak = m_current;
+        Q_EMIT peakChanged(m_peak);
+    }
     m_samples.append({bytesDone, elapsedMs, m_current, m_paused});
     decimate();
     retarget();
@@ -222,6 +225,14 @@ void TransferGraph::setFramed(bool on)
     update();
 }
 
+void TransferGraph::setHeaderVisible(bool on)
+{
+    if (m_headerVisible == on)
+        return;
+    m_headerVisible = on;
+    update();
+}
+
 double TransferGraph::averageSpeed() const noexcept
 {
     if (m_samples.isEmpty() || m_activeMs <= 0)
@@ -259,6 +270,11 @@ TransferGraph::Axis TransferGraph::effectiveAxis() const noexcept
 
 QRectF TransferGraph::plotRect() const
 {
+    if (!m_headerVisible) {
+        // 머리 줄을 밖에 둔 진행 창(목업 CopyProgress): 위 4 · 아래 6, 테두리가 없으면 좌우 여백도 없다
+        const qreal side = m_framed ? 12 : 0;
+        return QRectF(side, 4, width() - 2 * side, height() - 4 - 6);
+    }
     const qreal header = 24;
     return QRectF(12, 8 + header, width() - 24, height() - 8 - header - 10);
 }
@@ -411,16 +427,18 @@ void TransferGraph::paintEvent(QPaintEvent *)
         return plot.bottom() - std::clamp(v / scale, 0.0, 1.04) * plot.height();
     };
 
-    // 머리 줄
-    p.setFont(header);
-    p.setPen(tc[Token::Fg3]);
-    const QString title = !m_title.isEmpty() ? m_title
-                        : axis == Axis::Progress ? tr("처리 속도 · 진행률 기준")
-                                                 : tr("처리 속도 · 경과 시간 기준");
-    const QRectF headerRect(plot.left(), 8, plot.width(), 18);
-    p.drawText(headerRect, Qt::AlignLeft | Qt::AlignVCenter, title);
-    if (m_peak > 0)
-        p.drawText(headerRect, Qt::AlignRight | Qt::AlignVCenter, tr("최대 %1").arg(formatRate(m_peak)));
+    // 머리 줄(밖에 두었으면 그리지 않는다)
+    if (m_headerVisible) {
+        p.setFont(header);
+        p.setPen(tc[Token::Fg3]);
+        const QString title = !m_title.isEmpty() ? m_title
+                            : axis == Axis::Progress ? tr("처리 속도 · 진행률 기준")
+                                                     : tr("처리 속도 · 경과 시간 기준");
+        const QRectF headerRect(plot.left(), 8, plot.width(), 18);
+        p.drawText(headerRect, Qt::AlignLeft | Qt::AlignVCenter, title);
+        if (m_peak > 0)
+            p.drawText(headerRect, Qt::AlignRight | Qt::AlignVCenter, tr("최대 %1").arg(formatRate(m_peak)));
+    }
 
     // 눈금 선 (글자는 평균 · 제한 글자와 겹치지 않는 것만 나중에)
     p.setFont(small);

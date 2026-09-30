@@ -110,6 +110,11 @@ void SegmentedControl::applyLook()
             b->setFont(QFont());
         b->setSizePolicy(m_expanding ? QSizePolicy::Expanding : QSizePolicy::Preferred, QSizePolicy::Fixed);
         m_layout->setStretch(i, m_expanding ? 1 : 0);
+        // 균등 폭(목업 .seg-b: flex 1 1 0 · 좌우 6)은 글자 폭 + 12까지 줄어든다 — 좁은 카드에서도 들어가게.
+        if (m_expanding && i >= 0 && i < m_items.size())
+            b->setMinimumWidth(QFontMetrics(b->font()).horizontalAdvance(m_items.at(i)) + 12);
+        else
+            b->setMinimumWidth(0);
         b->setToolTip(i < m_toolTips.size() ? m_toolTips.at(i) : QString());
     }
     setSizePolicy(m_expanding ? QSizePolicy::Expanding : QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -183,6 +188,8 @@ void SegmentedControl::changeEvent(QEvent *event)
     if (event->type() == QEvent::PaletteChange && !m_glyphs.isEmpty())
         refreshIcons();  // ThemeScope 등으로 색이 바뀌었다
     QWidget::changeEvent(event);
+    if (event->type() == QEvent::FontChange && m_expanding)
+        applyLook();  // Normal 크기는 위젯 글꼴을 따른다 — 균등 폭의 최소 폭을 다시 잰다
 }
 
 } // namespace fm::ui

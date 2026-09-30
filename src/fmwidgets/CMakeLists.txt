@@ -7,6 +7,7 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/DialogChrome.h
     include/fmwidgets/DialogFooter.h
     include/fmwidgets/DialogHeader.h
+    include/fmwidgets/DialogWidgets.h
     include/fmwidgets/DriveButton.h
     include/fmwidgets/FindBox.h
     include/fmwidgets/FunctionKeyBar.h
@@ -23,6 +24,7 @@ qt_add_library(fmwidgets STATIC
     Controls.cpp
     DialogHeader.cpp
     DialogParts.cpp
+    DialogWidgets.cpp
     Label.cpp
     MainBars.cpp
     PanelChrome.cpp

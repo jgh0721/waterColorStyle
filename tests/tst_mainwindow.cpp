@@ -3,6 +3,7 @@
 #include "FilePanel.h"
 #include "MainWindow.h"
 
+#include <fmdialogs/ProgressDialog.h>
 #include <fmfilelist/FileListView.h>
 #include <fmfilelist/FileRoles.h>
 #include <fmfilelist/FileSortProxy.h>
@@ -11,9 +12,12 @@
 #include <fmwidgets/BreadcrumbBar.h>
 
 #include <QAction>
+#include <QApplication>
+#include <QDialog>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QTest>
+#include <QTimer>
 
 using namespace Qt::StringLiterals;
 using namespace fm::app;
@@ -32,6 +36,7 @@ private Q_SLOTS:
     void tabs();
     void viewModes();
     void breadcrumbs();
+    void fileOperations();
 
 private:
     QString nameAt(FilePanel *panel, int row) const
@@ -165,6 +170,57 @@ void TestMainWindow::breadcrumbs()
     Q_EMIT crumbs->segmentClicked(0);
     QCOMPARE(left->currentPath(), u"D:\\Work"_s);
     QCOMPARE(crumbs->segments(), QStringList{u"Work"_s});
+}
+
+// 기능 키 → 대화상자(P5). 모달 대화상자는 열린 뒤 타이머로 닫고, 어떤 대화상자가 어떤 입력으로 열렸는지 본다.
+void TestMainWindow::fileOperations()
+{
+    m_window->loadBoardState();  // 오른쪽 D:\Downloads 활성 · 커서 PDF
+    struct Seen
+    {
+        QString className;
+        QString title;
+    };
+    auto run = [this](const QString &id, bool accept) {
+        Seen seen;
+        QTimer::singleShot(50, this, [&seen, accept] {
+            auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!modal)
+                return;
+            seen.className = QString::fromLatin1(modal->metaObject()->className());
+            seen.title = modal->windowTitle();
+            accept ? modal->accept() : modal->reject();
+        });
+        m_window->findChild<QAction *>(id)->trigger();
+        return seen;
+    };
+
+    QCOMPARE(run(u"copy"_s, false).className, u"fm::dialogs::CopyDialog"_s);
+    QCOMPARE(run(u"move"_s, false).className, u"fm::dialogs::MoveRenameDialog"_s);
+    QCOMPARE(run(u"rename"_s, false).className, u"fm::dialogs::MoveRenameDialog"_s);
+    QCOMPARE(run(u"newFolder"_s, false).className, u"fm::dialogs::NewFolderDialog"_s);
+    QCOMPARE(run(u"newFile"_s, false).className, u"fm::dialogs::NewFileDialog"_s);
+    // 대상은 표시한 행(보드의 Downloads는 3개 표시) — 없으면 커서 행
+    QCOMPARE(m_window->rightPanel()->operationRows().size(), 3);
+    const Seen rename = run(u"multiRename"_s, false);
+    QCOMPARE(rename.className, u"fm::dialogs::MultiRenameDialog"_s);
+    QCOMPARE(rename.title, u"다중 이름 변경 — 3개 파일 · D:\\Downloads"_s);
+
+    // 삭제 확인 → 진행 창(모덜리스)이 뜬다
+    QCOMPARE(run(u"delete"_s, true).className, u"fm::dialogs::DeleteDialog"_s);
+    const auto progress = m_window->findChildren<fm::dialogs::ProgressDialog *>();
+    QCOMPARE(progress.size(), 1);
+    QVERIFY(progress.first()->isVisible());
+    QCOMPARE(progress.first()->mode(), fm::dialogs::ProgressDialog::Compact);
+    progress.first()->close();
+    QTRY_VERIFY(m_window->findChildren<fm::dialogs::ProgressDialog *>().isEmpty());  // WA_DeleteOnClose
+
+    // 표시가 없고 커서가 상위 폴더("..")면 대상이 없다 — 대화상자를 열지 않는다
+    m_window->rightPanel()->model()->markAll(false);
+    QCOMPARE(m_window->rightPanel()->operationRows().size(), 1);  // 커서 행
+    m_window->rightPanel()->listView()->setCursorRow(0);
+    QVERIFY(run(u"copy"_s, false).className.isEmpty());
+    QTest::qWait(100);  // 열리지 않은 대화상자용 타이머가 지나가게
 }
 
 QTEST_MAIN(TestMainWindow)

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MoveRenameDialog</class>
+ <widget class="QDialog" name="MoveRenameDialog">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>600</width><height>434</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>이름 변경 / 이동</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <widget class="QWidget" name="body" native="true">
+     <layout class="QVBoxLayout" name="bodyLayout">
+      <property name="spacing"><number>16</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>8</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>20</number></property>
+      <item>
+       <widget class="fm::ui::DialogHeader" name="header" native="true">
+        <property name="title"><string>이름 변경 또는 이동</string></property>
+        <property name="subtitle"><string>원본 · D:\Downloads\파일</string></property>
+        <property name="glyph"><enum>fm::ui::glyph::Rename</enum></property>
+        <property name="tone"><enum>fm::ui::DialogHeader::Info</enum></property>
+        <property name="subtitleElide"><enum>Qt::ElideMiddle</enum></property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="targetBlock">
+        <property name="spacing"><number>6</number></property>
+        <item>
+         <widget class="fm::ui::Label" name="targetLabel">
+          <property name="text"><string>새 이름 또는 대상 경로(&amp;N)</string></property>
+          <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+          <property name="buddy"><cstring>targetEdit</cstring></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="targetEdit"/>
+        </item>
+        <item>
+         <widget class="fm::ui::Label" name="targetHelp">
+          <property name="text"><string>경로(\)를 넣으면 그 위치로 이동합니다 · 열릴 때 확장자를 뺀 이름만 선택</string></property>
+          <property name="textRole"><enum>fm::ui::Label::Help</enum></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::Card" name="previewCard">
+          <layout class="QVBoxLayout" name="previewLayout">
+           <property name="spacing"><number>8</number></property>
+           <property name="leftMargin"><number>14</number></property>
+           <property name="topMargin"><number>12</number></property>
+           <property name="rightMargin"><number>14</number></property>
+           <property name="bottomMargin"><number>12</number></property>
+           <item>
+            <layout class="QHBoxLayout" name="previewRow">
+             <property name="spacing"><number>8</number></property>
+             <item>
+              <widget class="QLabel" name="arrowIcon">
+               <property name="minimumSize"><size><width>16</width><height>16</height></size></property>
+               <property name="maximumSize"><size><width>16</width><height>16</height></size></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="fm::ui::Label" name="previewDir">
+               <property name="text"><string>D:\Archive\2026-Q3\</string></property>
+               <property name="textRole"><enum>fm::ui::Label::PathMeta</enum></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="previewName">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Ignored" vsizetype="Preferred"><horstretch>1</horstretch><verstretch>0</verstretch></sizepolicy>
+               </property>
+               <property name="text"><string>새 이름</string></property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="tagRow">
+             <property name="spacing"><number>6</number></property>
+             <item>
+              <widget class="fm::ui::Tag" name="opTag" native="true">
+               <property name="text"><string>이동</string></property>
+               <property name="tone"><enum>fm::ui::Tag::Info</enum></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="fm::ui::Tag" name="volumeTag" native="true">
+               <property name="text"><string>같은 볼륨 · 즉시 처리</string></property>
+               <property name="tone"><enum>fm::ui::Tag::Mute</enum></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="fm::ui::Tag" name="statusTag" native="true">
+               <property name="text"><string>이 이름을 쓸 수 있습니다</string></property>
+               <property name="tone"><enum>fm::ui::Tag::Ok</enum></property>
+               <property name="glyph"><enum>fm::ui::glyph::Check</enum></property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="tagStretch">
+               <property name="orientation"><enum>Qt::Horizontal</enum></property>
+               <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="recentBlock">
+        <property name="spacing"><number>6</number></property>
+        <item>
+         <widget class="fm::ui::Label" name="recentLabel">
+          <property name="text"><string>최근 대상 — Alt+1 ~ 3</string></property>
+          <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::RecentTargetsBar" name="recentBar" native="true"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QGridLayout" name="optionsGrid">
+        <property name="horizontalSpacing"><number>16</number></property>
+        <item row="0" column="0">
+         <widget class="QCheckBox" name="createDirCheck">
+          <property name="text"><string>대상 폴더가 없으면 만들기(&amp;C)</string></property>
+          <property name="checked"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QCheckBox" name="allowExtCheck">
+          <property name="text"><string>확장자 변경 허용(&amp;X)</string></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="bodyStretch">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="fm::ui::DialogFooter" name="footer">
+     <layout class="QHBoxLayout" name="footerLayout">
+      <property name="spacing"><number>8</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>16</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>16</number></property>
+      <item>
+       <spacer name="footerSpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="okButton">
+        <property name="text"><string>확인</string></property>
+        <property name="role"><enum>fm::ui::Button::Primary</enum></property>
+        <property name="default"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="cancelButton">
+        <property name="text"><string>취소</string></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::DialogHeader</class><extends>QWidget</extends><header>fmwidgets/DialogHeader.h</header></customwidget>
+  <customwidget><class>fm::ui::Label</class><extends>QLabel</extends><header>fmwidgets/Label.h</header></customwidget>
+  <customwidget><class>fm::ui::Card</class><extends>QFrame</extends><header>fmwidgets/Card.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Tag</class><extends>QWidget</extends><header>fmwidgets/Tag.h</header></customwidget>
+  <customwidget><class>fm::ui::RecentTargetsBar</class><extends>QWidget</extends><header>fmwidgets/DialogWidgets.h</header></customwidget>
+  <customwidget><class>fm::ui::DialogFooter</class><extends>QFrame</extends><header>fmwidgets/DialogFooter.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Button</class><extends>QPushButton</extends><header>fmwidgets/Button.h</header></customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>targetEdit</tabstop>
+  <tabstop>createDirCheck</tabstop>
+  <tabstop>allowExtCheck</tabstop>
+  <tabstop>okButton</tabstop>
+  <tabstop>cancelButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>cancelButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MoveRenameDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

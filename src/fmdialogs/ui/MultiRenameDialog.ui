@@ -1,0 +1,655 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MultiRenameDialog</class>
+ <widget class="QDialog" name="MultiRenameDialog">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>1120</width><height>764</height></rect>
+  </property>
+  <property name="minimumSize">
+   <size><width>1040</width><height>680</height></size>
+  </property>
+  <property name="windowTitle">
+   <string>다중 이름 변경</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <widget class="QWidget" name="body" native="true">
+     <layout class="QVBoxLayout" name="bodyLayout">
+      <property name="spacing"><number>14</number></property>
+      <property name="leftMargin"><number>20</number></property>
+      <property name="topMargin"><number>12</number></property>
+      <property name="rightMargin"><number>20</number></property>
+      <property name="bottomMargin"><number>16</number></property>
+      <item>
+       <widget class="QWidget" name="rulesRow" native="true">
+        <property name="minimumSize"><size><width>0</width><height>200</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>200</height></size></property>
+        <layout class="QGridLayout" name="rulesLayout" columnstretch="14,10,10,10">
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <property name="horizontalSpacing"><number>12</number></property>
+         <!-- 카드 1: 이름 마스크 -->
+         <item row="0" column="0">
+          <widget class="fm::ui::Card" name="maskCard">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Ignored" vsizetype="Preferred"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+           </property>
+           <layout class="QVBoxLayout" name="maskLayout">
+            <property name="spacing"><number>8</number></property>
+            <property name="leftMargin"><number>14</number></property>
+            <property name="topMargin"><number>12</number></property>
+            <property name="rightMargin"><number>14</number></property>
+            <property name="bottomMargin"><number>12</number></property>
+            <item>
+             <widget class="fm::ui::Label" name="maskLabel">
+              <property name="text"><string>이름 마스크(&amp;M)</string></property>
+              <property name="textRole"><enum>fm::ui::Label::Caption</enum></property>
+              <property name="buddy"><cstring>maskEdit</cstring></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLineEdit" name="maskEdit">
+              <property name="text"><string>[Y]-[M]-[D]_제주_[C]</string></property>
+              <property name="accessibleName"><string>이름 마스크</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="tokenBox" native="true">
+              <property name="accessibleName"><string>마스크 토큰 넣기</string></property>
+              <layout class="QGridLayout" name="tokenGrid" columnstretch="1,1,1,1">
+               <property name="leftMargin"><number>0</number></property>
+               <property name="topMargin"><number>0</number></property>
+               <property name="rightMargin"><number>0</number></property>
+               <property name="bottomMargin"><number>0</number></property>
+               <property name="horizontalSpacing"><number>6</number></property>
+               <property name="verticalSpacing"><number>6</number></property>
+               <item row="0" column="0">
+                <widget class="fm::ui::TokenButton" name="tokenName">
+                 <property name="token"><string>[N]</string></property>
+                 <property name="caption"><string>이름</string></property>
+                 <property name="toolTip"><string>원래 이름 넣기</string></property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="fm::ui::TokenButton" name="tokenExt">
+                 <property name="token"><string>[E]</string></property>
+                 <property name="caption"><string>확장자</string></property>
+                 <property name="toolTip"><string>원래 확장자 넣기</string></property>
+                </widget>
+               </item>
+               <item row="0" column="2">
+                <widget class="fm::ui::TokenButton" name="tokenCounter">
+                 <property name="token"><string>[C]</string></property>
+                 <property name="caption"><string>카운터</string></property>
+                 <property name="toolTip"><string>카운터 넣기</string></property>
+                </widget>
+               </item>
+               <item row="0" column="3">
+                <widget class="fm::ui::TokenButton" name="tokenFolder">
+                 <property name="token"><string>[P]</string></property>
+                 <property name="caption"><string>폴더</string></property>
+                 <property name="toolTip"><string>상위 폴더 이름 넣기</string></property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="fm::ui::TokenButton" name="tokenYear">
+                 <property name="token"><string>[Y]</string></property>
+                 <property name="caption"><string>연</string></property>
+                 <property name="toolTip"><string>연도 4자리 넣기</string></property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="fm::ui::TokenButton" name="tokenMonth">
+                 <property name="token"><string>[M]</string></property>
+                 <property name="caption"><string>월</string></property>
+                 <property name="toolTip"><string>월 2자리 넣기</string></property>
+                </widget>
+               </item>
+               <item row="1" column="2">
+                <widget class="fm::ui::TokenButton" name="tokenDay">
+                 <property name="token"><string>[D]</string></property>
+                 <property name="caption"><string>일</string></property>
+                 <property name="toolTip"><string>일 2자리 넣기</string></property>
+                </widget>
+               </item>
+               <item row="1" column="3">
+                <widget class="fm::ui::TokenButton" name="tokenTime">
+                 <property name="token"><string>[t]</string></property>
+                 <property name="caption"><string>시각</string></property>
+                 <property name="toolTip"><string>시분초 6자리 넣기</string></property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="extRow">
+              <property name="spacing"><number>8</number></property>
+              <item>
+               <widget class="fm::ui::Label" name="extLabel">
+                <property name="minimumSize"><size><width>64</width><height>0</height></size></property>
+                <property name="maximumSize"><size><width>64</width><height>16777215</height></size></property>
+                <property name="text"><string>확장자(&amp;E)</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+                <property name="buddy"><cstring>extEdit</cstring></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="extEdit">
+                <property name="text"><string>[E]</string></property>
+                <property name="accessibleName"><string>확장자 마스크</string></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <spacer name="maskStretch">
+              <property name="orientation"><enum>Qt::Vertical</enum></property>
+              <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <!-- 카드 2: 찾기 및 바꾸기 -->
+         <item row="0" column="1">
+          <widget class="fm::ui::Card" name="findCard">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Ignored" vsizetype="Preferred"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+           </property>
+           <layout class="QVBoxLayout" name="findLayout">
+            <property name="spacing"><number>8</number></property>
+            <property name="leftMargin"><number>14</number></property>
+            <property name="topMargin"><number>12</number></property>
+            <property name="rightMargin"><number>14</number></property>
+            <property name="bottomMargin"><number>12</number></property>
+            <item>
+             <widget class="fm::ui::Label" name="findTitle">
+              <property name="text"><string>찾기 및 바꾸기</string></property>
+              <property name="textRole"><enum>fm::ui::Label::Caption</enum></property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="findRow">
+              <property name="spacing"><number>8</number></property>
+              <item>
+               <widget class="fm::ui::Label" name="findLabel">
+                <property name="minimumSize"><size><width>64</width><height>0</height></size></property>
+                <property name="maximumSize"><size><width>64</width><height>16777215</height></size></property>
+                <property name="text"><string>찾기(&amp;F)</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+                <property name="buddy"><cstring>findEdit</cstring></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="findEdit">
+                <property name="placeholderText"><string>찾을 문자열</string></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="replaceRow">
+              <property name="spacing"><number>8</number></property>
+              <item>
+               <widget class="fm::ui::Label" name="replaceLabel">
+                <property name="minimumSize"><size><width>64</width><height>0</height></size></property>
+                <property name="maximumSize"><size><width>64</width><height>16777215</height></size></property>
+                <property name="text"><string>바꾸기(&amp;R)</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+                <property name="buddy"><cstring>replaceEdit</cstring></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="replaceEdit">
+                <property name="placeholderText"><string>바꿀 문자열</string></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="flagsRow">
+              <property name="spacing"><number>16</number></property>
+              <item>
+               <widget class="QCheckBox" name="regexCheck">
+                <property name="text"><string>정규식(&amp;X)</string></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="caseSensitiveCheck">
+                <property name="text"><string>대소문자 구분(&amp;A)</string></property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="flagsStretch">
+                <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <spacer name="findStretch">
+              <property name="orientation"><enum>Qt::Vertical</enum></property>
+              <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <!-- 카드 3: 대소문자 · 카운터 -->
+         <item row="0" column="2">
+          <widget class="fm::ui::Card" name="caseCard">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Ignored" vsizetype="Preferred"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+           </property>
+           <layout class="QVBoxLayout" name="caseLayout">
+            <property name="spacing"><number>8</number></property>
+            <property name="leftMargin"><number>14</number></property>
+            <property name="topMargin"><number>12</number></property>
+            <property name="rightMargin"><number>14</number></property>
+            <property name="bottomMargin"><number>12</number></property>
+            <item>
+             <widget class="fm::ui::Label" name="caseTitle">
+              <property name="text"><string>대소문자 · 카운터</string></property>
+              <property name="textRole"><enum>fm::ui::Label::Caption</enum></property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="nameCaseRow">
+              <property name="spacing"><number>8</number></property>
+              <item>
+               <widget class="fm::ui::Label" name="nameCaseLabel">
+                <property name="minimumSize"><size><width>64</width><height>0</height></size></property>
+                <property name="maximumSize"><size><width>64</width><height>16777215</height></size></property>
+                <property name="text"><string>이름(&amp;N)</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+                <property name="buddy"><cstring>nameCaseCombo</cstring></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="nameCaseCombo">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+                </property>
+                <property name="minimumSize"><size><width>40</width><height>0</height></size></property>
+                <item><property name="text"><string>그대로</string></property></item>
+                <item><property name="text"><string>모두 소문자</string></property></item>
+                <item><property name="text"><string>모두 대문자</string></property></item>
+                <item><property name="text"><string>첫 글자만 대문자</string></property></item>
+                <item><property name="text"><string>단어마다 첫 글자 대문자</string></property></item>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="extCaseRow">
+              <property name="spacing"><number>8</number></property>
+              <item>
+               <widget class="fm::ui::Label" name="extCaseLabel">
+                <property name="minimumSize"><size><width>64</width><height>0</height></size></property>
+                <property name="maximumSize"><size><width>64</width><height>16777215</height></size></property>
+                <property name="text"><string>확장자</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="fm::ui::SegmentedControl" name="extCaseSegment" native="true">
+                <property name="items">
+                 <stringlist><string>유지</string><string>소문자</string><string>대문자</string></stringlist>
+                </property>
+                <property name="currentIndex"><number>1</number></property>
+                <property name="expanding"><bool>true</bool></property>
+                <property name="accessibleName"><string>확장자 대소문자</string></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QGridLayout" name="counterGrid" columnstretch="1,1,1">
+              <property name="horizontalSpacing"><number>8</number></property>
+              <property name="verticalSpacing"><number>4</number></property>
+              <item row="0" column="0">
+               <widget class="fm::ui::Label" name="startLabel">
+                <property name="text"><string>시작(&amp;T)</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+                <property name="buddy"><cstring>startSpin</cstring></property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="fm::ui::Label" name="stepLabel">
+                <property name="text"><string>증가(&amp;I)</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+                <property name="buddy"><cstring>stepSpin</cstring></property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="fm::ui::Label" name="digitsLabel">
+                <property name="text"><string>자릿수(&amp;G)</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+                <property name="buddy"><cstring>digitsSpin</cstring></property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QSpinBox" name="startSpin">
+                <property name="minimumSize"><size><width>40</width><height>0</height></size></property>
+                <property name="buttonSymbols"><enum>QAbstractSpinBox::NoButtons</enum></property>
+                <property name="minimum"><number>0</number></property>
+                <property name="maximum"><number>999999</number></property>
+                <property name="value"><number>1</number></property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QSpinBox" name="stepSpin">
+                <property name="minimumSize"><size><width>40</width><height>0</height></size></property>
+                <property name="buttonSymbols"><enum>QAbstractSpinBox::NoButtons</enum></property>
+                <property name="minimum"><number>-1000</number></property>
+                <property name="maximum"><number>1000</number></property>
+                <property name="value"><number>1</number></property>
+               </widget>
+              </item>
+              <item row="1" column="2">
+               <widget class="QSpinBox" name="digitsSpin">
+                <property name="minimumSize"><size><width>40</width><height>0</height></size></property>
+                <property name="buttonSymbols"><enum>QAbstractSpinBox::NoButtons</enum></property>
+                <property name="minimum"><number>1</number></property>
+                <property name="maximum"><number>10</number></property>
+                <property name="value"><number>3</number></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <spacer name="caseStretch">
+              <property name="orientation"><enum>Qt::Vertical</enum></property>
+              <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <!-- 카드 4: 날짜 기준 · 프리셋 -->
+         <item row="0" column="3">
+          <widget class="fm::ui::Card" name="presetCard">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Ignored" vsizetype="Preferred"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+           </property>
+           <layout class="QVBoxLayout" name="presetLayout">
+            <property name="spacing"><number>8</number></property>
+            <property name="leftMargin"><number>14</number></property>
+            <property name="topMargin"><number>12</number></property>
+            <property name="rightMargin"><number>14</number></property>
+            <property name="bottomMargin"><number>12</number></property>
+            <item>
+             <widget class="fm::ui::Label" name="presetTitle">
+              <property name="text"><string>날짜 기준 · 프리셋</string></property>
+              <property name="textRole"><enum>fm::ui::Label::Caption</enum></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="dateBox" native="true">
+              <property name="accessibleName"><string>날짜 기준</string></property>
+              <layout class="QVBoxLayout" name="dateGroup">
+               <property name="spacing"><number>6</number></property>
+               <property name="leftMargin"><number>0</number></property>
+               <property name="topMargin"><number>0</number></property>
+               <property name="rightMargin"><number>0</number></property>
+               <property name="bottomMargin"><number>0</number></property>
+               <item>
+                <widget class="QRadioButton" name="exifRadio">
+                 <property name="text"><string>촬영 날짜 · EXIF(&amp;D)</string></property>
+                 <property name="checked"><bool>true</bool></property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QRadioButton" name="modifiedRadio">
+                 <property name="text"><string>수정한 날짜(&amp;O)</string></property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="presetRow">
+              <property name="spacing"><number>8</number></property>
+              <item>
+               <widget class="fm::ui::Label" name="presetLabel">
+                <property name="minimumSize"><size><width>64</width><height>0</height></size></property>
+                <property name="maximumSize"><size><width>64</width><height>16777215</height></size></property>
+                <property name="text"><string>프리셋(&amp;P)</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+                <property name="buddy"><cstring>presetCombo</cstring></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="presetCombo">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+                </property>
+                <property name="minimumSize"><size><width>40</width><height>0</height></size></property>
+                <property name="sizeAdjustPolicy"><enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum></property>
+                <property name="minimumContentsLength"><number>4</number></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="presetButtons">
+              <property name="spacing"><number>6</number></property>
+              <item>
+               <spacer name="presetButtonsStretch">
+                <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="fm::ui::Button" name="savePresetButton">
+                <property name="text"><string>저장</string></property>
+                <property name="compact"><bool>true</bool></property>
+                <property name="autoDefault"><bool>false</bool></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="fm::ui::Button" name="deletePresetButton">
+                <property name="text"><string>삭제</string></property>
+                <property name="compact"><bool>true</bool></property>
+                <property name="autoDefault"><bool>false</bool></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <spacer name="presetStretch">
+              <property name="orientation"><enum>Qt::Vertical</enum></property>
+              <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <!-- 미리보기 -->
+      <item>
+       <widget class="fm::ui::Card" name="previewCard">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Expanding"><horstretch>0</horstretch><verstretch>1</verstretch></sizepolicy>
+        </property>
+        <layout class="QVBoxLayout" name="previewLayout">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>1</number></property>
+         <property name="topMargin"><number>1</number></property>
+         <property name="rightMargin"><number>1</number></property>
+         <property name="bottomMargin"><number>1</number></property>
+         <item>
+          <widget class="QWidget" name="previewBar" native="true">
+           <property name="minimumSize"><size><width>0</width><height>35</height></size></property>
+           <property name="maximumSize"><size><width>16777215</width><height>35</height></size></property>
+           <layout class="QHBoxLayout" name="previewBarLayout">
+            <property name="spacing"><number>8</number></property>
+            <property name="leftMargin"><number>13</number></property>
+            <property name="topMargin"><number>0</number></property>
+            <property name="rightMargin"><number>9</number></property>
+            <property name="bottomMargin"><number>0</number></property>
+            <item>
+             <widget class="fm::ui::Label" name="previewTitle">
+              <property name="text"><string>미리보기</string></property>
+              <property name="textRole"><enum>fm::ui::Label::Caption</enum></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="fm::ui::Label" name="previewInfo">
+              <property name="text"><string>12개 · 긴 이름 4개 · 자동으로 2줄 표시 중</string></property>
+              <property name="textRole"><enum>fm::ui::Label::Minor</enum></property>
+              <property name="tabularNumbers"><bool>true</bool></property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="previewBarStretch">
+              <property name="orientation"><enum>Qt::Horizontal</enum></property>
+              <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="fm::ui::Label" name="recordLabel">
+              <property name="text"><string>레코드</string></property>
+              <property name="textRole"><enum>fm::ui::Label::Minor</enum></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="fm::ui::SegmentedControl" name="recordSegment" native="true">
+              <property name="items">
+               <stringlist><string>1줄</string><string>2줄</string><string>자동</string></stringlist>
+              </property>
+              <property name="currentIndex"><number>2</number></property>
+              <property name="itemToolTips">
+               <stringlist><string>Ctrl+1</string><string>Ctrl+2</string><string>Ctrl+3</string></stringlist>
+              </property>
+              <property name="accessibleName"><string>미리보기 레코드 표시</string></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QFrame" name="previewRule">
+           <property name="minimumSize"><size><width>0</width><height>1</height></size></property>
+           <property name="maximumSize"><size><width>16777215</width><height>1</height></size></property>
+           <property name="frameShape"><enum>QFrame::HLine</enum></property>
+           <property name="frameShadow"><enum>QFrame::Plain</enum></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="fm::dialogs::RenamePreviewView" name="previewView" native="true">
+           <property name="accessibleName"><string>이름 변경 미리보기</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="fm::ui::DialogFooter" name="footer">
+     <layout class="QHBoxLayout" name="footerLayout">
+      <property name="spacing"><number>8</number></property>
+      <property name="leftMargin"><number>20</number></property>
+      <property name="topMargin"><number>16</number></property>
+      <property name="rightMargin"><number>20</number></property>
+      <property name="bottomMargin"><number>16</number></property>
+      <item>
+       <widget class="fm::ui::Label" name="summaryLabel">
+        <property name="text"><string>12개 중 10개 변경 · 충돌/오류 1 · 변경 없음 1</string></property>
+        <property name="textRole"><enum>fm::ui::Label::Summary</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="undoButton">
+        <property name="text"><string>마지막 변경 되돌리기(&amp;U)</string></property>
+        <property name="toolTip"><string>Ctrl+Z</string></property>
+        <property name="compact"><bool>true</bool></property>
+        <property name="glyph"><enum>fm::ui::glyph::Undo</enum></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="footerSpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="renameButton">
+        <property name="text"><string>이름 바꾸기(&amp;S)</string></property>
+        <property name="role"><enum>fm::ui::Button::Primary</enum></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="closeButton">
+        <property name="text"><string>닫기</string></property>
+        <property name="toolTip"><string>Esc</string></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::Label</class><extends>QLabel</extends><header>fmwidgets/Label.h</header></customwidget>
+  <customwidget><class>fm::ui::Card</class><extends>QFrame</extends><header>fmwidgets/Card.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::TokenButton</class><extends>QPushButton</extends><header>fmwidgets/DialogWidgets.h</header></customwidget>
+  <customwidget><class>fm::ui::SegmentedControl</class><extends>QWidget</extends><header>fmwidgets/SegmentedControl.h</header></customwidget>
+  <customwidget><class>fm::dialogs::RenamePreviewView</class><extends>QWidget</extends><header>fmdialogs/RenamePreview.h</header></customwidget>
+  <customwidget><class>fm::ui::DialogFooter</class><extends>QFrame</extends><header>fmwidgets/DialogFooter.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Button</class><extends>QPushButton</extends><header>fmwidgets/Button.h</header></customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>maskEdit</tabstop>
+  <tabstop>tokenName</tabstop>
+  <tabstop>tokenExt</tabstop>
+  <tabstop>tokenCounter</tabstop>
+  <tabstop>tokenFolder</tabstop>
+  <tabstop>tokenYear</tabstop>
+  <tabstop>tokenMonth</tabstop>
+  <tabstop>tokenDay</tabstop>
+  <tabstop>tokenTime</tabstop>
+  <tabstop>extEdit</tabstop>
+  <tabstop>findEdit</tabstop>
+  <tabstop>replaceEdit</tabstop>
+  <tabstop>regexCheck</tabstop>
+  <tabstop>caseSensitiveCheck</tabstop>
+  <tabstop>nameCaseCombo</tabstop>
+  <tabstop>startSpin</tabstop>
+  <tabstop>stepSpin</tabstop>
+  <tabstop>digitsSpin</tabstop>
+  <tabstop>exifRadio</tabstop>
+  <tabstop>modifiedRadio</tabstop>
+  <tabstop>presetCombo</tabstop>
+  <tabstop>savePresetButton</tabstop>
+  <tabstop>deletePresetButton</tabstop>
+  <tabstop>undoButton</tabstop>
+  <tabstop>renameButton</tabstop>
+  <tabstop>closeButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>closeButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MultiRenameDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

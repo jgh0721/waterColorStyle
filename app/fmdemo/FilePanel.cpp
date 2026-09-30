@@ -298,6 +298,28 @@ void FilePanel::setViewMode(fl::ViewMode mode)
     applyViewMode();
 }
 
+int FilePanel::cursorRow() const
+{
+    return m_stack->currentWidget() == m_thumbs ? m_thumbs->cursorRow() : m_list->cursorRow();
+}
+
+QModelIndexList FilePanel::operationRows() const
+{
+    QModelIndexList rows;
+    for (int r = 0; r < m_proxy->rowCount(); ++r) {
+        const QModelIndex i = m_proxy->index(r, fl::NameColumn);
+        if (i.data(fl::MarkedRole).toBool() && !i.data(fl::IsUpRole).toBool())
+            rows.append(i);
+    }
+    if (rows.isEmpty()) {
+        const int cursor = cursorRow();
+        const QModelIndex i = cursor >= 0 ? m_proxy->index(cursor, fl::NameColumn) : QModelIndex();
+        if (i.isValid() && !i.data(fl::IsUpRole).toBool())
+            rows.append(i);
+    }
+    return rows;
+}
+
 void FilePanel::applyViewMode()
 {
     const fl::ViewMode mode = viewMode();

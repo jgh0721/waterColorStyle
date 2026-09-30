@@ -1,0 +1,52 @@
+# Fm::dialogs — 파일 작업 대화상자(.ui + 코드), 진행 창, 다중 이름 변경, 규칙 엔진.
+qt_add_library(fmdialogs STATIC
+    include/fmdialogs/DialogCatalog.h
+    include/fmdialogs/FileOpContext.h
+    include/fmdialogs/FileOpDialogs.h
+    include/fmdialogs/MultiRenameDialog.h
+    include/fmdialogs/Planners.h
+    include/fmdialogs/ProgressDialog.h
+    include/fmdialogs/ProgressSimulator.h
+    include/fmdialogs/RenameEngine.h
+    include/fmdialogs/RenamePreview.h
+    DialogCatalog.cpp
+    FileOpContext.cpp
+    FileOpDialogs.cpp
+    MultiRenameDialog.cpp
+    Planners.cpp
+    ProgressDialog.cpp
+    ProgressSimulator.cpp
+    RenameEngine.cpp
+    RenamePreview.cpp
+    ui/CopyDialog.ui
+    ui/DeleteDialog.ui
+    ui/MoveRenameDialog.ui
+    ui/MultiRenameDialog.ui
+    ui/NewFileDialog.ui
+    ui/NewFolderDialog.ui
+    ui/ProgressDialog.ui
+)
+
+add_library(Fm::dialogs ALIAS fmdialogs)
+
+set_target_properties(fmdialogs PROPERTIES
+    AUTOUIC ON
+    AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/ui
+)
+
+target_include_directories(fmdialogs
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(fmdialogs
+    PUBLIC
+        Qt6::Widgets
+        Fm::widgets
+        Fm::filelist
+    PRIVATE
+        Qtitan::Grid
+)
+
+fm_set_compile_options(fmdialogs)
+set_target_properties(fmdialogs PROPERTIES POSITION_INDEPENDENT_CODE ON)

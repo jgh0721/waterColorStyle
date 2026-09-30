@@ -8,6 +8,7 @@
 #include <fmstyle/StylePaint.h>
 #include <fmstyle/StyleProps.h>
 #include <fmstyle/ThemeManager.h>
+#include <fmstyle/WatercolorChrome.h>
 
 #include <QEvent>
 #include <QTimer>
@@ -90,17 +91,28 @@ void Button::refreshIcon()
     if (m_glyph == glyph::None)
         return;
     const fs::ThemeColors &tc = fs::themeColorsFor(this);
-    QColor color = tc[T::Fg];
+    const bool wc = tc.isWatercolor();
+    // 아이콘은 글자색을 따른다 — 시안2는 마우스 올림 · 누름에 --x-hfg, 사용 안 함은 --x-dfg(06 §6.4 D2)
+    fs::GlyphStateColors colors;
+    colors.normal = tc[T::Fg];
     switch (m_role) {
-    case Primary: color = tc.isWatercolor() ? tc[T::Fg] : tc[T::OnAccent]; break;  // 시안2 기본 단추는 채움이 아님
-    case Danger: color = tc[T::OnDanger]; break;
-    case Link: color = tc[T::AccentFg]; break;
+    case Primary: colors.normal = wc ? tc[T::Fg] : tc[T::OnAccent]; break;  // 시안2 기본 단추는 채움이 아님
+    case Danger: colors.normal = tc[T::OnDanger]; break;
+    case Link: colors.normal = tc[T::AccentFg]; colors.active = tc[T::Accent]; break;
     case Normal:
     case Subtle: break;
     }
+    if (wc) {
+        const fs::WatercolorChrome &x = fs::watercolorChrome(tc.variant());
+        colors.disabled = x.disFg;
+        if (m_role != Link)
+            colors.active = m_role == Danger ? tc[T::OnDanger] : x.hoverFg;
+    } else {
+        colors.disabled = tc[T::Fg3];
+    }
     const int px = m_role == Link ? 12 : 16;
     const fs::Glyph g = glyph::toStyle(m_glyph);
-    setIcon(g == fs::Glyph::Shield ? fs::shieldIcon(tc, px) : fs::glyphIcon(g, color, px));
+    setIcon(g == fs::Glyph::Shield ? fs::shieldIcon(tc, px) : fs::glyphIcon(g, colors, px));
 }
 
 void Button::changeEvent(QEvent *event)

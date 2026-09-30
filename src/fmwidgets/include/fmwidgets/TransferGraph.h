@@ -24,6 +24,7 @@ class TransferGraph : public QWidget
     Q_PROPERTY(QString title READ title WRITE setTitle)
     Q_PROPERTY(bool showAverage READ showAverage WRITE setShowAverage)
     Q_PROPERTY(bool framed READ isFramed WRITE setFramed)
+    Q_PROPERTY(bool headerVisible READ isHeaderVisible WRITE setHeaderVisible)
     Q_PROPERTY(double speedLimit READ speedLimit WRITE setSpeedLimit)
 
 public:
@@ -59,6 +60,11 @@ public:
     void setFramed(bool on);
     bool isFramed() const noexcept { return m_framed; }
 
+    /// 제목 · "최대" 머리 줄을 그릴지 여부(기본 켬). 끄면 진행 창처럼 머리 줄을 밖에 두고(제목 · 축 토글 · 최대),
+    /// 그림 영역을 위 4 · 아래 6 여백으로 넓힌다(목업 TOP 4 · BOT 102 / 높이 108).
+    void setHeaderVisible(bool on);
+    bool isHeaderVisible() const noexcept { return m_headerVisible; }
+
     double currentSpeed() const noexcept { return m_current; }  // 평활한 현재 속도 (B/s)
     double averageSpeed() const noexcept;                        // 일시 정지 시간을 뺀 평균
     double peakSpeed() const noexcept { return m_peak; }
@@ -73,6 +79,8 @@ public:
 
 Q_SIGNALS:
     void speedChanged(double current, double average);
+    /// 최대 속도가 올라갔다 — 밖에 둔 머리 줄의 "최대 X" 갱신용.
+    void peakChanged(double peak);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -106,6 +114,7 @@ private:
     bool m_paused = false;
     bool m_showAverage = true;
     bool m_framed = true;
+    bool m_headerVisible = true;
     Axis m_axis = Axis::Progress;
     QString m_title;
     QString m_autoDescription;  // addSample()이 마지막으로 넣은 접근성 설명

@@ -1452,6 +1452,12 @@ void WatercolorStyle::drawControl(ControlElement element, const QStyleOption *op
                                                                      : tc[T::AccentFg];
             }
             copy.palette.setColor(QPalette::ButtonText, text);
+            // 아이콘은 글자색을 따른다(06 §6.4 D2): 마우스 올림 · 누름이면 QIcon::Active(흰 글자색) 그림을 쓰도록
+            // Fusion이 Active를 고르는 조건(HasFocus)을 바꿔 넘긴다. 포커스 틀은 여기서 그리지 않는다.
+            if ((b->state & State_Enabled) && (b->state & (State_MouseOver | State_Sunken)))
+                copy.state |= State_HasFocus;
+            else
+                copy.state &= ~State_HasFocus;
             if (b->features & QStyleOptionButton::HasMenu)
                 copy.rect.adjust(0, 0, -12, 0);
             // 키 칩(fmKeyHint): 글자 뒤 7 px — 글자와 칩을 한 덩어리로 가운데

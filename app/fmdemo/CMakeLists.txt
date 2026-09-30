@@ -9,6 +9,7 @@ qt_add_executable(fmdemo WIN32
 
 target_link_libraries(fmdemo
     PRIVATE
+        Fm::dialogs
         Fm::filelist
         Fm::widgets
         Fm::style

@@ -3,6 +3,7 @@
 #include <fmfilelist/ListAppearance.h>
 #include <fmfilelist/ThumbnailView.h>
 
+#include <QModelIndex>
 #include <QStringList>
 #include <QWidget>
 
@@ -71,6 +72,10 @@ public:
     fm::filelist::FileListView *listView() const noexcept { return m_list; }
     fm::filelist::ThumbnailView *thumbnailView() const noexcept { return m_thumbs; }
     fm::filelist::FileSortProxy *model() const noexcept { return m_proxy; }
+    /// 커서 행(보이는 보기 — 목록 또는 섬네일).
+    int cursorRow() const;
+    /// 파일 작업 대상 — 표시한 행, 없으면 커서 행(".." 제외). 프록시 인덱스(이름 열).
+    QModelIndexList operationRows() const;
 
     /// 목록 · 섬네일 중 보이는 쪽으로 키보드 초점을 둔다.
     void focusView();

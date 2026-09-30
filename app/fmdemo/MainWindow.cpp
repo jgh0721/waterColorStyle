@@ -2,7 +2,12 @@
 
 #include "FilePanel.h"
 
+#include <fmdialogs/FileOpContext.h>
+#include <fmdialogs/FileOpDialogs.h>
+#include <fmdialogs/MultiRenameDialog.h>
+#include <fmdialogs/ProgressDialog.h>
 #include <fmfilelist/FileListView.h>
+#include <fmfilelist/FileRoles.h>
 #include <fmfilelist/FileSortProxy.h>
 #include <fmstyle/Glyphs.h>
 #include <fmstyle/ThemeManager.h>
@@ -76,6 +81,8 @@ struct ActionDef
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
+    , m_localProbe(std::make_unique<fm::dialogs::LocalProbe>())
+    , m_mockProbe(std::make_unique<fm::dialogs::MockProbe>())
 {
     setWindowIcon(fs::glyphIcon(fs::Glyph::App, fs::ThemeManager::instance().colors()[fs::Token::Accent], 16));
     createActions();
@@ -144,11 +151,12 @@ void MainWindow::createActions()
     }
     action(u"delete"_s)->setShortcuts({QKeySequence(Qt::Key_F8), QKeySequence(Qt::Key_Delete)});
 
-    // 파일 작업 · 보기 · 편집 · 설정 — 대화상자는 P5 · P7에서 붙인다
-    for (const char *id : {"newFolder", "newFile", "copy", "move", "rename", "delete", "deletePermanent", "multiRename", "settings"}) {
-        QAction *a = action(QString::fromLatin1(id));
-        connect(a, &QAction::triggered, this, [this, a] { showPending(a->text()); });
+    // 파일 작업(P5) — 설정 창은 P7에서 붙인다
+    for (const char *id : {"newFolder", "newFile", "copy", "move", "rename", "delete", "deletePermanent", "multiRename"}) {
+        const QString key = QString::fromLatin1(id);
+        connect(action(key), &QAction::triggered, this, [this, key] { openFileOperation(key); });
     }
+    connect(action(u"settings"_s), &QAction::triggered, this, [this] { showPending(action(u"settings"_s)->text()); });
     for (const char *id : {"view", "edit"}) {
         QAction *a = action(QString::fromLatin1(id));
         connect(a, &QAction::triggered, this, [this, a] {
@@ -547,7 +555,111 @@ void MainWindow::refreshIcons()
 
 void MainWindow::showPending(const QString &title)
 {
-    QMessageBox::information(this, title, u"%1 대화상자는 다음 단계(P5 · P7)에서 연결합니다."_s.arg(title));
+    QMessageBox::information(this, title, u"%1 대화상자는 다음 단계(P7)에서 연결합니다."_s.arg(title));
+}
+
+fm::dialogs::FileOpContext MainWindow::operationContext() const
+{
+    namespace fd = fm::dialogs;
+    fd::FileOpContext c;
+    FilePanel *other = m_active == m_left ? m_right : m_left;
+    c.sourceDir = m_active->currentPath();
+    c.targetDir = other->currentPath();
+    for (const QModelIndex &i : m_active->operationRows()) {
+        fd::FileItem item;
+        item.name = i.data(fl::FullNameRole).toString();
+        item.isDir = i.data(fl::IsDirRole).toBool();
+        item.size = std::max<qint64>(0, i.data(fl::SizeBytesRole).toLongLong());
+        item.readOnly = i.data(fl::AttributesRole).toInt() & fl::ReadOnly;
+        item.kind = fd::fileKindFor(item.name, item.isDir);
+        item.modified = i.data(fl::ModifiedRole).toDateTime();
+        c.items.append(item);
+    }
+    // 최근 대상: 반대 패널 + 목업 목록
+    c.recentTargets = fd::BoardContext::copy().recentTargets;
+    if (m_active->isLocal()) {
+        c.probe = m_localProbe.get();
+    } else {
+        m_mockProbe->addPath(c.sourceDir);
+        m_mockProbe->addPath(c.targetDir);
+        c.probe = m_mockProbe.get();
+    }
+    return c;
+}
+
+void MainWindow::openFileOperation(const QString &id)
+{
+    namespace fd = fm::dialogs;
+    fd::FileOpContext context = operationContext();
+    const bool needsItems = id != u"newFolder" && id != u"newFile";
+    if (needsItems && context.items.isEmpty()) {
+        QApplication::beep();
+        return;
+    }
+
+    // 진행 창(모덜리스) — 파일 크기로 시뮬레이터를 돌린다. 폴더는 크기를 모르므로 64 MB로 본다.
+    auto showProgress = [this, &context](fd::ProgressDialog::Kind kind, const QString &target) {
+        fd::ProgressDialog::Operation op;
+        op.kind = kind;
+        op.source = context.sourceDir;
+        op.target = target;
+        for (const fd::FileItem &item : std::as_const(context.items)) {
+            op.fileNames.append(item.name);
+            op.fileSizes.append(item.isDir ? qint64(64) << 20 : std::max<qint64>(1, item.size));
+        }
+        op.policyText = u"같은 이름이 있으면 매번 묻기"_s;
+        auto *progress = new fd::ProgressDialog(op, this);
+        progress->setAttribute(Qt::WA_DeleteOnClose);
+        progress->show();
+    };
+
+    if (id == u"copy") {
+        fd::CopyDialog dialog(context, this);
+        const int result = dialog.exec();
+        if (result == QDialog::Accepted || result == fd::CopyDialog::Queued)
+            showProgress(fd::ProgressDialog::Copy, dialog.request().destination);
+    } else if (id == u"move" || id == u"rename") {
+        const bool move = id == u"move";
+        fd::MoveRenameDialog dialog(context, move, this);
+        if (dialog.exec() == QDialog::Accepted && move && dialog.plan().operation != fd::MoveRenamePlan::Rename)
+            showProgress(fd::ProgressDialog::Move, dialog.request().target);
+    } else if (id == u"delete" || id == u"deletePermanent") {
+        fd::DeleteDialog dialog(context, id == u"deletePermanent", this);
+        if (dialog.exec() == QDialog::Accepted)
+            showProgress(dialog.request().permanent ? fd::ProgressDialog::DeletePermanent : fd::ProgressDialog::Delete,
+                         QString());
+    } else if (id == u"newFolder") {
+        fd::NewFolderDialog dialog(context, this);
+        dialog.exec();
+    } else if (id == u"newFile") {
+        fd::NewFileDialog dialog(context, this);
+        dialog.exec();
+    } else if (id == u"multiRename") {
+        fd::MultiRenameDialog::Context mc = fd::MultiRenameDialog::boardContext();
+        mc.files.clear();
+        mc.history.clear();
+        mc.existing.clear();
+        mc.folder = context.sourceDir;
+        QSet<QString> selected;
+        for (const fd::FileItem &item : std::as_const(context.items)) {
+            fd::RenameFile f;
+            f.name = item.name;
+            f.size = item.size;
+            f.modified = item.modified;
+            f.captured = item.modified;  // EXIF는 읽지 않는다(데모)
+            mc.files.append(f);
+            selected.insert(item.name);
+        }
+        const fl::FileSortProxy *model = m_active->model();
+        for (int r = 0; r < model->rowCount(); ++r) {
+            const QModelIndex i = model->index(r, fl::NameColumn);
+            const QString name = i.data(fl::FullNameRole).toString();
+            if (!i.data(fl::IsUpRole).toBool() && !selected.contains(name))
+                mc.existing.insert(name);
+        }
+        fd::MultiRenameDialog dialog(mc, this);
+        dialog.exec();
+    }
 }
 
 } // namespace fm::app

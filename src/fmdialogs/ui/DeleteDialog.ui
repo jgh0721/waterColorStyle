@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DeleteDialog</class>
+ <widget class="QDialog" name="DeleteDialog">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>540</width><height>424</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>삭제</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <widget class="QWidget" name="body" native="true">
+     <layout class="QVBoxLayout" name="bodyLayout">
+      <property name="spacing"><number>16</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>8</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>20</number></property>
+      <item>
+       <widget class="fm::ui::DialogHeader" name="header" native="true">
+        <property name="title"><string>3개 항목을 휴지통으로 옮길까요?</string></property>
+        <property name="subtitle"><string>D:\Downloads · 합계 3.95 GB</string></property>
+        <property name="glyph"><enum>fm::ui::glyph::Trash</enum></property>
+        <property name="tone"><enum>fm::ui::DialogHeader::Info</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Card" name="itemsCard">
+        <layout class="QVBoxLayout" name="itemsLayout">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>4</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>4</number></property>
+         <item>
+          <widget class="fm::ui::FileSummaryList" name="itemsList" native="true"/>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="modeGroup">
+        <property name="spacing"><number>10</number></property>
+        <item>
+         <widget class="QRadioButton" name="trashRadio">
+          <property name="text"><string>휴지통으로 이동(&amp;R)</string></property>
+          <property name="checked"><bool>true</bool></property>
+          <property name="fmKeyHint" stdset="0"><string>Del</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="permRadio">
+          <property name="text"><string>영구 삭제(&amp;P)</string></property>
+          <property name="fmKeyHint" stdset="0"><string>Shift+Del</string></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="fm::ui::Banner" name="trashBanner">
+        <property name="tone"><enum>fm::ui::Banner::Info</enum></property>
+        <property name="glyph"><enum>fm::ui::glyph::Info</enum></property>
+        <property name="text"><string>휴지통에서 언제든 원래 위치로 복원할 수 있습니다.</string></property>
+        <property name="iconAlignment"><enum>fm::ui::Banner::IconTop</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Banner" name="permBanner">
+        <property name="tone"><enum>fm::ui::Banner::Danger</enum></property>
+        <property name="glyph"><enum>fm::ui::glyph::Warning</enum></property>
+        <property name="text"><string>휴지통을 거치지 않으므로 복구할 수 없습니다.</string></property>
+        <property name="iconAlignment"><enum>fm::ui::Banner::IconTop</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="readOnlyCheck">
+        <property name="text"><string>읽기 전용 파일도 묻지 않고 삭제(&amp;O)</string></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="bodyStretch">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="fm::ui::DialogFooter" name="footer">
+     <layout class="QHBoxLayout" name="footerLayout">
+      <property name="spacing"><number>8</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>16</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>16</number></property>
+      <item>
+       <spacer name="footerSpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="goButton">
+        <property name="text"><string>휴지통으로 이동</string></property>
+        <property name="role"><enum>fm::ui::Button::Primary</enum></property>
+        <property name="default"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="cancelButton">
+        <property name="text"><string>취소</string></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::DialogHeader</class><extends>QWidget</extends><header>fmwidgets/DialogHeader.h</header></customwidget>
+  <customwidget><class>fm::ui::Card</class><extends>QFrame</extends><header>fmwidgets/Card.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::FileSummaryList</class><extends>QWidget</extends><header>fmwidgets/DialogWidgets.h</header></customwidget>
+  <customwidget><class>fm::ui::Banner</class><extends>QFrame</extends><header>fmwidgets/Banner.h</header></customwidget>
+  <customwidget><class>fm::ui::DialogFooter</class><extends>QFrame</extends><header>fmwidgets/DialogFooter.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Button</class><extends>QPushButton</extends><header>fmwidgets/Button.h</header></customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>trashRadio</tabstop>
+  <tabstop>permRadio</tabstop>
+  <tabstop>readOnlyCheck</tabstop>
+  <tabstop>goButton</tabstop>
+  <tabstop>cancelButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>cancelButton</sender>
+   <signal>clicked()</signal>
+   <receiver>DeleteDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

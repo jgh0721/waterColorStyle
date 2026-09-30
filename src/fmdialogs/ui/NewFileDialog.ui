@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>NewFileDialog</class>
+ <widget class="QDialog" name="NewFileDialog">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>560</width><height>484</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>새 파일</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <widget class="QWidget" name="body" native="true">
+     <layout class="QVBoxLayout" name="bodyLayout">
+      <property name="spacing"><number>16</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>8</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>20</number></property>
+      <item>
+       <widget class="fm::ui::DialogHeader" name="header" native="true">
+        <property name="title"><string>새 파일 만들기</string></property>
+        <property name="subtitle"><string>위치 · D:\Work\fm-core\src\panel</string></property>
+        <property name="glyph"><enum>fm::ui::glyph::NewFile</enum></property>
+        <property name="tone"><enum>fm::ui::DialogHeader::Info</enum></property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="nameBlock">
+        <property name="spacing"><number>6</number></property>
+        <item>
+         <widget class="fm::ui::Label" name="nameLabel">
+          <property name="text"><string>파일 이름(&amp;N)</string></property>
+          <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+          <property name="buddy"><cstring>nameEdit</cstring></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="nameEdit">
+          <property name="text"><string>BandedPanelView.h</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::Label" name="nameHelp">
+          <property name="textRole"><enum>fm::ui::Label::Help</enum></property>
+          <property name="tone"><enum>fm::ui::Label::Danger</enum></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="templateBlock">
+        <property name="spacing"><number>6</number></property>
+        <item>
+         <widget class="fm::ui::Label" name="templateLegend">
+          <property name="text"><string>템플릿(&amp;T) — Alt+1 ~ 8</string></property>
+          <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+          <property name="buddy"><cstring>template5</cstring></property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QGridLayout" name="templateGrid">
+          <property name="horizontalSpacing"><number>8</number></property>
+          <property name="verticalSpacing"><number>8</number></property>
+         <item row="0" column="0">
+          <widget class="fm::ui::ChoiceCard" name="template1">
+           <property name="text"><string>빈 파일</string></property>
+           <property name="detail"><string>확장자 없음</string></property>
+           <property name="keyHint"><string>1</string></property>
+           <property name="fileKind"><enum>fm::ui::ChoiceCard::DocKind</enum></property>
+           <property name="shortcut"><string>Alt+1</string></property>
+           <property name="toolTip"><string>Alt+1</string></property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="fm::ui::ChoiceCard" name="template2">
+           <property name="text"><string>텍스트 문서</string></property>
+           <property name="detail"><string>.txt</string></property>
+           <property name="keyHint"><string>2</string></property>
+           <property name="fileKind"><enum>fm::ui::ChoiceCard::DocKind</enum></property>
+           <property name="shortcut"><string>Alt+2</string></property>
+           <property name="toolTip"><string>Alt+2</string></property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="fm::ui::ChoiceCard" name="template3">
+           <property name="text"><string>Markdown</string></property>
+           <property name="detail"><string>.md</string></property>
+           <property name="keyHint"><string>3</string></property>
+           <property name="fileKind"><enum>fm::ui::ChoiceCard::DocKind</enum></property>
+           <property name="shortcut"><string>Alt+3</string></property>
+           <property name="toolTip"><string>Alt+3</string></property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="fm::ui::ChoiceCard" name="template4">
+           <property name="text"><string>C++ 소스</string></property>
+           <property name="detail"><string>.cpp</string></property>
+           <property name="keyHint"><string>4</string></property>
+           <property name="fileKind"><enum>fm::ui::ChoiceCard::CodeKind</enum></property>
+           <property name="shortcut"><string>Alt+4</string></property>
+           <property name="toolTip"><string>Alt+4</string></property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="fm::ui::ChoiceCard" name="template5">
+           <property name="text"><string>C++ 헤더</string></property>
+           <property name="detail"><string>.h</string></property>
+           <property name="keyHint"><string>5</string></property>
+           <property name="fileKind"><enum>fm::ui::ChoiceCard::CodeKind</enum></property>
+           <property name="shortcut"><string>Alt+5</string></property>
+           <property name="toolTip"><string>Alt+5</string></property>
+          <property name="checked"><bool>true</bool></property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="fm::ui::ChoiceCard" name="template6">
+           <property name="text"><string>CMake</string></property>
+           <property name="detail"><string>CMakeLists</string></property>
+           <property name="keyHint"><string>6</string></property>
+           <property name="fileKind"><enum>fm::ui::ChoiceCard::CodeKind</enum></property>
+           <property name="shortcut"><string>Alt+6</string></property>
+           <property name="toolTip"><string>Alt+6</string></property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="fm::ui::ChoiceCard" name="template7">
+           <property name="text"><string>JSON</string></property>
+           <property name="detail"><string>.json</string></property>
+           <property name="keyHint"><string>7</string></property>
+           <property name="fileKind"><enum>fm::ui::ChoiceCard::CodeKind</enum></property>
+           <property name="shortcut"><string>Alt+7</string></property>
+           <property name="toolTip"><string>Alt+7</string></property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="fm::ui::ChoiceCard" name="template8">
+           <property name="text"><string>Qt 디자이너 폼</string></property>
+           <property name="detail"><string>.ui</string></property>
+           <property name="keyHint"><string>8</string></property>
+           <property name="fileKind"><enum>fm::ui::ChoiceCard::ImageKind</enum></property>
+           <property name="shortcut"><string>Alt+8</string></property>
+           <property name="toolTip"><string>Alt+8</string></property>
+          </widget>
+         </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QGridLayout" name="optionsGrid">
+        <property name="horizontalSpacing"><number>16</number></property>
+        <item row="0" column="0">
+         <widget class="QCheckBox" name="openEditorCheck">
+          <property name="text"><string>만든 후 편집기로 열기(&amp;O)</string></property>
+          <property name="checked"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QCheckBox" name="utf8Check">
+          <property name="text"><string>UTF-8 · BOM 없음(&amp;U)</string></property>
+          <property name="checked"><bool>true</bool></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="bodyStretch">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="fm::ui::DialogFooter" name="footer">
+     <layout class="QHBoxLayout" name="footerLayout">
+      <property name="spacing"><number>8</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>16</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>16</number></property>
+      <item>
+       <spacer name="footerSpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="createButton">
+        <property name="text"><string>만들기</string></property>
+        <property name="role"><enum>fm::ui::Button::Primary</enum></property>
+        <property name="default"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="cancelButton">
+        <property name="text"><string>취소</string></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::DialogHeader</class><extends>QWidget</extends><header>fmwidgets/DialogHeader.h</header></customwidget>
+  <customwidget><class>fm::ui::Label</class><extends>QLabel</extends><header>fmwidgets/Label.h</header></customwidget>
+  <customwidget><class>fm::ui::ChoiceCard</class><extends>QRadioButton</extends><header>fmwidgets/DialogWidgets.h</header></customwidget>
+  <customwidget><class>fm::ui::DialogFooter</class><extends>QFrame</extends><header>fmwidgets/DialogFooter.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Button</class><extends>QPushButton</extends><header>fmwidgets/Button.h</header></customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>nameEdit</tabstop>
+  <tabstop>template5</tabstop>
+  <tabstop>openEditorCheck</tabstop>
+  <tabstop>utf8Check</tabstop>
+  <tabstop>createButton</tabstop>
+  <tabstop>cancelButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>cancelButton</sender>
+   <signal>clicked()</signal>
+   <receiver>NewFileDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

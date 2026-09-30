@@ -5,6 +5,8 @@
 #include <QHash>
 #include <QMainWindow>
 
+#include <memory>
+
 class QAction;
 class QActionGroup;
 class QMenu;
@@ -17,6 +19,12 @@ class FindBox;
 class FunctionKeyBar;
 class SegmentedControl;
 class Switch;
+}
+
+namespace fm::dialogs {
+struct FileOpContext;
+class LocalProbe;
+class MockProbe;
 }
 
 namespace fm::app {
@@ -53,11 +61,18 @@ private:
     void updateWindowTitle();
     void updateActionStates();
     void showPending(const QString &title);
+    /// 활성 패널의 대상(표시 · 커서)과 반대 패널 경로로 대화상자 입력을 만든다.
+    fm::dialogs::FileOpContext operationContext() const;
+    /// 파일 작업 대화상자를 연다(copy · move · rename · delete · deletePermanent · newFolder · newFile · multiRename).
+    /// 데모는 읽기 전용 — 복사 · 이동 · 삭제는 확인 후 진행 창만 시뮬레이터로 보인다.
+    void openFileOperation(const QString &id);
     QAction *action(const QString &id) const { return m_actions.value(id); }
 
     FilePanel *m_left = nullptr;
     FilePanel *m_right = nullptr;
     FilePanel *m_active = nullptr;
+    std::unique_ptr<fm::dialogs::LocalProbe> m_localProbe;
+    std::unique_ptr<fm::dialogs::MockProbe> m_mockProbe;
     QSplitter *m_splitter = nullptr;
     fm::ui::CommandLine *m_commandLine = nullptr;
     fm::ui::FunctionKeyBar *m_functionKeys = nullptr;

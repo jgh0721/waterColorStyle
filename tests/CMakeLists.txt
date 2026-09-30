@@ -23,8 +23,17 @@ if(TARGET Fm::filelist)
     qt_add_executable(tst_mainwindow tst_mainwindow.cpp
         ${_demo}/FilePanel.cpp ${_demo}/FilePanel.h ${_demo}/MainWindow.cpp ${_demo}/MainWindow.h)
     target_include_directories(tst_mainwindow PRIVATE ${_demo})
-    target_link_libraries(tst_mainwindow PRIVATE Fm::filelist Fm::widgets Qt6::Test)
+    target_link_libraries(tst_mainwindow PRIVATE Fm::dialogs Fm::filelist Fm::widgets Qt6::Test)
     fm_set_compile_options(tst_mainwindow)
     add_test(NAME tst_mainwindow COMMAND tst_mainwindow)
     set_tests_properties(tst_mainwindow PROPERTIES ENVIRONMENT "${_testEnv}")
+endif()
+
+if(TARGET Fm::dialogs)
+    # 파일 작업 대화상자 — 이름 변경 엔진 · 계획기 · 진행 시뮬레이터 · 변형 전체 생성
+    qt_add_executable(tst_dialogs tst_dialogs.cpp)
+    target_link_libraries(tst_dialogs PRIVATE Fm::dialogs Qt6::Test)
+    fm_set_compile_options(tst_dialogs)
+    add_test(NAME tst_dialogs COMMAND tst_dialogs)
+    set_tests_properties(tst_dialogs PROPERTIES ENVIRONMENT "${_testEnv}")
 endif()

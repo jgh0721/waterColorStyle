@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ProgressDialog</class>
+ <widget class="QDialog" name="ProgressDialog">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>640</width><height>524</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>37% · 복사 중</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <widget class="QWidget" name="body" native="true">
+     <layout class="QVBoxLayout" name="bodyLayout">
+      <property name="spacing"><number>16</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>8</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>20</number></property>
+      <item>
+       <widget class="fm::ui::Banner" name="elevationBanner">
+        <property name="tone"><enum>fm::ui::Banner::Warn</enum></property>
+        <property name="glyph"><enum>fm::ui::glyph::Shield</enum></property>
+        <property name="text"><string>&lt;b&gt;관리자 권한으로 실행 중&lt;/b&gt; — 이 작업이 끝나면 관리자 세션이 닫힙니다.</string></property>
+        <property name="iconAlignment"><enum>fm::ui::Banner::IconCenter</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::DialogHeader" name="header" native="true">
+        <property name="title"><string>D:\Downloads</string></property>
+        <property name="titleTo"><string>E:\Backup\Installers</string></property>
+        <property name="subtitle"><string>3개 항목 · 3.95 GB · 같은 이름이 있으면 매번 묻기</string></property>
+        <property name="glyph"><enum>fm::ui::glyph::Copy</enum></property>
+        <property name="tone"><enum>fm::ui::DialogHeader::Info</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="detailPanel" native="true">
+        <layout class="QVBoxLayout" name="detailLayout">
+         <property name="spacing"><number>16</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
+          <layout class="QVBoxLayout" name="currentBlock">
+           <property name="spacing"><number>6</number></property>
+           <item>
+            <widget class="fm::ui::Label" name="currentLabel">
+             <property name="text"><string>현재 파일</string></property>
+             <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="currentRow">
+             <property name="spacing"><number>12</number></property>
+             <item>
+              <widget class="fm::ui::Label" name="currentName">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Ignored" vsizetype="Preferred"><horstretch>1</horstretch><verstretch>0</verstretch></sizepolicy>
+               </property>
+               <property name="text"><string>파일 이름</string></property>
+               <property name="textRole"><enum>fm::ui::Label::Body</enum></property>
+               <property name="elideMode"><enum>Qt::ElideMiddle</enum></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="fm::ui::Label" name="currentBytes">
+               <property name="text"><string>0 B / 0 B</string></property>
+               <property name="textRole"><enum>fm::ui::Label::Body</enum></property>
+               <property name="tone"><enum>fm::ui::Label::Secondary</enum></property>
+               <property name="tabularNumbers"><bool>true</bool></property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="fm::ui::ProgressBar" name="currentBar">
+             <property name="maximum"><number>1000</number></property>
+             <property name="textVisible"><bool>false</bool></property>
+             <property name="thickness"><enum>fm::ui::ProgressBar::ThinBar</enum></property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="overallBlock">
+           <property name="spacing"><number>8</number></property>
+           <item>
+            <layout class="QHBoxLayout" name="overallRow">
+             <property name="spacing"><number>8</number></property>
+             <item alignment="Qt::AlignBottom">
+              <widget class="fm::ui::Label" name="overallLabel">
+               <property name="text"><string>전체</string></property>
+               <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+              </widget>
+             </item>
+             <item alignment="Qt::AlignBottom">
+              <widget class="fm::ui::Label" name="overallPct">
+               <property name="text"><string>37%</string></property>
+               <property name="textRole"><enum>fm::ui::Label::BigNumber</enum></property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="overallStretch">
+               <property name="orientation"><enum>Qt::Horizontal</enum></property>
+               <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+              </spacer>
+             </item>
+             <item alignment="Qt::AlignBottom">
+              <widget class="fm::ui::Label" name="overallBytes">
+               <property name="text"><string>0 B / 0 B</string></property>
+               <property name="textRole"><enum>fm::ui::Label::Body</enum></property>
+               <property name="tone"><enum>fm::ui::Label::Secondary</enum></property>
+               <property name="tabularNumbers"><bool>true</bool></property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="fm::ui::ProgressBar" name="overallBar">
+             <property name="maximum"><number>1000</number></property>
+             <property name="textVisible"><bool>false</bool></property>
+             <property name="thickness"><enum>fm::ui::ProgressBar::ThickBar</enum></property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QGridLayout" name="statsGrid">
+           <property name="horizontalSpacing"><number>12</number></property>
+           <property name="verticalSpacing"><number>2</number></property>
+           <item row="0" column="0"><widget class="fm::ui::Label" name="speedLabel"><property name="text"><string>속도</string></property><property name="textRole"><enum>fm::ui::Label::StatLabel</enum></property></widget></item>
+           <item row="0" column="1"><widget class="fm::ui::Label" name="remainLabel"><property name="text"><string>남은 시간</string></property><property name="textRole"><enum>fm::ui::Label::StatLabel</enum></property></widget></item>
+           <item row="0" column="2"><widget class="fm::ui::Label" name="itemsLabel"><property name="text"><string>항목</string></property><property name="textRole"><enum>fm::ui::Label::StatLabel</enum></property></widget></item>
+           <item row="0" column="3"><widget class="fm::ui::Label" name="elapsedLabel"><property name="text"><string>경과</string></property><property name="textRole"><enum>fm::ui::Label::StatLabel</enum></property></widget></item>
+           <item row="1" column="0"><widget class="fm::ui::Label" name="speedValue"><property name="text"><string>—</string></property><property name="textRole"><enum>fm::ui::Label::StatValue</enum></property></widget></item>
+           <item row="1" column="1"><widget class="fm::ui::Label" name="remainValue"><property name="text"><string>—</string></property><property name="textRole"><enum>fm::ui::Label::StatValue</enum></property></widget></item>
+           <item row="1" column="2"><widget class="fm::ui::Label" name="itemsValue"><property name="text"><string>—</string></property><property name="textRole"><enum>fm::ui::Label::StatValue</enum></property></widget></item>
+           <item row="1" column="3"><widget class="fm::ui::Label" name="elapsedValue"><property name="text"><string>00:00</string></property><property name="textRole"><enum>fm::ui::Label::StatValue</enum></property></widget></item>
+          </layout>
+         </item>
+         <item>
+          <widget class="fm::ui::Card" name="graphCard">
+           <layout class="QVBoxLayout" name="graphLayout">
+            <property name="spacing"><number>4</number></property>
+            <property name="leftMargin"><number>14</number></property>
+            <property name="topMargin"><number>10</number></property>
+            <property name="rightMargin"><number>14</number></property>
+            <property name="bottomMargin"><number>10</number></property>
+            <item>
+             <layout class="QHBoxLayout" name="graphHeader">
+              <property name="spacing"><number>8</number></property>
+              <item>
+               <widget class="fm::ui::Label" name="graphTitle">
+                <property name="text"><string>처리 속도</string></property>
+                <property name="textRole"><enum>fm::ui::Label::Minor</enum></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="fm::ui::SegmentedControl" name="axisSegment" native="true">
+                <property name="items"><stringlist><string>진행률</string><string>시간</string></stringlist></property>
+                <property name="accessibleName"><string>가로축</string></property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="graphStretch">
+                <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="fm::ui::Label" name="peakLabel">
+                <property name="textRole"><enum>fm::ui::Label::Minor</enum></property>
+                <property name="tabularNumbers"><bool>true</bool></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="fm::ui::TransferGraph" name="transferGraph" native="true">
+              <property name="minimumSize"><size><width>0</width><height>108</height></size></property>
+              <property name="maximumSize"><size><width>16777215</width><height>108</height></size></property>
+              <property name="framed"><bool>false</bool></property>
+              <property name="headerVisible"><bool>false</bool></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="compactBlock" native="true">
+        <layout class="QVBoxLayout" name="compactLayout">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>0</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>0</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
+          <widget class="fm::ui::ProgressBar" name="compactBar">
+           <property name="maximum"><number>1000</number></property>
+           <property name="textVisible"><bool>false</bool></property>
+           <property name="thickness"><enum>fm::ui::ProgressBar::ThickBar</enum></property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="metaGap">
+           <property name="orientation"><enum>Qt::Vertical</enum></property>
+           <property name="sizeType"><enum>QSizePolicy::Fixed</enum></property>
+           <property name="sizeHint" stdset="0"><size><width>0</width><height>8</height></size></property>
+          </spacer>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="metaRow">
+           <property name="spacing"><number>12</number></property>
+           <item>
+            <widget class="fm::ui::Label" name="metaLeft">
+             <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+             <property name="tabularNumbers"><bool>true</bool></property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="metaStretch">
+             <property name="orientation"><enum>Qt::Horizontal</enum></property>
+             <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="fm::ui::Label" name="metaRight">
+             <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+             <property name="tabularNumbers"><bool>true</bool></property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="fm::ui::Label" name="pathLabel">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Ignored" vsizetype="Preferred"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+           </property>
+           <property name="textRole"><enum>fm::ui::Label::PathMeta</enum></property>
+           <property name="elideMode"><enum>Qt::ElideLeft</enum></property>
+           <property name="margin"><number>0</number></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="modeLink">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Maximum" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>
+        </property>
+        <property name="text"><string>간단히 보기(&amp;D)</string></property>
+        <property name="role"><enum>fm::ui::Button::Link</enum></property>
+        <property name="glyph"><enum>fm::ui::glyph::ChevronUp</enum></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="fm::ui::DialogFooter" name="footer">
+     <layout class="QHBoxLayout" name="footerLayout">
+      <property name="spacing"><number>8</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>16</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>16</number></property>
+      <item>
+       <widget class="QCheckBox" name="closeWhenDoneCheck">
+        <property name="text"><string>완료되면 창 닫기(&amp;W)</string></property>
+        <property name="checked"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="footerSpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="pauseButton">
+        <property name="text"><string>일시 정지(&amp;P)</string></property>
+        <property name="glyph"><enum>fm::ui::glyph::Pause</enum></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="backgroundButton">
+        <property name="text"><string>백그라운드로(&amp;B)</string></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="cancelButton">
+        <property name="text"><string>취소</string></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::Banner</class><extends>QFrame</extends><header>fmwidgets/Banner.h</header></customwidget>
+  <customwidget><class>fm::ui::DialogHeader</class><extends>QWidget</extends><header>fmwidgets/DialogHeader.h</header></customwidget>
+  <customwidget><class>fm::ui::Label</class><extends>QLabel</extends><header>fmwidgets/Label.h</header></customwidget>
+  <customwidget><class>fm::ui::ProgressBar</class><extends>QProgressBar</extends><header>fmwidgets/ProgressBar.h</header></customwidget>
+  <customwidget><class>fm::ui::Card</class><extends>QFrame</extends><header>fmwidgets/Card.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::SegmentedControl</class><extends>QWidget</extends><header>fmwidgets/SegmentedControl.h</header></customwidget>
+  <customwidget><class>fm::ui::TransferGraph</class><extends>QWidget</extends><header>fmwidgets/TransferGraph.h</header></customwidget>
+  <customwidget><class>fm::ui::DialogFooter</class><extends>QFrame</extends><header>fmwidgets/DialogFooter.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Button</class><extends>QPushButton</extends><header>fmwidgets/Button.h</header></customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>modeLink</tabstop>
+  <tabstop>closeWhenDoneCheck</tabstop>
+  <tabstop>pauseButton</tabstop>
+  <tabstop>backgroundButton</tabstop>
+  <tabstop>cancelButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>

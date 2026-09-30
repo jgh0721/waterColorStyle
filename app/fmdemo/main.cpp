@@ -8,13 +8,17 @@
 #include "FilePanel.h"
 #include "MainWindow.h"
 
+#include <fmdialogs/DialogCatalog.h>
 #include <fmfilelist/ListAppearance.h>
 #include <fmstyle/ThemeManager.h>
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QDialog>
 #include <QScreen>
 #include <QTimer>
+
+#include <cstdio>
 
 using namespace Qt::StringLiterals;
 namespace fl = fm::filelist;
@@ -65,8 +69,11 @@ int main(int argc, char *argv[])
     const QCommandLineOption sizeOption(u"size"_s, u"창 크기 WxH (기본 1440x900 — 보드의 창)"_s, u"size"_s, u"1440x900"_s);
     const QCommandLineOption shotOption(u"shot"_s, u"스크린샷을 저장하고 끝냅니다."_s, u"file"_s);
     const QCommandLineOption delayOption(u"shot-delay"_s, u"스크린샷까지 기다릴 시간(ms)."_s, u"ms"_s, u"900"_s);
+    const QCommandLineOption openOption(u"open"_s, u"대화상자 변형을 연다(예: copy.default, delete.permanent). --shot이면 대화상자만 찍는다."_s, u"id"_s);
+    const QCommandLineOption listOption(u"list-dialogs"_s, u"대화상자 변형 ID를 출력하고 끝냅니다."_s);
     parser.addOptions({designOption, schemeOption, leftModeOption, rightModeOption, activeOption, sep1Option, sep2Option,
-                       nameBelowOption, invCursorOption, invSelOption, sizeOption, shotOption, delayOption});
+                       nameBelowOption, invCursorOption, invSelOption, sizeOption, shotOption, delayOption, openOption,
+                       listOption});
     parser.process(app);
 
     auto &theme = fs::ThemeManager::instance();
@@ -77,6 +84,31 @@ int main(int argc, char *argv[])
                     : scheme == u"light"_s ? fs::ThemeManager::Scheme::Light
                                            : fs::ThemeManager::Scheme::Dark);
     theme.install(app);
+    theme.setAlwaysShowMnemonics(true);  // 목업은 액세스 키 밑줄을 항상 보인다(PLAN §11)
+
+    if (parser.isSet(listOption)) {
+        for (const fm::dialogs::DialogVariant &v : fm::dialogs::dialogVariants())
+            std::printf("%s\t%s%s\n", qPrintable(v.id), v.fromMockup ? "" : "제안 · ", qPrintable(v.label));
+        return 0;
+    }
+    if (parser.isSet(openOption)) {
+        // 대화상자 하나만 — 목업 보드의 상태로 채운 변형
+        QDialog *dialog = fm::dialogs::createDialog(parser.value(openOption));
+        if (!dialog) {
+            std::fprintf(stderr, "unknown dialog variant: %s\n", qPrintable(parser.value(openOption)));
+            return 2;
+        }
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+        if (parser.isSet(shotOption)) {
+            const QString file = parser.value(shotOption);
+            QTimer::singleShot(parser.value(delayOption).toInt(), dialog, [dialog, file] {
+                dialog->grab().save(file);
+                QApplication::quit();
+            });
+        }
+        return app.exec();
+    }
 
     fm::app::MainWindow window;
     window.loadBoardState();

@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>CopyDialog</class>
+ <widget class="QDialog" name="CopyDialog">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>600</width><height>444</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>복사</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <widget class="QWidget" name="body" native="true">
+     <layout class="QVBoxLayout" name="bodyLayout">
+      <property name="spacing"><number>16</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>8</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>20</number></property>
+      <item>
+       <widget class="fm::ui::DialogHeader" name="header" native="true">
+        <property name="title"><string>3개 항목 복사</string></property>
+        <property name="subtitle"><string>Qt-6.11.0-…-debug-symbols.exe 외 2개 · 3.95 GB · D:\Downloads</string></property>
+        <property name="glyph"><enum>fm::ui::glyph::Copy</enum></property>
+        <property name="tone"><enum>fm::ui::DialogHeader::Info</enum></property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="destBlock">
+        <property name="spacing"><number>6</number></property>
+        <item>
+         <widget class="fm::ui::Label" name="destLabel">
+          <property name="text"><string>대상 폴더(&amp;D)</string></property>
+          <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+          <property name="buddy"><cstring>destEdit</cstring></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::PathEdit" name="destEdit" native="true">
+          <property name="path"><string>E:\Backup\Installers\</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::Label" name="destHelp">
+          <property name="text"><string>E: 백업 · NTFS · 여유 공간 812 GB / 1.82 TB</string></property>
+          <property name="textRole"><enum>fm::ui::Label::Help</enum></property>
+          <property name="tabularNumbers"><bool>true</bool></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QGridLayout" name="policyGrid">
+        <property name="horizontalSpacing"><number>16</number></property>
+        <property name="verticalSpacing"><number>6</number></property>
+        <item row="0" column="0">
+         <widget class="fm::ui::Label" name="overwriteLabel">
+          <property name="text"><string>파일이 이미 있을 때(&amp;E)</string></property>
+          <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+          <property name="buddy"><cstring>overwriteCombo</cstring></property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="fm::ui::Label" name="filterLabel">
+          <property name="text"><string>포함할 파일(&amp;F)</string></property>
+          <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+          <property name="buddy"><cstring>filterEdit</cstring></property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QComboBox" name="overwriteCombo">
+          <item><property name="text"><string>매번 묻기</string></property></item>
+          <item><property name="text"><string>덮어쓰기</string></property></item>
+          <item><property name="text"><string>더 새로우면 덮어쓰기</string></property></item>
+          <item><property name="text"><string>건너뛰기</string></property></item>
+          <item><property name="text"><string>이름 바꿔서 복사 (번호 붙이기)</string></property></item>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLineEdit" name="filterEdit">
+          <property name="text"><string>*.*</string></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="optionsBlock">
+        <property name="spacing"><number>6</number></property>
+        <item>
+         <widget class="fm::ui::Label" name="optionsLegend">
+          <property name="text"><string>복사 옵션</string></property>
+          <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QGridLayout" name="optionsGrid">
+          <property name="horizontalSpacing"><number>16</number></property>
+          <property name="verticalSpacing"><number>10</number></property>
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="keepAttrCheck">
+            <property name="text"><string>속성 및 타임스탬프 유지(&amp;A)</string></property>
+            <property name="checked"><bool>true</bool></property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="verifyCheck">
+            <property name="text"><string>복사 후 해시로 검증(&amp;V)</string></property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="aclCheck">
+            <property name="text"><string>NTFS 권한(ACL) 복사(&amp;N)</string></property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="adsCheck">
+            <property name="text"><string>대체 데이터 스트림 복사(&amp;S)</string></property>
+            <property name="checked"><bool>true</bool></property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="symlinkCheck">
+            <property name="text"><string>심볼릭 링크는 링크로(&amp;L)</string></property>
+            <property name="checked"><bool>true</bool></property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QCheckBox" name="emptyDirsCheck">
+            <property name="text"><string>빈 폴더도 복사(&amp;M)</string></property>
+            <property name="checked"><bool>true</bool></property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="bodyStretch">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="fm::ui::DialogFooter" name="footer">
+     <layout class="QHBoxLayout" name="footerLayout">
+      <property name="spacing"><number>8</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>16</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>16</number></property>
+      <item>
+       <widget class="fm::ui::Button" name="queueButton">
+        <property name="text"><string>대기열에 추가(&amp;Q)</string></property>
+        <property name="toolTip"><string>F2</string></property>
+        <property name="keyHint"><string>F2</string></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="footerSpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="copyButton">
+        <property name="text"><string>복사(&amp;C)</string></property>
+        <property name="role"><enum>fm::ui::Button::Primary</enum></property>
+        <property name="default"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::Button" name="cancelButton">
+        <property name="text"><string>취소</string></property>
+        <property name="autoDefault"><bool>false</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::DialogHeader</class><extends>QWidget</extends><header>fmwidgets/DialogHeader.h</header></customwidget>
+  <customwidget><class>fm::ui::Label</class><extends>QLabel</extends><header>fmwidgets/Label.h</header></customwidget>
+  <customwidget><class>fm::ui::PathEdit</class><extends>QWidget</extends><header>fmwidgets/DialogWidgets.h</header></customwidget>
+  <customwidget><class>fm::ui::DialogFooter</class><extends>QFrame</extends><header>fmwidgets/DialogFooter.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Button</class><extends>QPushButton</extends><header>fmwidgets/Button.h</header></customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>destEdit</tabstop>
+  <tabstop>overwriteCombo</tabstop>
+  <tabstop>filterEdit</tabstop>
+  <tabstop>keepAttrCheck</tabstop>
+  <tabstop>verifyCheck</tabstop>
+  <tabstop>aclCheck</tabstop>
+  <tabstop>adsCheck</tabstop>
+  <tabstop>symlinkCheck</tabstop>
+  <tabstop>emptyDirsCheck</tabstop>
+  <tabstop>queueButton</tabstop>
+  <tabstop>copyButton</tabstop>
+  <tabstop>cancelButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>cancelButton</sender>
+   <signal>clicked()</signal>
+   <receiver>CopyDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>
