@@ -1,0 +1,3 @@
+# Qt Designer는 .ui를 LF로 쓴다. core.autocrlf = true여도 LF로 체크아웃해, Designer로 열었다 저장할 때마다
+# 파일 전체가 diff로 뜨지 않게 한다 — 그 소음이 쌓이면 폼에서 무엇이 진짜 바뀌었는지 볼 수 없다.
+*.ui text eol=lf

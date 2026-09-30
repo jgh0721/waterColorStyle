@@ -1,0 +1,78 @@
+#pragma once
+
+#include "fmstyle/ThemeTokens.h"
+
+#include <QList>
+#include <QPalette>
+
+#include <array>
+#include <optional>
+
+namespace fm::style {
+
+/// 한 디자인 · 한 변형(라이트 또는 다크)의 토큰 51개 값.
+class ThemeColors
+{
+public:
+    ThemeColors();
+    explicit ThemeColors(Variant variant, Design design = Design::Standard);
+
+    static ThemeColors builtin(Variant variant, Design design = Design::Standard)
+    {
+        return ThemeColors(variant, design);
+    }
+
+    Variant variant() const noexcept { return m_variant; }
+    Design design() const noexcept { return m_design; }
+    bool isDark() const noexcept { return m_variant == Variant::Dark; }
+    bool isWatercolor() const noexcept { return m_design == Design::Watercolor; }
+
+    QColor color(Token t) const { return m_colors[indexOf(t)]; }
+    QColor operator[](Token t) const { return color(t); }
+    void setColor(Token t, const QColor &c) { m_colors[indexOf(t)] = c; }
+
+    /// 토큰을 QPalette 역할에 옮긴다. 역할이 없는 토큰은 FmStyle이 직접 읽는다.
+    QPalette toPalette() const;
+
+    bool operator==(const ThemeColors &other) const;
+    bool operator!=(const ThemeColors &other) const { return !(*this == other); }
+
+private:
+    Variant m_variant = Variant::Light;
+    Design m_design = Design::Standard;
+    std::array<QColor, kTokenCount> m_colors;
+};
+
+/// 기준 색. 1단계는 강조색만 다룬다 — 나머지 기준 색은 테마 편집 화면을 만들 때 추가.
+struct ThemeSeeds
+{
+    std::optional<QColor> accent;  // 비어 있으면 손으로 맞춘 내장 값을 그대로 쓴다
+    bool fixContrast = true;       // 파생 색의 대비가 4.5:1 미만이면 보정
+
+    bool operator==(const ThemeSeeds &other) const = default;
+};
+
+/// 토큰별 직접 지정 값. 값이 있는 토큰은 기준 색을 바꿔도 따라가지 않는다.
+using TokenOverrides = std::array<std::optional<QColor>, kTokenCount>;
+
+/// 테마 색상 화면의 규칙과 같은 식으로 파생 색을 계산한다.
+/// 워터컬러는 선택이 강조색 채움(흰 글자)이고 포커스가 글자색 점선이라 규칙이 조금 다르다.
+ThemeColors deriveColors(Variant variant, const ThemeSeeds &seeds,
+                         const TokenOverrides &overrides = {},
+                         Design design = Design::Standard);
+
+struct ContrastResult
+{
+    QString label;
+    Token foreground;
+    Token background;
+    double ratio;
+    bool passes;
+};
+
+/// 목업의 '대비 검사'와 같은 9개 조합. 워터컬러의 '선택 레코드'는 흰 글자(강조 위 글자) 기준.
+QList<ContrastResult> checkContrast(const ThemeColors &colors, double minimum = 4.5);
+
+double contrastRatio(const QColor &a, const QColor &b);
+
+} // namespace fm::style

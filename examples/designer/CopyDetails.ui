@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>CopyDetails</class>
+ <widget class="QWidget" name="CopyDetails">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>620</width>
+    <height>430</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>복사 — 자세히</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing">
+    <number>10</number>
+   </property>
+   <property name="leftMargin">
+    <number>16</number>
+   </property>
+   <property name="topMargin">
+    <number>14</number>
+   </property>
+   <property name="rightMargin">
+    <number>16</number>
+   </property>
+   <property name="bottomMargin">
+    <number>14</number>
+   </property>
+   <item>
+    <layout class="QHBoxLayout" name="headerLayout">
+     <item>
+      <widget class="QLabel" name="titleLabel">
+       <property name="text">
+        <string>복사 중 · 문서 → 백업</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="headerSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QLabel" name="percentLabel">
+       <property name="text">
+        <string>0%</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="fm::ui::ProgressBar" name="progressBar">
+     <property name="value">
+      <number>0</number>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="graphHeaderLayout">
+     <item>
+      <widget class="QLabel" name="graphLabel">
+       <property name="text">
+        <string>처리 속도</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="graphHeaderSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="fm::ui::SegmentedControl" name="axisSegment">
+       <property name="items">
+        <stringlist>
+         <string>진행률</string>
+         <string>시간</string>
+        </stringlist>
+       </property>
+       <property name="currentIndex">
+        <number>0</number>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="fm::ui::TransferGraph" name="transferGraph">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>150</height>
+      </size>
+     </property>
+     <property name="axis">
+      <enum>fm::ui::TransferGraph::Progress</enum>
+     </property>
+     <property name="showAverage">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="fm::ui::Card" name="optionsCard">
+     <layout class="QGridLayout" name="optionsLayout">
+      <property name="leftMargin">
+       <number>12</number>
+      </property>
+      <property name="topMargin">
+       <number>8</number>
+      </property>
+      <property name="rightMargin">
+       <number>12</number>
+      </property>
+      <property name="bottomMargin">
+       <number>8</number>
+      </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="closeLabel">
+        <property name="text">
+         <string>완료되면 창 닫기</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1" alignment="Qt::AlignRight">
+       <widget class="fm::ui::Switch" name="closeSwitch">
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <property name="onText">
+         <string>켬</string>
+        </property>
+        <property name="offText">
+         <string>끔</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="limitLabel">
+        <property name="text">
+         <string>속도 제한 (40 MB/s)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1" alignment="Qt::AlignRight">
+       <widget class="fm::ui::Switch" name="limitSwitch">
+        <property name="onText">
+         <string>켬</string>
+        </property>
+        <property name="offText">
+         <string>끔</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttonLayout">
+     <item>
+      <widget class="fm::ui::Button" name="backgroundButton">
+       <property name="text">
+        <string>백그라운드로</string>
+       </property>
+       <property name="role">
+        <enum>fm::ui::Button::Subtle</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="buttonSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="fm::ui::Button" name="pauseButton">
+       <property name="text">
+        <string>일시 정지</string>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Button" name="cancelButton">
+       <property name="text">
+        <string>취소</string>
+       </property>
+       <property name="role">
+        <enum>fm::ui::Button::Danger</enum>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>fm::ui::Button</class>
+   <extends>QPushButton</extends>
+   <header>fmwidgets/Button.h</header>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::Switch</class>
+   <extends>QCheckBox</extends>
+   <header>fmwidgets/Switch.h</header>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::SegmentedControl</class>
+   <extends>QWidget</extends>
+   <header>fmwidgets/SegmentedControl.h</header>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::Card</class>
+   <extends>QFrame</extends>
+   <header>fmwidgets/Card.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::ProgressBar</class>
+   <extends>QProgressBar</extends>
+   <header>fmwidgets/ProgressBar.h</header>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::TransferGraph</class>
+   <extends>QWidget</extends>
+   <header>fmwidgets/TransferGraph.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

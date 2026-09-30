@@ -1,0 +1,22 @@
+# --- 빌드 산출물 · IDE ----------------------------------------------------------
+build/
+out/
+.vs/
+.vscode/
+.idea/
+CMakeUserPresets.json
+compile_commands.json
+*.user
+
+# --- 상용 컴포넌트(비공개) --------------------------------------------------------
+# QtitanDataGrid(Developer Machines)의 원본 · 패치 · 빌드 연결은 라이선스 조건상 이 저장소에 올리지 않는다.
+# 라이선스가 있으면 비공개 저장소를 이 위치에 둔다(README의 QtitanDataGrid 절).
+/third_party/QtitanDataGrid/
+
+# --- 로컬 작업 자료 ---------------------------------------------------------------
+# 계획 · 사양 문서, 디자인 캔버스 목업, 기반 코드 압축 파일은 로컬에만 둔다.
+/docs/PLAN.md
+/docs/specs/
+/docs/design/
+/docs/design-watercolor/
+/fmstyle-step2.zip
