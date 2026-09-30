@@ -1292,9 +1292,10 @@ void WatercolorStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
             if (h->sortIndicator == QStyleOptionHeader::None)
                 return;
             // QHeaderView는 오름차순을 SortDown으로 넘긴다. 목업은 오름차순에 위쪽 화살표.
+            // 색은 머리글 글자색(--fg, watercolor.css .hc)을 따른다.
             triangle(p, QRectF(option->rect).center(), 7,
                      h->sortIndicator == QStyleOptionHeader::SortDown ? Qt::UpArrow : Qt::DownArrow,
-                     tc[T::Fg2]);
+                     tc[T::Fg]);
         }
         return;
     case PE_IndicatorBranch:

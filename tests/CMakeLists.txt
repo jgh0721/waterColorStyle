@@ -1,0 +1,20 @@
+# Qt Test — 규칙 엔진 · 배치 계산 · 모델. ctest --preset 대신 빌드 폴더에서 ctest 로 실행한다.
+find_package(Qt6 REQUIRED COMPONENTS Test)
+
+if(TARGET Fm::filelist)
+    qt_add_executable(tst_filelist tst_filelist.cpp)
+    target_link_libraries(tst_filelist PRIVATE Fm::filelist Qt6::Test)
+    # 비공개 그리기 규칙(ListPainting_p.h)도 검사한다.
+    target_include_directories(tst_filelist PRIVATE ${PROJECT_SOURCE_DIR}/src/fmfilelist)
+    fm_set_compile_options(tst_filelist)
+    add_test(NAME tst_filelist COMMAND tst_filelist)
+    # 화면 없이 실행하고, 개발용 Qt 키트의 DLL을 찾게 한다.
+    # offscreen 플러그인은 Qt 글꼴 폴더만 읽으므로 Windows 글꼴 폴더를 알려 준다(이름 폭 측정 · 자동 2줄 판정).
+    get_target_property(_qmake Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qtbin "${_qmake}" DIRECTORY)
+    set(_testEnv "QT_QPA_PLATFORM=offscreen" "PATH=${_qtbin}\;$ENV{PATH}")
+    if(WIN32)
+        list(APPEND _testEnv "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
+    endif()
+    set_tests_properties(tst_filelist PROPERTIES ENVIRONMENT "${_testEnv}")
+endif()

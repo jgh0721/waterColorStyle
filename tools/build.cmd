@@ -20,6 +20,8 @@ if "%VSROOT%"=="" (
 )
 echo [build] Visual Studio: %VSROOT%
 
+rem vcvars64 calls vswhere.exe without a path; put the installer folder on PATH so it does not print an error.
+set "PATH=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer;%PATH%"
 call "%VSROOT%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
 set "VSCMAKE=%VSROOT%\Common7\IDE\CommonExtensions\Microsoft\CMake"
 set "PATH=%VSCMAKE%\CMake\bin;%VSCMAKE%\Ninja;%PATH%"
