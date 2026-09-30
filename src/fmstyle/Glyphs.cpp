@@ -74,6 +74,10 @@ const std::array<Def, std::size_t(Glyph::Count)> &defs()
         {16, FM_STROKE("1.4") "<path d='M2.5 3h11M2.5 6h6.5M2.5 10h11M2.5 13h6.5'/></g>"},
         {16, FM_STROKE("1.4") "<rect x='2' y='2' width='5' height='5' rx='1'/><rect x='9' y='2' width='5' height='5' rx='1'/>"
              "<rect x='2' y='9' width='5' height='5' rx='1'/><rect x='9' y='9' width='5' height='5' rx='1'/></g>"},
+        // 권한 대화상자: 자물쇠 · 열쇠 구멍 자물쇠
+        {16, FM_STROKE("1.4") "<rect x='3' y='7' width='10' height='7' rx='1.5'/><path d='M5.5 7V5a2.5 2.5 0 0 1 5 0v2'/></g>"},
+        {16, FM_STROKE("1.3") "<rect x='3' y='7' width='10' height='7' rx='1.5'/><path d='M5.5 7V5a2.5 2.5 0 0 1 5 0v2'/>"
+             "<path d='M8 9.5v2'/></g>"},
     }};
     return table;
 }

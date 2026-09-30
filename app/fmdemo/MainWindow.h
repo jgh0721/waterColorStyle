@@ -22,6 +22,7 @@ class Switch;
 }
 
 namespace fm::dialogs {
+class ElevationFlow;
 struct FileOpContext;
 class LocalProbe;
 class MockProbe;
@@ -50,6 +51,9 @@ public:
 
     const fm::filelist::ListAppearance &listAppearance() const noexcept { return m_listAppearance; }
     void setListAppearance(const fm::filelist::ListAppearance &appearance);
+
+    /// 권한 흐름 시뮬레이션(03 §0) — 0 = 보호된 폴더로 복사, 1 = 삭제 · 소유권. 흐름은 창의 자식으로 남는다.
+    fm::dialogs::ElevationFlow *startElevationFlow(int scenario);
 
 private:
     void createActions();

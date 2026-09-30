@@ -1467,14 +1467,15 @@ void WatercolorStyle::drawControl(ControlElement element, const QStyleOption *op
                 const QSize chip = keyChipSize(keys);
                 int labelWidth = b->fontMetrics.horizontalAdvance(plainText(b->text));
                 if (!b->icon.isNull())
-                    labelWidth += b->iconSize.width() + 4;
+                    labelWidth += b->iconSize.width() + kButtonIconGap;
                 const int total = labelWidth + kKeyChipGap + chip.width();
                 const int left = copy.rect.left() + (copy.rect.width() - total) / 2;
                 copy.rect = QRect(left, copy.rect.top(), labelWidth, copy.rect.height());
                 chipRect = QRect(left + labelWidth + kKeyChipGap, copy.rect.center().y() - chip.height() / 2 + 1,
                                  chip.width(), chip.height());
             }
-            QProxyStyle::drawControl(element, &copy, p, w);
+            if (!segmentOf(w).isEmpty() || role == ButtonRole::Link || !drawIconTextButtonLabel(this, copy, p, w))
+                QProxyStyle::drawControl(element, &copy, p, w);
             if (chipRect.isValid()) {
                 // 워터컬러의 기본 단추는 채움이 아니므로 위험 단추만 채움 위 칩
                 const bool filled = (b->state & State_Enabled) && role == ButtonRole::Danger;
@@ -2034,7 +2035,8 @@ QSize WatercolorStyle::sizeFromContents(ContentsType type, const QStyleOption *o
                 return QSize(std::max(height, cs.width() + 11), height);  // 정사각 27 × 27
             // 캔버스 워터컬러: 작은 단추 · 칩 단추도 최소 폭 80(watercolor.css가 .btn 최소 폭을 덮어씀 — 보드 그대로)
             const int minWidth = segment ? 0 : kButtonMinWidth;
-            return QSize(std::max(minWidth, cs.width() + 2 * padX + chip), std::max(height, cs.height() + 6));
+            const int iconGap = (!segment && !b->icon.isNull() && !b->text.isEmpty()) ? kButtonIconGap - 4 : 0;
+            return QSize(std::max(minWidth, cs.width() + 2 * padX + chip + iconGap), std::max(height, cs.height() + 6));
         }
         break;
     case CT_ToolButton: {

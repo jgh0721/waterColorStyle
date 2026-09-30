@@ -55,6 +55,9 @@ enum class Glyph : std::uint8_t {
     ViewOneLine,
     ViewTwoLine,
     ViewThumbnails,
+    // 권한 대화상자(03 §1.13): 자물쇠(목록 14, 선 1.4) · 열쇠 구멍 자물쇠(위험 배지 22, 선 1.3)
+    Lock,
+    LockKeyhole,
 
     Count
 };

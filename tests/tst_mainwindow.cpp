@@ -3,6 +3,8 @@
 #include "FilePanel.h"
 #include "MainWindow.h"
 
+#include <fmdialogs/ElevationDialog.h>
+#include <fmdialogs/ElevationFlow.h>
 #include <fmdialogs/ProgressDialog.h>
 #include <fmfilelist/FileListView.h>
 #include <fmfilelist/FileRoles.h>
@@ -14,6 +16,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QDialog>
+#include <QPointer>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QTest>
@@ -37,6 +40,7 @@ private Q_SLOTS:
     void viewModes();
     void breadcrumbs();
     void fileOperations();
+    void elevationFlowMenu();
 
 private:
     QString nameAt(FilePanel *panel, int row) const
@@ -221,6 +225,18 @@ void TestMainWindow::fileOperations()
     m_window->rightPanel()->listView()->setCursorRow(0);
     QVERIFY(run(u"copy"_s, false).className.isEmpty());
     QTest::qWait(100);  // 열리지 않은 대화상자용 타이머가 지나가게
+}
+
+// 도구 › 권한 흐름 시뮬레이션 — 첫 창이 뜨고, 취소하면 흐름이 끝나 스스로 지워진다.
+void TestMainWindow::elevationFlowMenu()
+{
+    QPointer<fm::dialogs::ElevationFlow> flow = m_window->startElevationFlow(0);
+    QVERIFY(flow);
+    QTRY_VERIFY(qobject_cast<fm::dialogs::ElevationDialog *>(flow->currentDialog()));
+    auto *dialog = qobject_cast<fm::dialogs::ElevationDialog *>(flow->currentDialog());
+    QCOMPARE(dialog->parentWidget(), static_cast<QWidget *>(m_window.get()));
+    dialog->choose(fm::dialogs::elev::Choice::Cancel);
+    QTRY_VERIFY(flow.isNull());  // finished → deleteLater
 }
 
 QTEST_MAIN(TestMainWindow)

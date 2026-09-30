@@ -4,6 +4,7 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/Button.h
     include/fmwidgets/Card.h
     include/fmwidgets/CommandLine.h
+    include/fmwidgets/DialogCards.h
     include/fmwidgets/DialogChrome.h
     include/fmwidgets/DialogFooter.h
     include/fmwidgets/DialogHeader.h
@@ -22,6 +23,7 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/Tag.h
     include/fmwidgets/TransferGraph.h
     Controls.cpp
+    DialogCards.cpp
     DialogHeader.cpp
     DialogParts.cpp
     DialogWidgets.cpp

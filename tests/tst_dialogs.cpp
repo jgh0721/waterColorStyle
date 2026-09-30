@@ -1,7 +1,9 @@
-// 파일 작업 대화상자(P5) 테스트 — 다중 이름 변경 엔진(02 §9.5 표의 값), 이름 검사 · 이동 해석 · 새 폴더 계획,
-// 진행 시뮬레이터, 대화상자 변형 전체 생성, 다중 이름 변경 · 진행 창 동작.
+// 파일 작업 · 권한 대화상자(P5 · P6) 테스트 — 다중 이름 변경 엔진(02 §9.5 표의 값), 이름 검사 · 이동 해석 · 새 폴더 계획,
+// 진행 시뮬레이터, 대화상자 변형 전체 생성, 다중 이름 변경 · 진행 창 동작, 권한 대화상자 8종 · 흐름 시뮬레이션.
 
 #include <fmdialogs/DialogCatalog.h>
+#include <fmdialogs/ElevationDialog.h>
+#include <fmdialogs/ElevationFlow.h>
 #include <fmdialogs/FileOpContext.h>
 #include <fmdialogs/MultiRenameDialog.h>
 #include <fmdialogs/Planners.h>
@@ -9,12 +11,16 @@
 #include <fmdialogs/ProgressSimulator.h>
 #include <fmdialogs/RenameEngine.h>
 #include <fmdialogs/RenamePreview.h>
+#include <fmwidgets/Button.h>
+#include <fmwidgets/DialogCards.h>
 
 #include <QApplication>
 #include <QCheckBox>
 #include <QDialog>
 #include <QLabel>
 #include <QPushButton>
+#include <QRadioButton>
+#include <QRegularExpression>
 #include <QSignalSpy>
 #include <QTest>
 #include <QTimer>
@@ -40,6 +46,10 @@ private Q_SLOTS:
     void allVariants();
     void multiRename();
     void progress();
+    void elevationDialogs_data();
+    void elevationDialogs();
+    void elevationChoices();
+    void elevationFlows();
 };
 
 // ------------------------------------------------------------------------------------ 규칙 엔진
@@ -440,6 +450,236 @@ void TestDialogs::progress()
     QVERIFY(staying.isVisible());
     QCOMPARE(staying.windowTitle(), u"100% · 복사 완료"_s);
     QCOMPARE(staying.findChild<QPushButton *>(u"cancelButton"_s)->text(), u"닫기"_s);
+}
+
+// ------------------------------------------------------------------------------------ 권한 대화상자
+
+void TestDialogs::elevationDialogs_data()
+{
+    QTest::addColumn<QString>("id");
+    QTest::addColumn<QString>("title");
+    QTest::addColumn<QString>("defaultText");
+    for (const auto &[id, title, text] : {
+             std::tuple{u"preflight"_s, u"삭제 — 권한 확인"_s, u"계속"_s},
+             std::tuple{u"preflight.skip"_s, u"삭제 — 권한 확인"_s, u"39개 삭제"_s},
+             std::tuple{u"copy"_s, u"복사 — 관리자 권한 필요"_s, u"관리자 권한으로 계속(&C)"_s},
+             std::tuple{u"move"_s, u"이동 — 관리자 권한 필요"_s, u"관리자 권한으로 이동"_s},
+             std::tuple{u"move.copyOnly"_s, u"이동 — 관리자 권한 필요"_s, u"복사만 하기"_s},
+             std::tuple{u"delete"_s, u"삭제 — 관리자 권한 필요"_s, u"관리자 권한으로 삭제(&D)"_s},
+             std::tuple{u"rename"_s, u"이름 변경 — 관리자 권한 필요"_s, u"관리자 권한으로 이름 바꾸기(&R)"_s},
+             std::tuple{u"create.folder"_s, u"새 폴더 — 관리자 권한 필요"_s, u"관리자 권한으로 만들기(&C)"_s},
+             std::tuple{u"create.file"_s, u"새 파일 — 관리자 권한 필요"_s, u"관리자 권한으로 만들기(&C)"_s},
+             std::tuple{u"ownership"_s, u"삭제 — 액세스 거부"_s, u"건너뛰기(&S)"_s},
+             std::tuple{u"failed"_s, u"복사 — 관리자 권한을 얻지 못함"_s, u"다시 시도(&R)"_s},
+         })
+        QTest::newRow(qPrintable(id)) << id << title << text;
+}
+
+void TestDialogs::elevationDialogs()
+{
+    QFETCH(QString, id);
+    QFETCH(QString, title);
+    QFETCH(QString, defaultText);
+    const elev::PromptSpec spec = elev::prompts::board(id);
+    ElevationDialog dialog(spec);
+    dialog.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+    QCOMPARE(dialog.windowTitle(), title);
+    QCOMPARE(dialog.accessibleName(), spec.heading);
+    // 클라이언트 폭 558, 높이 ≥ 목업 − 38(03 §1.2)
+    QCOMPARE(dialog.width(), 558);
+    QVERIFY2(dialog.height() >= spec.designSize.height() - 38, qPrintable(QString::number(dialog.height())));
+    // 기본 단추 = Enter · 처음 포커스(소유권 창은 건너뛰기)
+    QVERIFY(dialog.defaultButton());
+    QCOMPARE(dialog.defaultButton()->text(), defaultText);
+    QVERIFY(dialog.defaultButton()->isDefault());
+    QTRY_COMPARE(QApplication::focusWidget(), static_cast<QWidget *>(dialog.defaultButton()));
+    // 액세스 키가 겹치지 않는다(03 §3.7)
+    QStringList keys;
+    static const QRegularExpression mnemonic(u"&([^&])"_s);
+    for (QAbstractButton *b : dialog.findChildren<QAbstractButton *>()) {
+        const auto m = mnemonic.match(b->text());
+        if (m.hasMatch())
+            keys.append(m.captured(1).toLower());
+    }
+    const QSet<QString> unique(keys.cbegin(), keys.cend());
+    QCOMPARE(unique.size(), keys.size());
+}
+
+void TestDialogs::elevationChoices()
+{
+    using elev::Choice;
+    // 사전 확인: 선택지에 따라 기본 단추 글자 · 방패 · 결과가 바뀐다
+    {
+        ElevationDialog d(elev::prompts::board(u"preflight"_s));
+        QCOMPARE(d.selectedOption(), 0);
+        QCOMPARE(d.defaultButton()->glyph(), fm::ui::glyph::Shield);
+        d.selectOption(1);
+        QCOMPARE(d.defaultButton()->text(), u"39개 삭제"_s);
+        QCOMPARE(d.defaultButton()->glyph(), fm::ui::glyph::None);
+        QCOMPARE(d.button(Choice::SkipNeedingAdmin), d.defaultButton());
+        QSignalSpy decided(&d, &ElevationDialog::decided);
+        d.defaultButton()->click();
+        QCOMPARE(decided.size(), 1);
+        QCOMPARE(d.result().choice, Choice::SkipNeedingAdmin);
+        QCOMPARE(d.QDialog::result(), int(QDialog::Accepted));
+    }
+    // 이동: 복사만 하기, 체크 상자 처음 값(목업) 끔
+    {
+        ElevationDialog d(elev::prompts::board(u"move"_s));
+        QVERIFY(!d.checkBox()->isChecked());
+        auto *copyOnly = d.findChildren<fm::ui::OptionRadio *>().value(1);
+        QVERIFY(copyOnly);
+        copyOnly->radio()->click();
+        QCOMPARE(d.defaultButton()->text(), u"복사만 하기"_s);
+        d.defaultButton()->click();
+        QCOMPARE(d.result().choice, Choice::CopyOnly);
+    }
+    // 복사: 건너뛰기 + '같은 선택 적용'(처음 켬)
+    {
+        ElevationDialog d(elev::prompts::board(u"copy"_s));
+        QVERIFY(d.checkBox()->isChecked());
+        QCOMPARE(d.checkBox()->text(), u"남은 2개 항목에도 같은 선택 적용(&A)"_s);
+        d.button(Choice::Skip)->click();
+        QCOMPARE(d.result().choice, Choice::Skip);
+        QVERIFY(d.result().checked);
+        const auto rows = d.findChild<fm::ui::KeyValueCard *>()->rows();
+        QCOMPARE(rows.size(), 3);
+        QCOMPARE(rows.at(0).trailing, u"24.4 MB"_s);
+        QCOMPARE(rows.at(1).value, u"C:\\Program Files\\FM Tools\\redist\\"_s);
+    }
+    // Esc = 취소
+    {
+        ElevationDialog d(elev::prompts::board(u"delete"_s));
+        d.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&d));
+        QTest::keyClick(&d, Qt::Key_Escape);
+        QCOMPARE(d.result().choice, Choice::Cancel);
+        QVERIFY(d.result().checked);  // 삭제는 처음 켬
+    }
+    // 새로 만들기: 대안 카드 → 사용자 폴더, 파일 변형
+    {
+        ElevationDialog d(elev::prompts::board(u"create.file"_s));
+        auto *alt = d.findChild<fm::ui::ActionCard *>();
+        QVERIFY(alt);
+        QCOMPARE(alt->detail(), u"%LOCALAPPDATA%\\FM Tools\\plugins.json"_s);
+        QCOMPARE(d.spec().heading, u"이 위치에 파일을 만들려면 관리자 권한이 필요합니다"_s);
+        alt->click();
+        QCOMPARE(d.result().choice, Choice::UseUserFolder);
+    }
+    // 소유권: Enter = 건너뛰기, 위험 동작은 왼쪽 보통 단추
+    {
+        ElevationDialog d(elev::prompts::board(u"ownership"_s));
+        d.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&d));
+        QCOMPARE(d.button(Choice::TakeOwnership)->role(), fm::ui::Button::Normal);
+        QCOMPARE(d.button(Choice::TakeOwnership)->glyph(), fm::ui::glyph::Shield);
+        QTest::keyClick(QApplication::focusWidget(), Qt::Key_Return);
+        QCOMPARE(d.result().choice, Choice::Skip);
+    }
+    // 실패: 작업 취소 · '남은 항목 건너뛰기'
+    {
+        ElevationDialog d(elev::prompts::board(u"failed"_s));
+        QCOMPARE(d.button(Choice::Cancel)->text(), u"작업 취소"_s);
+        QVERIFY(!d.checkBox()->isChecked());
+        d.checkBox()->setChecked(true);
+        d.choose(Choice::Retry);
+        QCOMPARE(d.result().choice, Choice::Retry);
+        QVERIFY(d.result().checked);
+    }
+}
+
+// 흐름 시뮬레이션 — 열린 창을 찾아 사용자처럼 고른다.
+void TestDialogs::elevationFlows()
+{
+    QWidget window;
+    window.resize(800, 600);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    auto current = [](ElevationFlow &flow) { return flow.currentDialog(); };
+    auto elevation = [&](ElevationFlow &flow) -> ElevationDialog * {
+        ElevationDialog *d = nullptr;
+        [&] { QTRY_VERIFY((d = qobject_cast<ElevationDialog *>(current(flow))) && d->isVisible()); }();
+        return d;
+    };
+    auto uac = [&](ElevationFlow &flow) -> UacSimulationDialog * {
+        UacSimulationDialog *d = nullptr;
+        [&] { QTRY_VERIFY((d = qobject_cast<UacSimulationDialog *>(current(flow))) && d->isVisible()); }();
+        return d;
+    };
+    auto closeProgress = [&] {
+        for (ProgressDialog *p : window.findChildren<ProgressDialog *>())
+            p->close();
+    };
+
+    // 복사: 거부 → 승인 → UAC 아니요 → 실패 → 다시 시도 → UAC 예 → 관리자 진행 창
+    {
+        ElevationFlow flow(ElevationFlow::CopyToProtected, &window);
+        QSignalSpy finished(&flow, &ElevationFlow::finished);
+        flow.start();
+        ElevationDialog *d = elevation(flow);
+        QCOMPARE(d->windowTitle(), u"복사 — 관리자 권한 필요"_s);
+        QVERIFY(d->isModal());
+        d->choose(elev::Choice::Elevate);
+        uac(flow)->respond(UacSimulationDialog::No);
+        d = elevation(flow);
+        QCOMPARE(d->windowTitle(), u"복사 — 관리자 권한을 얻지 못함"_s);
+        d->choose(elev::Choice::Retry);
+        uac(flow)->respond(UacSimulationDialog::Yes);
+        QTRY_COMPARE(finished.size(), 1);
+        QCOMPARE(finished.first().first().toString(), u"복사 3개(관리자) · 건너뜀 0개"_s);
+        const auto progress = window.findChildren<ProgressDialog *>();
+        QCOMPARE(progress.size(), 1);
+        QVERIFY(progress.first()->windowTitle().endsWith(u"(관리자)"_s));
+        QVERIFY(flow.log().contains(u"UAC: 아니요"_s));
+        QVERIFY(flow.log().contains(u"UAC: 예"_s));
+        closeProgress();
+    }
+    // 복사: 항목마다 건너뛰기(적용 끔) → 마지막은 '같은 선택 적용' 없이
+    {
+        ElevationFlow flow(ElevationFlow::CopyToProtected, &window);
+        QSignalSpy finished(&flow, &ElevationFlow::finished);
+        flow.start();
+        for (int i = 0; i < 3; ++i) {
+            ElevationDialog *d = elevation(flow);
+            QCOMPARE(d->checkBox() != nullptr, i < 2);  // 남은 항목이 없으면 체크 상자 없음
+            if (d->checkBox())
+                d->checkBox()->setChecked(false);
+            d->choose(elev::Choice::Skip);
+        }
+        QTRY_COMPARE(finished.size(), 1);
+        QCOMPARE(finished.first().first().toString(), u"복사 0개 · 건너뜀 3개"_s);
+    }
+    // 삭제: 사전 확인 → 승인 → UAC 예 → 소유권(Enter = 건너뛰기)
+    {
+        ElevationFlow flow(ElevationFlow::DeleteWithOwnership, &window);
+        QSignalSpy finished(&flow, &ElevationFlow::finished);
+        flow.start();
+        elevation(flow)->choose(elev::Choice::Elevate);
+        uac(flow)->respond(UacSimulationDialog::Yes);
+        ElevationDialog *d = elevation(flow);
+        QCOMPARE(d->windowTitle(), u"삭제 — 액세스 거부"_s);
+        d->defaultButton()->click();
+        QTRY_COMPARE(finished.size(), 1);
+        QCOMPARE(finished.first().first().toString(), u"관리자 권한으로 41개 삭제 · 1개 건너뜀"_s);
+        closeProgress();
+    }
+    // UAC 시간 초과 → 실패 창 → 작업 취소
+    {
+        ElevationFlow flow(ElevationFlow::DeleteWithOwnership, &window);
+        flow.setUacTimeout(1);
+        QSignalSpy finished(&flow, &ElevationFlow::finished);
+        flow.start();
+        elevation(flow)->choose(elev::Choice::Elevate);
+        uac(flow);
+        ElevationDialog *failed = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((failed = qobject_cast<ElevationDialog *>(flow.currentDialog())) && failed->isVisible(), 4000);
+        QCOMPARE(failed->windowTitle(), u"삭제 — 관리자 권한을 얻지 못함"_s);
+        QVERIFY(flow.log().contains(u"UAC: 시간 초과"_s));
+        failed->choose(elev::Choice::Cancel);
+        QTRY_COMPARE(finished.size(), 1);
+        QCOMPARE(finished.first().first().toString(), u"작업 취소"_s);
+    }
 }
 
 QTEST_MAIN(TestDialogs)

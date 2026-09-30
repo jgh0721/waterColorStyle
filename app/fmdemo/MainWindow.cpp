@@ -2,6 +2,7 @@
 
 #include "FilePanel.h"
 
+#include <fmdialogs/ElevationFlow.h>
 #include <fmdialogs/FileOpContext.h>
 #include <fmdialogs/FileOpDialogs.h>
 #include <fmdialogs/MultiRenameDialog.h>
@@ -281,6 +282,15 @@ void MainWindow::createMenus()
             else
                 menu->addAction(action(id));
         }
+        if (def.title == u"도구") {
+            // 권한 흐름 시뮬레이션(PLAN §7.3 · 03 §0)
+            menu->addSeparator();
+            QMenu *flows = menu->addMenu(u"권한 흐름 시뮬레이션"_s);
+            connect(flows->addAction(u"보호된 폴더로 복사 — 거부 · 승인 · UAC 거부"_s), &QAction::triggered, this,
+                    [this] { startElevationFlow(0); });
+            connect(flows->addAction(u"삭제 — 사전 확인 · 소유권"_s), &QAction::triggered, this,
+                    [this] { startElevationFlow(1); });
+        }
         if (def.title == u"보기") {
             menu->addActions(m_viewModes->actions());
             menu->addSeparator();
@@ -556,6 +566,15 @@ void MainWindow::refreshIcons()
 void MainWindow::showPending(const QString &title)
 {
     QMessageBox::information(this, title, u"%1 대화상자는 다음 단계(P7)에서 연결합니다."_s.arg(title));
+}
+
+fm::dialogs::ElevationFlow *MainWindow::startElevationFlow(int scenario)
+{
+    auto *flow = new fm::dialogs::ElevationFlow(
+        scenario == 1 ? fm::dialogs::ElevationFlow::DeleteWithOwnership : fm::dialogs::ElevationFlow::CopyToProtected, this);
+    connect(flow, &fm::dialogs::ElevationFlow::finished, flow, &QObject::deleteLater);
+    flow->start();
+    return flow;
 }
 
 fm::dialogs::FileOpContext MainWindow::operationContext() const

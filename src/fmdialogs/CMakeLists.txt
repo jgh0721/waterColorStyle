@@ -1,6 +1,9 @@
 # Fm::dialogs — 파일 작업 대화상자(.ui + 코드), 진행 창, 다중 이름 변경, 규칙 엔진.
 qt_add_library(fmdialogs STATIC
     include/fmdialogs/DialogCatalog.h
+    include/fmdialogs/ElevationDialog.h
+    include/fmdialogs/ElevationFlow.h
+    include/fmdialogs/ElevationPrompt.h
     include/fmdialogs/FileOpContext.h
     include/fmdialogs/FileOpDialogs.h
     include/fmdialogs/MultiRenameDialog.h
@@ -10,6 +13,9 @@ qt_add_library(fmdialogs STATIC
     include/fmdialogs/RenameEngine.h
     include/fmdialogs/RenamePreview.h
     DialogCatalog.cpp
+    ElevationDialog.cpp
+    ElevationFlow.cpp
+    ElevationPrompt.cpp
     FileOpContext.cpp
     FileOpDialogs.cpp
     MultiRenameDialog.cpp

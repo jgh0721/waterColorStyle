@@ -1,5 +1,7 @@
 #include "fmdialogs/DialogCatalog.h"
 
+#include "fmdialogs/ElevationDialog.h"
+#include "fmdialogs/ElevationFlow.h"
 #include "fmdialogs/FileOpDialogs.h"
 #include "fmdialogs/MultiRenameDialog.h"
 #include "fmdialogs/ProgressDialog.h"
@@ -13,7 +15,7 @@ QList<DialogVariant> dialogVariants()
     const QSize copy(600, 444), move(600, 434), del(540, 424), file(560, 484), folder(520, 434);
     const QSize progress(640, 524), compact(520, 0);  // 간단히는 높이가 내용에 따라 정해진다
     const QSize rename(1120, 764);
-    return {
+    QList<DialogVariant> list = {
         {u"copy.default"_s, u"copy"_s, u"복사"_s, true, copy},
         {u"copy.historyOpen"_s, u"copy"_s, u"최근 대상 목록"_s, false, copy},
         {u"copy.single"_s, u"copy"_s, u"1개 항목"_s, false, copy},
@@ -69,6 +71,22 @@ QList<DialogVariant> dialogVariants()
         {u"multirename.findReplace"_s, u"multirename"_s, u"찾기 · 바꾸기"_s, false, rename},
         {u"multirename.noUndo"_s, u"multirename"_s, u"되돌릴 기록 없음"_s, false, rename},
     };
+    // 권한 대화상자 — 클라이언트는 폭 558(창 560 − 테두리), 높이 = 목업 − 38(03 §1.2)
+    const QList<QPair<QString, QString>> elevation = {
+        {u"preflight"_s, u"작업 전 사전 확인"_s},   {u"preflight.skip"_s, u"사전 확인 · 건너뛰기 선택"_s},
+        {u"copy"_s, u"복사 대상 보호됨"_s},          {u"move"_s, u"이동 원본 삭제 불가"_s},
+        {u"move.copyOnly"_s, u"이동 · 복사만 하기 선택"_s}, {u"delete"_s, u"삭제"_s},
+        {u"rename"_s, u"이름 변경"_s},               {u"create.folder"_s, u"새 폴더"_s},
+        {u"create.file"_s, u"새 파일"_s},            {u"ownership"_s, u"관리자도 거부 (소유권)"_s},
+        {u"failed"_s, u"UAC 거부 / 시간 초과"_s},
+    };
+    for (const auto &[id, label] : elevation) {
+        const QSize design = elev::prompts::board(id).designSize;
+        const bool mockup = !id.endsWith(u".skip") && !id.endsWith(u".copyOnly") && id != u"create.file";
+        list.append({u"elev."_s + id, u"elev"_s, label, mockup, QSize(design.width() - 2, design.height() - 38)});
+    }
+    list.append({u"elev.uac"_s, u"elev"_s, u"UAC 확인 창 흉내(흐름 시뮬레이션)"_s, false, QSize(460, 0)});
+    return list;
 }
 
 QDialog *createDialog(const QString &requested, QWidget *parent)
@@ -108,6 +126,10 @@ QDialog *createDialog(const QString &requested, QWidget *parent)
         d->applyVariant(id);
         return d;
     }
+    if (id == u"elev.uac")
+        return new UacSimulationDialog(u"FM Tools 권한 상승 도우미 — 확인된 게시자: FM Tools"_s, 15, parent);
+    if (group == u"elev")
+        return new ElevationDialog(elev::prompts::board(id.mid(5)), parent);
     if (group == u"multirename") {
         auto *d = new MultiRenameDialog(MultiRenameDialog::boardContext(), parent);
         d->applyVariant(id);

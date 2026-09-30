@@ -161,4 +161,30 @@ inline const QAbstractScrollArea *scrollAreaOf(const QWidget *w)
     return nullptr;
 }
 
+/// 단추 아이콘 · 글자 간격(목업 .btn gap 8 — Qt 기본은 4, docs/specs/03 §4.3).
+inline constexpr int kButtonIconGap = 8;
+
+/// 아이콘과 글자가 모두 있는 단추의 라벨을 "아이콘 + 8 + 글자"로 가운데에 그린다. 그렸으면 true.
+/// 아이콘 모드는 Fusion 규칙과 같다(사용 불가 → Disabled, State_HasFocus → Active, State_On → On).
+inline bool drawIconTextButtonLabel(const QStyle *style, const QStyleOptionButton &b, QPainter *p, const QWidget *w)
+{
+    if (b.icon.isNull() || b.text.isEmpty() || (b.features & QStyleOptionButton::HasMenu))
+        return false;
+    const bool enabled = b.state & QStyle::State_Enabled;
+    const QIcon::Mode mode = !enabled ? QIcon::Disabled : (b.state & QStyle::State_HasFocus) ? QIcon::Active : QIcon::Normal;
+    const QIcon::State state = (b.state & QStyle::State_On) ? QIcon::On : QIcon::Off;
+    const bool mnemonic = style->styleHint(QStyle::SH_UnderlineShortcut, &b, w);
+    const int textFlags = Qt::AlignLeft | Qt::AlignVCenter | (mnemonic ? Qt::TextShowMnemonic : Qt::TextHideMnemonic);
+    const int textWidth = b.fontMetrics.size(Qt::TextShowMnemonic, b.text).width();
+    const QSize icon = b.iconSize;
+    const int total = icon.width() + kButtonIconGap + textWidth;
+    const int left = b.rect.left() + std::max(0, (b.rect.width() - total) / 2);
+    const QRect iconRect(left, b.rect.top() + (b.rect.height() - icon.height()) / 2, icon.width(), icon.height());
+    b.icon.paint(p, iconRect, Qt::AlignCenter, mode, state);
+    const QRect textRect(iconRect.right() + 1 + kButtonIconGap, b.rect.top(), b.rect.right() - iconRect.right() - kButtonIconGap,
+                         b.rect.height());
+    style->drawItemText(p, textRect, textFlags, b.palette, enabled, b.text, QPalette::ButtonText);
+    return true;
+}
+
 } // namespace fm::style::detail

@@ -71,9 +71,10 @@ int main(int argc, char *argv[])
     const QCommandLineOption delayOption(u"shot-delay"_s, u"스크린샷까지 기다릴 시간(ms)."_s, u"ms"_s, u"900"_s);
     const QCommandLineOption openOption(u"open"_s, u"대화상자 변형을 연다(예: copy.default, delete.permanent). --shot이면 대화상자만 찍는다."_s, u"id"_s);
     const QCommandLineOption listOption(u"list-dialogs"_s, u"대화상자 변형 ID를 출력하고 끝냅니다."_s);
+    const QCommandLineOption flowOption(u"flow"_s, u"권한 흐름 시뮬레이션을 시작한다: copy | delete"_s, u"name"_s);
     parser.addOptions({designOption, schemeOption, leftModeOption, rightModeOption, activeOption, sep1Option, sep2Option,
                        nameBelowOption, invCursorOption, invSelOption, sizeOption, shotOption, delayOption, openOption,
-                       listOption});
+                       listOption, flowOption});
     parser.process(app);
 
     auto &theme = fs::ThemeManager::instance();
@@ -130,6 +131,8 @@ int main(int argc, char *argv[])
     window.resize(wh.value(0).toInt() > 0 ? wh.value(0).toInt() : 1440, wh.value(1).toInt() > 0 ? wh.value(1).toInt() : 900);
     window.show();
     window.activePanel()->focusView();
+    if (parser.isSet(flowOption))
+        QTimer::singleShot(0, &window, [&window, name = parser.value(flowOption)] { window.startElevationFlow(name == u"delete"_s ? 1 : 0); });
 
     if (parser.isSet(shotOption)) {
         const QString file = parser.value(shotOption);

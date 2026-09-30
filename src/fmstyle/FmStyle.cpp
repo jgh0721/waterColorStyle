@@ -1192,7 +1192,7 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
                 const QSize chip = keyChipSize(keys);
                 int labelWidth = b->fontMetrics.horizontalAdvance(plainText(b->text));
                 if (!b->icon.isNull())
-                    labelWidth += b->iconSize.width() + 4;
+                    labelWidth += b->iconSize.width() + (segment ? 4 : kButtonIconGap);
                 const int total = labelWidth + kKeyChipGap + chip.width();
                 const int left = copy.rect.left() + (copy.rect.width() - total) / 2;
                 copy.rect = QRect(left, copy.rect.top(), labelWidth, copy.rect.height());
@@ -1206,7 +1206,8 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
                 f.setWeight(QFont::DemiBold);
                 p->setFont(f);
             }
-            QProxyStyle::drawControl(element, &copy, p, w);
+            if (segment || role == ButtonRole::Link || !drawIconTextButtonLabel(this, copy, p, w))
+                QProxyStyle::drawControl(element, &copy, p, w);
             p->restore();
             if (chipRect.isValid()) {
                 const bool filled = (b->state & State_Enabled)
@@ -1732,7 +1733,9 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
                 return QSize(std::max(height, cs.width() + 16), height);
             const int minWidth = (segment || compact) ? 0 : kButtonMinWidth;
             // 세그먼트는 켜지면 굵은 글자가 되므로 여유 4 px
-            const int width = cs.width() + 2 * padX + (segment ? 4 : 0) + chip;
+            // 아이콘 · 글자 간격 8(Qt가 넣어 준 4에 4를 더한다)
+            const int iconGap = (!segment && !b->icon.isNull() && !b->text.isEmpty()) ? kButtonIconGap - 4 : 0;
+            const int width = cs.width() + 2 * padX + (segment ? 4 : 0) + chip + iconGap;
             return QSize(std::max(minWidth, width), std::max(height, cs.height() + 8));
         }
         break;

@@ -5,6 +5,7 @@
 
 #include <QEvent>
 #include <QPainter>
+#include <QTextLayout>
 
 using namespace Qt::StringLiterals;
 
@@ -32,6 +33,27 @@ fs::Tone toStyleTone(DialogHeader::Tone tone)
     case DialogHeader::Ok: return fs::Tone::Ok;
     }
     return fs::Tone::Info;
+}
+
+/// 여러 줄 설명(.desc) — 목업 줄높이 19에 맞춰 줄마다 19 px 칸의 가운데에 놓는다.
+/// painter가 null이면 줄 수만 센다.
+int layoutDescription(QPainter *painter, const QString &text, const QFont &font, const QRect &rect)
+{
+    QTextLayout layout(text, font);
+    QTextOption option;
+    option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    layout.setTextOption(option);
+    layout.beginLayout();
+    int lines = 0;
+    for (QTextLine line = layout.createLine(); line.isValid(); line = layout.createLine()) {
+        line.setLineWidth(std::max(1, rect.width()));
+        line.setPosition(QPointF(0, lines * kDescLine + (kDescLine - line.height()) / 2.0));
+        ++lines;
+    }
+    layout.endLayout();
+    if (painter)
+        layout.draw(painter, rect.topLeft());
+    return lines;
 }
 
 } // namespace
@@ -110,10 +132,8 @@ int DialogHeader::heightForWidth(int width) const
     int text = kTitleLine;
     if (!m_subtitle.isEmpty()) {
         if (m_wrap) {
-            const QFontMetrics fm(subtitleFont());
             const int w = std::max(1, width - textLeft());
-            const QRect br = fm.boundingRect(QRect(0, 0, w, 10000), Qt::TextWordWrap, m_subtitle);
-            const int lines = std::max(1, (br.height() + fm.lineSpacing() - 1) / fm.lineSpacing());
+            const int lines = std::max(1, layoutDescription(nullptr, m_subtitle, subtitleFont(), QRect(0, 0, w, 0)));
             text += kDescGap + lines * kDescLine;
         } else {
             text += kSubtitleGap + kSubtitleLine;
@@ -144,7 +164,7 @@ void DialogHeader::paintEvent(QPaintEvent *)
     if (m_glyph != glyph::None) {
         const fs::Glyph g = glyph::toStyle(m_glyph);
         // 권한 배지: 방패 24(두 색), 위험 삼각형 22, 나머지 20 (docs/specs/03 §1)
-        const qreal px = g == fs::Glyph::Shield ? 24 : g == fs::Glyph::Warning ? 22 : 20;
+        const qreal px = g == fs::Glyph::Shield ? 24 : (g == fs::Glyph::Warning || g == fs::Glyph::LockKeyhole) ? 22 : 20;
         QRectF ir(0, 0, px, px);
         ir.moveCenter(badge.center());
         if (g == fs::Glyph::Shield)
@@ -181,8 +201,7 @@ void DialogHeader::paintEvent(QPaintEvent *)
     p.setFont(subtitleFont());
     p.setPen(tc[T::Fg2]);
     if (m_wrap) {
-        const QRect r(left, kTitleLine + kDescGap, width, height() - kTitleLine - kDescGap);
-        p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, m_subtitle);
+        layoutDescription(&p, m_subtitle, p.font(), QRect(left, kTitleLine + kDescGap, width, 0));
         return;
     }
     const QFontMetrics sfm(p.font());
