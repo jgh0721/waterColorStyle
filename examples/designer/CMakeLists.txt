@@ -11,8 +11,4 @@ target_link_libraries(fm_designer_example
         Fm::widgets
 )
 
-target_compile_options(fm_designer_example
-    PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/utf-8 /W4 /permissive- /Zc:__cplusplus>
-        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
-)
+fm_set_compile_options(fm_designer_example)

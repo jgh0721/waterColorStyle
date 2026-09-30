@@ -89,7 +89,7 @@ ThemeColors deriveColors(Variant variant, const ThemeSeeds &seeds, const TokenOv
                          Design design)
 {
     ThemeColors c(variant, design);
-    const bool light = variant == Variant::Light;
+    const bool light = variant == Variant::Light;  // 남색은 다크 규칙
     const bool watercolor = design == Design::Watercolor;
 
     if (seeds.accent && seeds.accent->isValid()) {

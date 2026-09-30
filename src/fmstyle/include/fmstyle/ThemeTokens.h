@@ -40,7 +40,11 @@ static_assert(kTokenCount == 51, "the design board defines 51 tokens");
 
 constexpr std::size_t indexOf(Token t) noexcept { return static_cast<std::size_t>(t); }
 
-enum class Variant : std::uint8_t { Light, Dark };
+/// 색 구성 변형. Navy(다크 · 남색)는 시안2(워터컬러) 전용이다 — 시안1에서 남색을 요청하면 다크 값을 쓴다.
+enum class Variant : std::uint8_t { Light, Dark, Navy };
+inline constexpr std::size_t kVariantCount = 3;
+/// 다크 계열(다크 · 남색) — 어두운 바탕 규칙을 쓸지 정할 때.
+constexpr bool isDarkVariant(Variant v) noexcept { return v != Variant::Light; }
 
 /// 디자인. Standard = 시안1 "파일 관리자 UI", Watercolor = 시안2 "파일 관리자 UI(워터컬러)".
 enum class Design : std::uint8_t { Standard, Watercolor };
@@ -64,7 +68,7 @@ struct TokenInfo {
     const char *label;    // 한국어 이름 (UTF-8)
     const char *qtRole;   // 대응하는 QPalette 역할, 없으면 nullptr
     QRgb light;           // 시안1 내장 기본값 #AARRGGBB (워터컬러 값은 builtinColor())
-    QRgb dark;
+    QRgb dark;            // 시안1에는 남색이 없으므로 남색 요청도 이 값
 };
 
 const std::array<TokenInfo, kTokenCount> &allTokens() noexcept;
@@ -77,5 +81,8 @@ QRgb builtinColor(Token t, Variant variant, Design design) noexcept;
 
 /// "시안1 · 기본", "시안2 · 워터컬러"
 QString designLabel(Design design);
+
+/// "라이트", "다크", "다크(남색)"
+QString variantLabel(Variant variant);
 
 } // namespace fm::style

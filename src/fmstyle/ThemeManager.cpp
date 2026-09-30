@@ -31,8 +31,18 @@ namespace fm::style {
 
 namespace {
 
-constexpr int variantIndex(Variant v) { return v == Variant::Light ? 0 : 1; }
 constexpr int designIndex(Design d) { return d == Design::Standard ? 0 : 1; }
+
+// 시안1에는 남색이 없으므로 남색 요청은 다크 칸을 쓴다.
+constexpr int variantIndex(Design d, Variant v)
+{
+    switch (v) {
+    case Variant::Light: return 0;
+    case Variant::Dark:  return 1;
+    case Variant::Navy:  return d == Design::Watercolor ? 2 : 1;
+    }
+    return 0;
+}
 
 struct ScopeEntry
 {
@@ -76,7 +86,7 @@ void ThemeManager::install(QApplication &app)
     font.setPixelSize(13);
     QApplication::setFont(font);
 
-    QApplication::setStyle(createStyle(m_design));  // QApplication이 소유
+    QApplication::setStyle(makeStyle());  // QApplication이 소유
     app.installEventFilter(this);
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
@@ -95,7 +105,7 @@ void ThemeManager::setDesign(Design design)
         return;
     m_design = design;
     if (m_installed)
-        QApplication::setStyle(createStyle(design));  // 이전 스타일은 QApplication이 지운다
+        QApplication::setStyle(makeStyle());  // 이전 스타일은 QApplication이 지운다
     apply();
 }
 
@@ -115,9 +125,49 @@ void ThemeManager::setScheme(Scheme scheme)
     apply();
 }
 
+void ThemeManager::setDarkTone(DarkTone tone)
+{
+    if (m_darkTone == tone)
+        return;
+    m_darkTone = tone;
+    apply();
+}
+
+void ThemeManager::setAlwaysShowMnemonics(bool on)
+{
+    if (m_alwaysMnemonics == on)
+        return;
+    m_alwaysMnemonics = on;
+    if (!m_installed)
+        return;
+    // 다른 프록시 스타일이 감쌀 수 있다(Qtitan 그리드는 앱 스타일을 CommonStyle로 감싼다) — 사슬을 따라간다.
+    for (QStyle *s = QApplication::style(); s;) {
+        if (auto *fm = qobject_cast<FmStyle *>(s)) {
+            fm->setAlwaysShowMnemonics(on);
+            break;
+        }
+        if (auto *wc = qobject_cast<WatercolorStyle *>(s)) {
+            wc->setAlwaysShowMnemonics(on);
+            break;
+        }
+        auto *proxy = qobject_cast<QProxyStyle *>(s);
+        s = proxy ? proxy->baseStyle() : nullptr;
+    }
+}
+
+QStyle *ThemeManager::makeStyle() const
+{
+    QStyle *style = createStyle(m_design);
+    if (auto *fm = qobject_cast<FmStyle *>(style))
+        fm->setAlwaysShowMnemonics(m_alwaysMnemonics);
+    else if (auto *wc = qobject_cast<WatercolorStyle *>(style))
+        wc->setAlwaysShowMnemonics(m_alwaysMnemonics);
+    return style;
+}
+
 const ThemeColors &ThemeManager::colors(Design design, Variant variant) const noexcept
 {
-    return m_colors[designIndex(design)][variantIndex(variant)];
+    return m_colors[designIndex(design)][variantIndex(design, variant)];
 }
 
 void ThemeManager::setSeeds(const ThemeSeeds &seeds)
@@ -136,7 +186,7 @@ void ThemeManager::setOverride(Variant variant, Token token, std::optional<QColo
 
 void ThemeManager::setOverride(Design design, Variant variant, Token token, std::optional<QColor> color)
 {
-    m_overrides[designIndex(design)][variantIndex(variant)][indexOf(token)] = std::move(color);
+    m_overrides[designIndex(design)][variantIndex(design, variant)][indexOf(token)] = std::move(color);
     rebuild();
     apply();
 }
@@ -153,7 +203,7 @@ void ThemeManager::clearOverrides()
 
 const TokenOverrides &ThemeManager::overrides(Design design, Variant variant) const noexcept
 {
-    return m_overrides[designIndex(design)][variantIndex(variant)];
+    return m_overrides[designIndex(design)][variantIndex(design, variant)];
 }
 
 void ThemeManager::setDarkTitleBar(bool on)
@@ -183,17 +233,24 @@ void ThemeManager::setColoredTitleBar(bool on)
 void ThemeManager::rebuild()
 {
     for (const Design d : {Design::Standard, Design::Watercolor}) {
-        for (const Variant v : {Variant::Light, Variant::Dark})
-            m_colors[designIndex(d)][variantIndex(v)] =
-                deriveColors(v, m_seeds, m_overrides[designIndex(d)][variantIndex(v)], d);
+        for (const Variant v : {Variant::Light, Variant::Dark, Variant::Navy}) {
+            if (d == Design::Standard && v == Variant::Navy)
+                continue;  // 다크 칸을 같이 쓴다(variantIndex)
+            const int vi = variantIndex(d, v);
+            m_colors[designIndex(d)][vi] = deriveColors(v, m_seeds, m_overrides[designIndex(d)][vi], d);
+        }
     }
 }
 
 void ThemeManager::apply()
 {
-    m_effective = m_scheme == Scheme::Light ? Variant::Light
-                : m_scheme == Scheme::Dark  ? Variant::Dark
-                                            : systemVariant();
+    const Variant base = m_scheme == Scheme::Light ? Variant::Light
+                       : m_scheme == Scheme::Dark  ? Variant::Dark
+                                                   : systemVariant();
+    // 남색은 시안2 전용 — 시안1로 바꾸면 다크로, 다시 시안2로 오면 남색으로 돌아간다.
+    m_effective = isDarkVariant(base) && m_design == Design::Watercolor && m_darkTone == DarkTone::Navy
+                      ? Variant::Navy
+                      : base;
     if (m_installed) {
         QApplication::setPalette(colors().toPalette());
         const auto windows = QApplication::topLevelWidgets();
@@ -255,7 +312,7 @@ void ThemeManager::applyTitleBar(QWidget *window) const
 
     // 워터컬러: 창 틀과 같은 파란색 제목 표시줄 + 흰 글자. 단추 기호도 흰색이 되도록 어두운 모드를 켠다.
     const bool tinted = m_design == Design::Watercolor && m_coloredTitleBar;
-    const BOOL dark = (tinted || (m_effective == Variant::Dark && m_darkTitleBar)) ? TRUE : FALSE;
+    const BOOL dark = (tinted || (isDarkVariant(m_effective) && m_darkTitleBar)) ? TRUE : FALSE;
     ::DwmSetWindowAttribute(hwnd, kUseImmersiveDarkMode, &dark, sizeof(dark));
 
     COLORREF caption = kColorDefault;

@@ -5,6 +5,7 @@
 #include "fmstyle/StyleProps.h"
 
 #include <QAbstractScrollArea>
+#include <QRegularExpression>
 #include <QCheckBox>
 #include <QRectF>
 #include <QStringList>
@@ -14,6 +15,8 @@
 #include <QWidget>
 
 namespace fm::style::detail {
+
+using namespace Qt::StringLiterals;
 
 inline QString stringProp(const QWidget *w, const char *name)
 {
@@ -27,6 +30,31 @@ inline bool boolProp(const QWidget *w, const char *name)
 
 inline bool isSmall(const QWidget *w) { return stringProp(w, props::kSize) == u"small"; }
 inline QString segmentOf(const QWidget *w) { return stringProp(w, props::kSegment); }
+inline QString keyHintOf(const QWidget *w) { return stringProp(w, props::kKeyHint); }
+inline bool isFooter(const QWidget *w) { return boolProp(w, props::kFooter); }
+
+// 표 머리글 평면 — 머리글 자신 또는 그 표(부모)에 건 속성, 또는 대화상자 · 설정 밀도.
+inline bool flatHeader(const QWidget *w)
+{
+    if (!w)
+        return false;
+    if (stringProp(w, props::kHeader) == u"flat" || stringProp(w->parentWidget(), props::kHeader) == u"flat")
+        return true;
+    return density(w) != Density::Normal;
+}
+
+// 오류 모양 — 위젯 또는 부모(콤보 · 스핀 상자 안의 입력)
+inline bool isInvalid(const QWidget *w)
+{
+    return boolProp(w, props::kInvalid) || (w && boolProp(w->parentWidget(), props::kInvalid));
+}
+
+// 키 칩을 붙일 때의 단추 글자(니모닉 & 제외) 폭.
+inline QString plainText(QString text)
+{
+    text.remove(QRegularExpression(u"&(?!&)"_s));
+    return text.replace(u"&&"_s, u"&"_s);
+}
 
 inline bool isSwitch(const QWidget *w)
 {

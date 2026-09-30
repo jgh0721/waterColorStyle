@@ -21,11 +21,7 @@ target_link_libraries(fmdesignerplugin
         Fm::widgets
 )
 
-target_compile_options(fmdesignerplugin
-    PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/utf-8 /W4 /permissive- /Zc:__cplusplus>
-        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
-)
+fm_set_compile_options(fmdesignerplugin)
 
 # <build>/plugins/designer — set QT_PLUGIN_PATH=<build>/plugins to try it without installing.
 # The generator expression stops multi-config generators from adding a Release/ subfolder.

@@ -1,5 +1,8 @@
 #include "fmstyle/WatercolorStyle.h"
 
+#include "fmstyle/Glyphs.h"
+#include "fmstyle/StylePaint.h"
+
 #include "fmstyle/StyleProps.h"
 #include "fmstyle/ThemeManager.h"
 
@@ -74,6 +77,49 @@ constexpr int kToolButton = 29;
 constexpr int kTitleBarHeight = 27;
 constexpr int kCaptionButtonW = 21;
 constexpr int kCaptionButtonH = 20;
+constexpr int kKeyChipGap = 7;            // 글자와 키 칩 사이 (시안2 간격 7)
+constexpr int kLinkHeight = 24;           // fmRole=link
+constexpr int kHeaderHeightFlat = 28;     // 대화상자 · 설정 표 머리글 — 시안2에서도 평면
+// 세그먼트 높이는 메인 주소 줄만 24이고, 대화상자 · 설정은 시안1 높이를 쓴다(캔버스 워터컬러 보드).
+constexpr int kSegmentHeightDialog = 32;
+constexpr int kSegmentHeightSettings = 30;
+constexpr int kSegmentHeightSmall = 26;
+constexpr int kSegmentHeightMini = 20;
+
+int segmentHeight(const QWidget *w)
+{
+    switch (sizeVariant(w)) {
+    case SizeVariant::Mini: return kSegmentHeightMini;
+    case SizeVariant::Small: return kSegmentHeightSmall;
+    case SizeVariant::Normal:
+    case SizeVariant::Thin:
+    case SizeVariant::Thick: break;
+    }
+    switch (density(w)) {
+    case Density::Dialog: return kSegmentHeightDialog;
+    case Density::Settings: return kSegmentHeightSettings;
+    case Density::Normal: break;
+    }
+    return kButtonHeightSmall;
+}
+
+int segmentPadX(const QWidget *w)
+{
+    switch (sizeVariant(w)) {
+    case SizeVariant::Mini: return 8;
+    case SizeVariant::Small: return 12;
+    case SizeVariant::Normal:
+    case SizeVariant::Thin:
+    case SizeVariant::Thick: break;
+    }
+    return density(w) == Density::Dialog ? 6 : kSegmentPadX;
+}
+
+int progressThickness(const QWidget *w)
+{
+    const SizeVariant v = sizeVariant(w);
+    return (v == SizeVariant::Small || v == SizeVariant::Thin) ? kProgressThin : kProgressHeight;
+}
 
 // ---------------------------------------------------------------------------------------------
 // 입체 그리기 도우미 — 모두 1 px 선을 정수 좌표에 칠한다 (안티앨리어싱 없음).
@@ -435,18 +481,25 @@ void WatercolorStyle::polish(QWidget *widget)
         || qobject_cast<QHeaderView *>(widget) || qobject_cast<QMenuBar *>(widget)) {
         widget->setAttribute(Qt::WA_Hover, true);
     }
-    // 목업: 열 머리글 · 탭 · 도구 설명은 12 px. 앱에서 따로 글꼴을 준 위젯은 건드리지 않는다.
+    // 목업: 열 머리글 · 탭 · 도구 설명은 12 px. 앱에서 따로 글꼴을 준 위젯은 건드리지 않는다
+    // (스타일이 준 글꼴은 fmStyledFont로 표시해 두어 디자인을 바꿀 때 다시 건다).
     if ((qobject_cast<QHeaderView *>(widget) || qobject_cast<QTabBar *>(widget)
          || widget->inherits("QTipLabel"))
-        && !widget->testAttribute(Qt::WA_SetFont)) {
+        && (!widget->testAttribute(Qt::WA_SetFont) || boolProp(widget, props::kStyledFont))) {
         QFont f = widget->font();
         f.setPixelSize(12);
         widget->setFont(f);
+        widget->setProperty(props::kStyledFont, true);
     }
 }
 
 void WatercolorStyle::unpolish(QWidget *widget)
 {
+    if (boolProp(widget, props::kStyledFont)) {
+        widget->setProperty(props::kStyledFont, QVariant());
+        widget->setFont(QFont());
+        widget->setAttribute(Qt::WA_SetFont, false);
+    }
     QProxyStyle::unpolish(widget);
 }
 
@@ -516,6 +569,12 @@ void WatercolorStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, c
     const auto *b = qstyleoption_cast<const QStyleOptionButton *>(option);
     const bool isDefault = b && (b->features & QStyleOptionButton::DefaultButton);
 
+    if (role == ButtonRole::Link) {
+        // 링크 단추: 패널 없음. 키보드 포커스만 점선.
+        if (enabled && keyboardFocus(s))
+            dottedRect(p, r.adjusted(1, 1, -1, -1), tc[T::Focus]);
+        return;
+    }
     if (role == ButtonRole::Subtle) {
         if (enabled && (s & (State_Sunken | State_On)))
             raised(p, r, x, Look::Pressed, x.out);
@@ -661,6 +720,24 @@ void WatercolorStyle::drawHeaderSection(const QStyleOption *option, QPainter *p,
     const bool pressed = h->state & State_Sunken;
     const bool hover = (h->state & State_MouseOver) && (h->state & State_Enabled);
     const QRect r = h->rect;
+    if (flatHeader(w)) {
+        // 대화상자 · 설정 표 머리글은 입체가 아니다 — --head 바탕 · 아래 --line · 칸 사이 --grid
+        const ThemeColors &tc = colorsFor(w);
+        QColor bg = tc[T::Head];
+        if (pressed)
+            bg = mix(bg, tc[T::Fg], 0.08);
+        else if (hover)
+            bg = mix(bg, tc[T::Fg], 0.04);
+        p->fillRect(r, bg);
+        if (h->orientation == Qt::Horizontal) {
+            hLine(p, r.left(), r.right(), r.bottom(), tc[T::Line]);
+            if (h->position != QStyleOptionHeader::End && h->position != QStyleOptionHeader::OnlyOneSection)
+                vLine(p, r.right(), r.top(), r.bottom() - 1, tc[T::Grid]);
+        } else {
+            vLine(p, r.right(), r.top(), r.bottom(), tc[T::Line]);
+        }
+        return;
+    }
     p->fillRect(r, pressed ? x.g3 : hover ? x.g1 : x.g2);
     // 오른쪽 · 아래 1 px 테두리, 안쪽 빗면 (CSS .hc)
     vLine(p, r.right(), r.top(), r.bottom(), x.out);
@@ -850,6 +927,11 @@ void WatercolorStyle::drawShapedFrame(const QStyleOption *option, QPainter *p, c
     const ThemeColors &tc = colorsFor(w);
     const X &x = watercolorChrome(tc.variant());
     const QRect r = f->rect;
+    if (isFooter(w)) {
+        // 대화상자 버튼 영역 — 시안2는 위 선이 없고 --foot = --win이라 본문과 이어진다.
+        p->fillRect(r, tc[T::Foot]);
+        return;
+    }
     if (boolProp(w, props::kCard)) {
         p->fillRect(r, tc[T::Surface]);
         outline(p, r, tc[T::Line]);
@@ -1100,13 +1182,16 @@ void drawSwitch(QPainter *p, const QRect &rect, QStyle::State s, const ThemeColo
 }
 
 // 들어간 입력 칸. 포커스면 강조색 2 px 테두리 (CSS: border accent + inset 0 0 0 1px accent).
-void drawInputFrame(QPainter *p, const QRect &r, QStyle::State s, const ThemeColors &tc, const X &x)
+// 들어간 칸. 포커스는 2 px 강조 테두리, 오류(fmInvalid)는 2 px 위험 테두리.
+void drawInputFrame(QPainter *p, const QRect &r, QStyle::State s, const ThemeColors &tc, const X &x,
+                    bool invalid = false)
 {
     const bool enabled = s & QStyle::State_Enabled;
     sunken(p, r, x, enabled ? tc[T::Field] : tc[T::Win]);
-    if (enabled && (s & QStyle::State_HasFocus)) {
-        outline(p, r, tc[T::Accent]);
-        outline(p, r.adjusted(1, 1, -1, -1), tc[T::Accent]);
+    if (enabled && (invalid || (s & QStyle::State_HasFocus))) {
+        const QColor c = invalid ? tc[T::Danger] : tc[T::Accent];
+        outline(p, r, c);
+        outline(p, r.adjusted(1, 1, -1, -1), c);
     }
 }
 
@@ -1164,7 +1249,7 @@ void WatercolorStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
     case PE_PanelLineEdit:
         if (const auto *f = qstyleoption_cast<const QStyleOptionFrame *>(option)) {
             if (f->lineWidth > 0) {
-                drawInputFrame(p, f->rect, f->state, tc, x);
+                drawInputFrame(p, f->rect, f->state, tc, x, isInvalid(w));
             } else {
                 // 스핀 · 콤보 상자 안의 편집기는 바깥 상자가 바탕을 이미 칠했다.
                 const QWidget *parent = w ? w->parentWidget() : nullptr;
@@ -1355,13 +1440,55 @@ void WatercolorStyle::drawControl(ControlElement element, const QStyleOption *op
         return;
     case CE_PushButtonLabel:
         if (const auto *b = qstyleoption_cast<const QStyleOptionButton *>(option)) {
+            const ButtonRole role = buttonRole(w);
             QStyleOptionButton copy = *b;
-            copy.palette.setColor(QPalette::ButtonText, buttonTextColor(b->state, buttonRole(w), tc, x));
+            QColor text = buttonTextColor(b->state, role, tc, x);
+            if (role == ButtonRole::Link) {
+                text = !(b->state & State_Enabled)                   ? x.disFg
+                     : (b->state & (State_MouseOver | State_Sunken)) ? tc[T::Accent]
+                                                                     : tc[T::AccentFg];
+            }
+            copy.palette.setColor(QPalette::ButtonText, text);
             if (b->features & QStyleOptionButton::HasMenu)
                 copy.rect.adjust(0, 0, -12, 0);
+            // 키 칩(fmKeyHint): 글자 뒤 7 px — 글자와 칩을 한 덩어리로 가운데
+            const QString keys = keyHintOf(w);
+            QRect chipRect;
+            if (!keys.isEmpty()) {
+                const QSize chip = keyChipSize(keys);
+                int labelWidth = b->fontMetrics.horizontalAdvance(plainText(b->text));
+                if (!b->icon.isNull())
+                    labelWidth += b->iconSize.width() + 4;
+                const int total = labelWidth + kKeyChipGap + chip.width();
+                const int left = copy.rect.left() + (copy.rect.width() - total) / 2;
+                copy.rect = QRect(left, copy.rect.top(), labelWidth, copy.rect.height());
+                chipRect = QRect(left + labelWidth + kKeyChipGap, copy.rect.center().y() - chip.height() / 2 + 1,
+                                 chip.width(), chip.height());
+            }
             QProxyStyle::drawControl(element, &copy, p, w);
+            if (chipRect.isValid()) {
+                // 워터컬러의 기본 단추는 채움이 아니므로 위험 단추만 채움 위 칩
+                const bool filled = (b->state & State_Enabled) && role == ButtonRole::Danger;
+                paintKeyChip(p, chipRect, keys, tc, filled ? KeyChipLook::OnFill : KeyChipLook::Normal);
+            }
         }
         return;
+    case CE_CheckBoxLabel:
+    case CE_RadioButtonLabel:
+        if (const QString keys = keyHintOf(w); !keys.isEmpty()) {
+            if (const auto *b = qstyleoption_cast<const QStyleOptionButton *>(option)) {
+                QProxyStyle::drawControl(element, option, p, w);
+                int textWidth = b->fontMetrics.horizontalAdvance(plainText(b->text));
+                if (!b->icon.isNull())
+                    textWidth += b->iconSize.width() + 4;
+                const QSize chip = keyChipSize(keys);
+                paintKeyChip(p, QRect(b->rect.left() + textWidth + kKeyChipGap, b->rect.center().y() - chip.height() / 2 + 1,
+                                      chip.width(), chip.height()),
+                             keys, tc);
+                return;
+            }
+        }
+        break;
     case CE_ToolButtonLabel:
         if (const auto *tb = qstyleoption_cast<const QStyleOptionToolButton *>(option)) {
             QStyleOptionToolButton copy = *tb;
@@ -1443,7 +1570,7 @@ void WatercolorStyle::drawControl(ControlElement element, const QStyleOption *op
     case CE_HeaderLabel:
         if (const auto *h = qstyleoption_cast<const QStyleOptionHeader *>(option)) {
             QStyleOptionHeader copy = *h;
-            const QColor fg = (h->state & State_Enabled) ? tc[T::Fg] : x.disFg;
+            const QColor fg = !(h->state & State_Enabled) ? x.disFg : flatHeader(w) ? tc[T::Fg2] : tc[T::Fg];
             copy.palette.setColor(QPalette::ButtonText, fg);
             copy.palette.setColor(QPalette::WindowText, fg);
             QProxyStyle::drawControl(element, &copy, p, w);
@@ -1464,19 +1591,6 @@ void WatercolorStyle::drawControl(ControlElement element, const QStyleOption *op
             QProxyStyle::drawControl(element, &copy, p, w);
         }
         return;
-
-    case CE_ComboBoxLabel:
-        if (const auto *cb = qstyleoption_cast<const QStyleOptionComboBox *>(option)) {
-            // 편집할 수 없는 콤보 상자에 포커스가 있으면 Windows처럼 글자를 선택 색으로
-            if (!cb->editable && (cb->state & State_HasFocus) && (cb->state & State_Enabled)) {
-                p->save();
-                p->setPen(tc[T::OnAccent]);
-                QProxyStyle::drawControl(element, option, p, w);
-                p->restore();
-                return;
-            }
-        }
-        break;
 
     case CE_MenuBarItem:
         drawMenuBarItem(option, p, w);
@@ -1547,14 +1661,8 @@ void WatercolorStyle::drawComplexControl(ComplexControl control, const QStyleOpt
     case CC_ComboBox:
         if (const auto *cb = qstyleoption_cast<const QStyleOptionComboBox *>(option)) {
             const bool enabled = cb->state & State_Enabled;
-            QStyle::State s = cb->state;
-            if (!cb->editable)
-                s &= ~State_HasFocus;  // 편집 불가 콤보는 테두리 대신 글자를 선택 색으로 표시
-            drawInputFrame(p, cb->rect, s, tc, x);
-            if (!cb->editable && enabled && (cb->state & State_HasFocus)) {
-                const QRect field = proxy()->subControlRect(CC_ComboBox, cb, SC_ComboBoxEditField, w);
-                p->fillRect(field.adjusted(-2, 1, 1, -1), tc[T::Sel]);
-            }
+            // 편집 여부와 상관없이 포커스는 입력과 같은 2 px 강조 테두리(캔버스 .input:focus 규칙).
+            drawInputFrame(p, cb->rect, cb->state, tc, x, isInvalid(w));
             const QRect arrow = proxy()->subControlRect(CC_ComboBox, cb, SC_ComboBoxArrow, w);
             const bool open = cb->state & State_On;
             const bool pressed = open || ((cb->activeSubControls & SC_ComboBoxArrow) && (cb->state & State_Sunken));
@@ -1565,7 +1673,7 @@ void WatercolorStyle::drawComplexControl(ComplexControl control, const QStyleOpt
 
     case CC_SpinBox:
         if (const auto *sb = qstyleoption_cast<const QStyleOptionSpinBox *>(option)) {
-            drawInputFrame(p, sb->rect, sb->state, tc, x);
+            drawInputFrame(p, sb->rect, sb->state, tc, x, isInvalid(w));
             if (sb->buttonSymbols == QAbstractSpinBox::NoButtons)
                 return;
             for (const SubControl sc : {SC_SpinBoxUp, SC_SpinBoxDown}) {
@@ -1673,7 +1781,7 @@ QRect WatercolorStyle::subElementRect(SubElement element, const QStyleOption *op
         if (const auto *pb = qstyleoption_cast<const QStyleOptionProgressBar *>(option)) {
             const bool horizontal = pb->state & State_Horizontal;
             const QRect r = pb->rect;
-            const int thickness = isSmall(w) ? kProgressThin : kProgressHeight;
+            const int thickness = progressThickness(w);
             int labelWidth = 0;
             if (pb->textVisible && horizontal)
                 labelWidth = pb->fontMetrics.horizontalAdvance(u"100%"_s) + 8;
@@ -1905,19 +2013,24 @@ QSize WatercolorStyle::sizeFromContents(ContentsType type, const QStyleOption *o
     switch (type) {
     case CT_PushButton:
         if (const auto *b = qstyleoption_cast<const QStyleOptionButton *>(option)) {
+            const QString keys = keyHintOf(w);
+            const int chip = keys.isEmpty() ? 0 : kKeyChipGap + keyChipSize(keys).width();
+            if (buttonRole(w) == ButtonRole::Link)
+                return QSize(cs.width() + chip + 4, kLinkHeight);
             const bool segment = !segmentOf(w).isEmpty();
             const bool compact = isSmall(w);
-            const int height = (segment || compact) ? kButtonHeightSmall : kButtonHeight;
-            const int padX = segment ? kSegmentPadX : compact ? kButtonPadXSmall : kButtonPadX;
+            const int height = segment ? segmentHeight(w) : compact ? kButtonHeightSmall : kButtonHeight;
+            const int padX = segment ? segmentPadX(w) : compact ? kButtonPadXSmall : kButtonPadX;
             if (b->text.isEmpty() && !b->icon.isNull())
                 return QSize(std::max(height, cs.width() + 11), height);  // 정사각 27 × 27
-            const int minWidth = (segment || compact) ? 0 : kButtonMinWidth;
-            return QSize(std::max(minWidth, cs.width() + 2 * padX), std::max(height, cs.height() + 6));
+            // 캔버스 워터컬러: 작은 단추 · 칩 단추도 최소 폭 80(watercolor.css가 .btn 최소 폭을 덮어씀 — 보드 그대로)
+            const int minWidth = segment ? 0 : kButtonMinWidth;
+            return QSize(std::max(minWidth, cs.width() + 2 * padX + chip), std::max(height, cs.height() + 6));
         }
         break;
     case CT_ToolButton: {
         if (!segmentOf(w).isEmpty())
-            return QSize(cs.width() + 2 * kSegmentPadX, kButtonHeightSmall);
+            return QSize(cs.width() + 2 * segmentPadX(w), segmentHeight(w));
         return QSize(std::max(kToolButton, cs.width() + 13), std::max(kToolButton, cs.height() + 13));
     }
 
@@ -1941,6 +2054,14 @@ QSize WatercolorStyle::sizeFromContents(ContentsType type, const QStyleOption *o
             return QSize(cs.width() + gap + kSwitchWidth + 2 * kSwitchMargin,
                          std::max(kSwitchHeight + 2 * kSwitchMargin, cs.height()));
         }
+        [[fallthrough]];
+    case CT_RadioButton:
+        if (const QString keys = keyHintOf(w); !keys.isEmpty()) {
+            QSize s = QProxyStyle::sizeFromContents(type, option, cs, w);
+            s.rwidth() += kKeyChipGap + keyChipSize(keys).width();
+            s.setHeight(std::max(s.height(), 20));
+            return s;
+        }
         break;
 
     case CT_TabBarTab:
@@ -1954,7 +2075,7 @@ QSize WatercolorStyle::sizeFromContents(ContentsType type, const QStyleOption *o
         QSize s = QProxyStyle::sizeFromContents(type, option, cs, w);
         if (const auto *h = qstyleoption_cast<const QStyleOptionHeader *>(option);
             h && h->orientation == Qt::Horizontal)
-            s.setHeight(kHeaderHeight);
+            s.setHeight(flatHeader(w) ? kHeaderHeightFlat : kHeaderHeight);
         return s;
     }
     case CT_ItemViewItem: {
@@ -1980,7 +2101,7 @@ QSize WatercolorStyle::sizeFromContents(ContentsType type, const QStyleOption *o
 
     case CT_ProgressBar:
         if (const auto *pb = qstyleoption_cast<const QStyleOptionProgressBar *>(option)) {
-            const int thickness = isSmall(w) ? kProgressThin : kProgressHeight;
+            const int thickness = progressThickness(w);
             if (pb->state & State_Horizontal)
                 return QSize(cs.width(), std::max(thickness, pb->textVisible ? cs.height() : 0));
             return QSize(std::max(thickness, pb->textVisible ? cs.width() : 0), cs.height());
@@ -2074,6 +2195,14 @@ int WatercolorStyle::pixelMetric(PixelMetric metric, const QStyleOption *option,
         break;
     }
     return QProxyStyle::pixelMetric(metric, option, w);
+}
+
+QIcon WatercolorStyle::standardIcon(StandardPixmap standardIcon, const QStyleOption *option, const QWidget *w) const
+{
+    // 관리자 권한 방패 — 목업의 두 색 방패(--shield / --shield-2)
+    if (standardIcon == SP_VistaShield)
+        return shieldIcon(colorsFor(w), 16);
+    return QProxyStyle::standardIcon(standardIcon, option, w);
 }
 
 int WatercolorStyle::styleHint(StyleHint hint, const QStyleOption *option, const QWidget *w,

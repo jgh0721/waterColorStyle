@@ -1,4 +1,6 @@
 #include "fmstyle/FmStyle.h"
+#include "fmstyle/Glyphs.h"
+#include "fmstyle/StylePaint.h"
 
 #include "fmstyle/StyleProps.h"
 #include "fmstyle/ThemeManager.h"
@@ -67,6 +69,58 @@ constexpr int kMenuItemHeight = 28;
 constexpr int kMenuBarItemHeight = 24;
 constexpr int kScrollBarExtent = 12;
 constexpr int kProgressThickness = 6;
+constexpr int kProgressThin = 4;          // fmSize=thin (진행 창 '현재 파일')
+constexpr int kProgressThick = 8;         // fmSize=thick (진행 창 '전체')
+// 밀도(fmDensity) — 대화상자는 목업 파일 작업 대화상자, 설정은 설정 창
+constexpr int kInputHeightDialog = 32;
+constexpr int kButtonHeightSmallDialog = 28;
+constexpr int kSegmentHeightDialog = 32;
+constexpr int kSegmentPadXDialog = 6;
+constexpr int kSegmentHeightSmall = 26;   // fmSize=small
+constexpr int kSegmentPadXSmall = 12;
+constexpr int kSegmentHeightMini = 20;    // fmSize=mini
+constexpr int kSegmentPadXMini = 8;
+constexpr int kHeaderHeightFlat = 28;     // 대화상자 · 설정 표 머리글
+constexpr int kLinkHeight = 24;           // fmRole=link
+constexpr int kKeyChipGap = 8;            // 글자와 키 칩 사이
+
+int inputHeight(const QWidget *w) { return density(w) == Density::Dialog ? kInputHeightDialog : kInputHeight; }
+
+int progressThickness(const QWidget *w)
+{
+    switch (sizeVariant(w)) {
+    case SizeVariant::Thin: return kProgressThin;
+    case SizeVariant::Thick: return kProgressThick;
+    case SizeVariant::Normal:
+    case SizeVariant::Small:
+    case SizeVariant::Mini: break;
+    }
+    return kProgressThickness;
+}
+
+int segmentHeight(const QWidget *w)
+{
+    switch (sizeVariant(w)) {
+    case SizeVariant::Mini: return kSegmentHeightMini;
+    case SizeVariant::Small: return kSegmentHeightSmall;
+    case SizeVariant::Normal:
+    case SizeVariant::Thin:
+    case SizeVariant::Thick: break;
+    }
+    return density(w) == Density::Dialog ? kSegmentHeightDialog : kButtonHeightSmall;
+}
+
+int segmentPadX(const QWidget *w)
+{
+    switch (sizeVariant(w)) {
+    case SizeVariant::Mini: return kSegmentPadXMini;
+    case SizeVariant::Small: return kSegmentPadXSmall;
+    case SizeVariant::Normal:
+    case SizeVariant::Thin:
+    case SizeVariant::Thick: break;
+    }
+    return density(w) == Density::Dialog ? kSegmentPadXDialog : kSegmentPadX;
+}
 
 // ---------------------------------------------------------------------------------------------
 // 그리기 도우미
@@ -195,7 +249,8 @@ QColor buttonTextColor(QStyle::State s, ButtonRole role, bool segment, const The
 }
 
 // 입력 상자 바탕: 필드 색 + 버튼 테두리, 아래 선은 메타 글자색(포커스면 강조색 2 px) — Windows 11 방식.
-void drawInputFrame(QPainter *p, const QRect &rect, QStyle::State s, const ThemeColors &tc)
+// 오류(fmInvalid)면 테두리와 아래 선이 위험색.
+void drawInputFrame(QPainter *p, const QRect &rect, QStyle::State s, const ThemeColors &tc, bool invalid = false)
 {
     const bool enabled = s & QStyle::State_Enabled;
     const bool focus = s & QStyle::State_HasFocus;
@@ -206,7 +261,8 @@ void drawInputFrame(QPainter *p, const QRect &rect, QStyle::State s, const Theme
     if (enabled && hover && !focus)
         bg = mix(bg, tc[T::Fg], 0.025);
     fillRounded(p, r, kRadius, bg);
-    strokeRounded(p, r, kRadius, enabled ? tc[T::BtnLine] : mix(tc[T::BtnLine], tc[T::Win], 0.5));
+    const QColor border = !enabled ? mix(tc[T::BtnLine], tc[T::Win], 0.5) : invalid ? tc[T::Danger] : tc[T::BtnLine];
+    strokeRounded(p, r, kRadius, border);
 
     if (!enabled)
         return;
@@ -215,8 +271,8 @@ void drawInputFrame(QPainter *p, const QRect &rect, QStyle::State s, const Theme
     QPainterPath clip;
     clip.addRoundedRect(QRectF(rect), kRadius, kRadius);
     p->setClipPath(clip);
-    if (focus)
-        p->fillRect(QRectF(rect.left(), rect.bottom() - 1.0, rect.width(), 2.0), tc[T::Accent]);
+    if (focus || invalid)
+        p->fillRect(QRectF(rect.left(), rect.bottom() - 1.0, rect.width(), 2.0), invalid ? tc[T::Danger] : tc[T::Accent]);
     else
         p->fillRect(QRectF(rect.left(), rect.bottom(), rect.width(), 1.0), tc[T::Fg3]);
     p->restore();
@@ -401,17 +457,24 @@ void FmStyle::polish(QWidget *widget)
         widget->setAttribute(Qt::WA_TranslucentBackground, true);
 #endif
 
-    // 목업: 열 머리글과 탭은 12 px. 앱에서 따로 글꼴을 준 위젯은 건드리지 않는다.
+    // 목업: 열 머리글과 탭은 12 px. 앱에서 따로 글꼴을 준 위젯은 건드리지 않는다
+    // (스타일이 준 글꼴은 fmStyledFont로 표시해 두어 디자인을 바꿀 때 다시 건다).
     if ((qobject_cast<QHeaderView *>(widget) || qobject_cast<QTabBar *>(widget))
-        && !widget->testAttribute(Qt::WA_SetFont)) {
+        && (!widget->testAttribute(Qt::WA_SetFont) || boolProp(widget, props::kStyledFont))) {
         QFont f = widget->font();
         f.setPixelSize(12);
         widget->setFont(f);
+        widget->setProperty(props::kStyledFont, true);
     }
 }
 
 void FmStyle::unpolish(QWidget *widget)
 {
+    if (boolProp(widget, props::kStyledFont)) {
+        widget->setProperty(props::kStyledFont, QVariant());
+        widget->setFont(QFont());
+        widget->setAttribute(Qt::WA_SetFont, false);
+    }
 #if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
     if (qobject_cast<QMenu *>(widget) && widget->isWindow())
         widget->setAttribute(Qt::WA_TranslucentBackground, false);
@@ -484,6 +547,13 @@ void FmStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, const QWi
     const bool on = s & State_On;
     const ButtonRole role = buttonRole(w);
     const QRectF r = crisp(option->rect);
+
+    if (role == ButtonRole::Link) {
+        // 링크 단추: 패널 없음. 키보드 포커스만 2 px 둥근 링.
+        if (enabled && keyboardFocus(s))
+            strokeRounded(p, QRectF(option->rect).adjusted(1, 1, -1, -1), kRadius - 1, tc[T::Focus], 2.0);
+        return;
+    }
 
     if (role == ButtonRole::Subtle) {
         if (enabled && (pressed || hover || on)) {
@@ -816,11 +886,21 @@ void FmStyle::drawProgress(ControlElement element, const QStyleOption *option, Q
     // CE_ProgressBarContents
     const QColor color = (pb->state & State_Enabled) ? progressColor(w, tc) : tc[T::Fg3];
     if (pb->minimum == pb->maximum) {
-        // 진행률을 알 수 없음 — 1단계는 가운데 구간만 표시 (움직임은 다음 단계)
-        const QRectF seg = horizontal
-            ? QRectF(g.left() + g.width() * 0.35, g.top(), g.width() * 0.30, g.height())
-            : QRectF(g.left(), g.top() + g.height() * 0.35, g.width(), g.height() * 0.30);
-        fillRounded(p, seg, radius, color);
+        // 진행률을 알 수 없음 — 30 % 구간이 왼쪽에서 오른쪽으로 흐른다. 위상(0 ~ 1)은 fm::ui::ProgressBar가
+        // 동적 속성 fmBusyPhase로 넘긴다. 속성이 없으면(일반 QProgressBar) 가운데에 멈춰 있다.
+        const QVariant phase = w ? w->property(props::kBusyPhase) : QVariant();
+        const qreal start = phase.isValid() ? -0.30 + 1.30 * phase.toReal() : 0.35;
+        QRectF seg = horizontal ? QRectF(g.left() + g.width() * start, g.top(), g.width() * 0.30, g.height())
+                                : QRectF(g.left(), g.top() + g.height() * start, g.width(), g.height() * 0.30);
+        seg = seg.intersected(g);
+        if (!seg.isEmpty()) {
+            p->save();
+            QPainterPath clip;
+            clip.addRoundedRect(g, radius, radius);
+            p->setClipPath(clip);
+            fillRounded(p, seg, radius, color);
+            p->restore();
+        }
         return;
     }
     const double span = double(pb->maximum) - double(pb->minimum);
@@ -852,6 +932,12 @@ void FmStyle::drawShapedFrame(const QStyleOption *option, QPainter *p, const QWi
     if (!f)
         return;
     const ThemeColors &tc = colorsFor(w);
+    if (isFooter(w)) {
+        // 대화상자 버튼 영역 — --foot 바탕 + 위 1 px --line
+        p->fillRect(f->rect, tc[T::Foot]);
+        p->fillRect(QRect(f->rect.left(), f->rect.top(), f->rect.width(), 1), tc[T::Line]);
+        return;
+    }
     if (boolProp(w, props::kCard)) {
         const QRectF r = crisp(f->rect);
         fillRounded(p, r, kCardRadius, tc[T::Surface]);
@@ -908,7 +994,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
     case PE_PanelLineEdit:
         if (const auto *f = qstyleoption_cast<const QStyleOptionFrame *>(option)) {
             if (f->lineWidth > 0) {
-                drawInputFrame(p, f->rect, f->state, tc);
+                drawInputFrame(p, f->rect, f->state, tc, isInvalid(w));
             } else {
                 // 스핀 · 콤보 상자 안의 편집기는 바깥 상자가 바탕을 이미 칠했다.
                 const QWidget *parent = w ? w->parentWidget() : nullptr;
@@ -1083,10 +1169,31 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
     case CE_PushButtonLabel:
         if (const auto *b = qstyleoption_cast<const QStyleOptionButton *>(option)) {
             const bool segment = !segmentOf(w).isEmpty();
+            const ButtonRole role = buttonRole(w);
             QStyleOptionButton copy = *b;
-            copy.palette.setColor(QPalette::ButtonText, buttonTextColor(b->state, buttonRole(w), segment, tc));
+            QColor text = buttonTextColor(b->state, role, segment, tc);
+            if (role == ButtonRole::Link) {
+                text = !(b->state & State_Enabled)                          ? tc[T::Fg3]
+                     : (b->state & (State_MouseOver | State_Sunken))        ? tc[T::Accent]
+                                                                            : tc[T::AccentFg];
+            }
+            copy.palette.setColor(QPalette::ButtonText, text);
             if (b->features & QStyleOptionButton::HasMenu)
                 copy.rect.adjust(0, 0, -14, 0);
+            // 키 칩(fmKeyHint): 글자(+아이콘) 뒤 8 px에 칩 — 글자와 칩을 한 덩어리로 가운데 둔다.
+            const QString keys = keyHintOf(w);
+            QRect chipRect;
+            if (!keys.isEmpty()) {
+                const QSize chip = keyChipSize(keys);
+                int labelWidth = b->fontMetrics.horizontalAdvance(plainText(b->text));
+                if (!b->icon.isNull())
+                    labelWidth += b->iconSize.width() + 4;
+                const int total = labelWidth + kKeyChipGap + chip.width();
+                const int left = copy.rect.left() + (copy.rect.width() - total) / 2;
+                copy.rect = QRect(left, copy.rect.top(), labelWidth, copy.rect.height());
+                chipRect = QRect(left + labelWidth + kKeyChipGap, copy.rect.center().y() - chip.height() / 2 + 1,
+                                 chip.width(), chip.height());
+            }
             const bool bold = segment && (b->state & State_On);
             p->save();
             if (bold) {
@@ -1096,8 +1203,30 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
             }
             QProxyStyle::drawControl(element, &copy, p, w);
             p->restore();
+            if (chipRect.isValid()) {
+                const bool filled = (b->state & State_Enabled)
+                                    && (role == ButtonRole::Primary || role == ButtonRole::Danger);
+                paintKeyChip(p, chipRect, keys, tc, filled ? KeyChipLook::OnFill : KeyChipLook::Normal);
+            }
         }
         return;
+    case CE_CheckBoxLabel:
+    case CE_RadioButtonLabel:
+        // 키 칩(fmKeyHint): 글자 뒤 8 px — 삭제 대화상자의 '휴지통으로 이동(R) [Del]'
+        if (const QString keys = keyHintOf(w); !keys.isEmpty()) {
+            if (const auto *b = qstyleoption_cast<const QStyleOptionButton *>(option)) {
+                QProxyStyle::drawControl(element, option, p, w);
+                int textWidth = b->fontMetrics.horizontalAdvance(plainText(b->text));
+                if (!b->icon.isNull())
+                    textWidth += b->iconSize.width() + 4;
+                const QSize chip = keyChipSize(keys);
+                paintKeyChip(p, QRect(b->rect.left() + textWidth + kKeyChipGap, b->rect.center().y() - chip.height() / 2 + 1,
+                                      chip.width(), chip.height()),
+                             keys, tc);
+                return;
+            }
+        }
+        break;
     case CE_ToolButtonLabel:
         if (const auto *tb = qstyleoption_cast<const QStyleOptionToolButton *>(option)) {
             const bool segment = !segmentOf(w).isEmpty();
@@ -1272,7 +1401,7 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
             QStyle::State s = cb->state;
             if (s & State_On)  // 목록이 열려 있으면 포커스처럼 강조
                 s |= State_HasFocus;
-            drawInputFrame(p, cb->rect, s, tc);
+            drawInputFrame(p, cb->rect, s, tc, isInvalid(w));
             const QRect arrow = proxy()->subControlRect(CC_ComboBox, cb, SC_ComboBoxArrow, w);
             drawChevron(p, QRectF(arrow).center() - QPointF(2, 0), 3.5, Qt::DownArrow,
                         (cb->state & State_Enabled) ? tc[T::Fg3] : tc[T::BtnLine]);
@@ -1281,7 +1410,7 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
 
     case CC_SpinBox:
         if (const auto *sb = qstyleoption_cast<const QStyleOptionSpinBox *>(option)) {
-            drawInputFrame(p, sb->rect, sb->state, tc);
+            drawInputFrame(p, sb->rect, sb->state, tc, isInvalid(w));
             if (sb->buttonSymbols == QAbstractSpinBox::NoButtons)
                 return;
             for (const SubControl sc : {SC_SpinBoxUp, SC_SpinBoxDown}) {
@@ -1424,11 +1553,10 @@ QRect FmStyle::subElementRect(SubElement element, const QStyleOption *option, co
             if (element == SE_ProgressBarLabel)
                 return QRect(r.right() - labelWidth + 1, r.top(), labelWidth, r.height());
             const QRect bar = r.adjusted(0, 0, -labelWidth, 0);
+            const int thickness = progressThickness(w);
             if (horizontal)
-                return QRect(bar.left(), bar.top() + (bar.height() - kProgressThickness) / 2, bar.width(),
-                             kProgressThickness);
-            return QRect(bar.left() + (bar.width() - kProgressThickness) / 2, bar.top(), kProgressThickness,
-                         bar.height());
+                return QRect(bar.left(), bar.top() + (bar.height() - thickness) / 2, bar.width(), thickness);
+            return QRect(bar.left() + (bar.width() - thickness) / 2, bar.top(), thickness, bar.height());
         }
         break;
 
@@ -1586,44 +1714,57 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
     switch (type) {
     case CT_PushButton:
         if (const auto *b = qstyleoption_cast<const QStyleOptionButton *>(option)) {
+            const QString keys = keyHintOf(w);
+            const int chip = keys.isEmpty() ? 0 : kKeyChipGap + keyChipSize(keys).width();
+            if (buttonRole(w) == ButtonRole::Link)
+                return QSize(cs.width() + chip + 4, kLinkHeight);
             const bool segment = !segmentOf(w).isEmpty();
             const bool compact = isSmall(w);
-            const int height = (segment || compact) ? kButtonHeightSmall : kButtonHeight;
-            const int padX = segment ? kSegmentPadX : compact ? kButtonPadXSmall : kButtonPadX;
+            const int smallHeight = density(w) == Density::Dialog ? kButtonHeightSmallDialog : kButtonHeightSmall;
+            const int height = segment ? segmentHeight(w) : compact ? smallHeight : kButtonHeight;
+            const int padX = segment ? segmentPadX(w) : compact ? kButtonPadXSmall : kButtonPadX;
             if (b->text.isEmpty() && !b->icon.isNull())
                 return QSize(std::max(height, cs.width() + 16), height);
             const int minWidth = (segment || compact) ? 0 : kButtonMinWidth;
             // 세그먼트는 켜지면 굵은 글자가 되므로 여유 4 px
-            const int width = cs.width() + 2 * padX + (segment ? 4 : 0);
+            const int width = cs.width() + 2 * padX + (segment ? 4 : 0) + chip;
             return QSize(std::max(minWidth, width), std::max(height, cs.height() + 8));
         }
         break;
     case CT_ToolButton: {
         const bool segment = !segmentOf(w).isEmpty();
         if (segment)
-            return QSize(cs.width() + 2 * kSegmentPadX + 4, kButtonHeightSmall);
+            return QSize(cs.width() + 2 * segmentPadX(w) + 4, segmentHeight(w));
         return QSize(std::max(kButtonHeight, cs.width() + 16), std::max(kButtonHeight, cs.height() + 16));
     }
 
     case CT_LineEdit:
         if (const auto *f = qstyleoption_cast<const QStyleOptionFrame *>(option); f && f->lineWidth > 0)
-            return QSize(cs.width() + 2 * kInputPadX, std::max(kInputHeight, cs.height() + 2));
+            return QSize(cs.width() + 2 * kInputPadX, std::max(inputHeight(w), cs.height() + 2));
         return cs;
     case CT_SpinBox:
         if (const auto *sb = qstyleoption_cast<const QStyleOptionSpinBox *>(option)) {
             const bool buttons = sb->buttonSymbols != QAbstractSpinBox::NoButtons;
             return QSize(cs.width() + kInputPadX + (buttons ? kSpinButtonWidth + 2 : kInputPadX),
-                         std::max(kInputHeight, cs.height() + 4));
+                         std::max(inputHeight(w), cs.height() + 4));
         }
         break;
     case CT_ComboBox:
-        return QSize(cs.width() + kInputPadX + kComboArrowWidth + 4, std::max(kInputHeight, cs.height() + 4));
+        return QSize(cs.width() + kInputPadX + kComboArrowWidth + 4, std::max(inputHeight(w), cs.height() + 4));
 
     case CT_CheckBox:
         if (isSwitch(w)) {
             const int gap = cs.width() > 0 ? kSwitchGap : 0;
             return QSize(cs.width() + gap + kSwitchWidth + 2 * kSwitchMargin,
                          std::max(kSwitchHeight + 2 * kSwitchMargin, cs.height()));
+        }
+        [[fallthrough]];
+    case CT_RadioButton:
+        if (const QString keys = keyHintOf(w); !keys.isEmpty()) {
+            QSize s = QProxyStyle::sizeFromContents(type, option, cs, w);
+            s.rwidth() += kKeyChipGap + keyChipSize(keys).width();
+            s.setHeight(std::max(s.height(), 20));
+            return s;
         }
         break;
 
@@ -1638,7 +1779,7 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
         QSize s = QProxyStyle::sizeFromContents(type, option, cs, w);
         if (const auto *h = qstyleoption_cast<const QStyleOptionHeader *>(option);
             h && h->orientation == Qt::Horizontal)
-            s.setHeight(kHeaderHeight);
+            s.setHeight(flatHeader(w) ? kHeaderHeightFlat : kHeaderHeight);
         return s;
     }
     case CT_ItemViewItem: {
@@ -1665,8 +1806,8 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
     case CT_ProgressBar:
         if (const auto *pb = qstyleoption_cast<const QStyleOptionProgressBar *>(option)) {
             if (pb->state & State_Horizontal)
-                return QSize(cs.width(), pb->textVisible ? std::max(cs.height(), 16) : kProgressThickness);
-            return QSize(pb->textVisible ? std::max(cs.width(), 16) : kProgressThickness, cs.height());
+                return QSize(cs.width(), pb->textVisible ? std::max(cs.height(), 16) : progressThickness(w));
+            return QSize(pb->textVisible ? std::max(cs.width(), 16) : progressThickness(w), cs.height());
         }
         break;
 
@@ -1748,6 +1889,14 @@ int FmStyle::pixelMetric(PixelMetric metric, const QStyleOption *option, const Q
         break;
     }
     return QProxyStyle::pixelMetric(metric, option, w);
+}
+
+QIcon FmStyle::standardIcon(StandardPixmap standardIcon, const QStyleOption *option, const QWidget *w) const
+{
+    // 관리자 권한 방패 — 목업의 두 색 방패(--shield / --shield-2). Windows 시스템 방패 대신 쓴다.
+    if (standardIcon == SP_VistaShield)
+        return shieldIcon(colorsFor(w), 16);
+    return QProxyStyle::standardIcon(standardIcon, option, w);
 }
 
 int FmStyle::styleHint(StyleHint hint, const QStyleOption *option, const QWidget *w,

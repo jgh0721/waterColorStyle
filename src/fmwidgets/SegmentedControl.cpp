@@ -1,5 +1,6 @@
 #include "fmwidgets/SegmentedControl.h"
 
+#include <fmstyle/StylePaint.h>
 #include <fmstyle/StyleProps.h>
 
 #include <QButtonGroup>
@@ -55,12 +56,58 @@ void SegmentedControl::rebuild()
         buttons.append(b);
     }
     fm::style::setSegments(buttons);
+    applyLook();
     if (m_items.isEmpty())
         m_current = -1;
     else
         m_current = std::clamp(m_current < 0 ? 0 : m_current, 0, int(m_items.size()) - 1);
     if (QAbstractButton *b = button(m_current))
         b->setChecked(true);
+    updateGeometry();
+}
+
+void SegmentedControl::setSegmentSize(Size size)
+{
+    if (m_size == size)
+        return;
+    m_size = size;
+    applyLook();
+}
+
+void SegmentedControl::setExpanding(bool expanding)
+{
+    if (m_expanding == expanding)
+        return;
+    m_expanding = expanding;
+    applyLook();
+}
+
+void SegmentedControl::setItemToolTips(const QStringList &toolTips)
+{
+    m_toolTips = toolTips;
+    applyLook();
+}
+
+// 크기 변형 · 글꼴 · 균등 폭 · 도구 설명을 조각에 건다.
+void SegmentedControl::applyLook()
+{
+    const auto buttons = m_group->buttons();
+    for (QAbstractButton *b : buttons) {
+        const int i = m_group->id(b);
+        fm::style::setSizeVariant(b, m_size == Mini    ? fm::style::SizeVariant::Mini
+                                     : m_size == Small ? fm::style::SizeVariant::Small
+                                                       : fm::style::SizeVariant::Normal);
+        if (m_size == Mini)
+            b->setFont(fm::style::pixelFont(QFont(), 11.5));
+        else if (m_size == Small)
+            b->setFont(fm::style::pixelFont(QFont(), 12));
+        else
+            b->setFont(QFont());
+        b->setSizePolicy(m_expanding ? QSizePolicy::Expanding : QSizePolicy::Preferred, QSizePolicy::Fixed);
+        m_layout->setStretch(i, m_expanding ? 1 : 0);
+        b->setToolTip(i < m_toolTips.size() ? m_toolTips.at(i) : QString());
+    }
+    setSizePolicy(m_expanding ? QSizePolicy::Expanding : QSizePolicy::Fixed, QSizePolicy::Fixed);
     updateGeometry();
 }
 

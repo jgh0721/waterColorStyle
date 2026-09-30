@@ -10,7 +10,7 @@ class QWidget;
 
 namespace fm::style {
 
-/// 앱 전체 테마 상태: 디자인(시안1 · 시안2), 색 구성표(시스템/라이트/다크), 기준 색, 직접 지정 값.
+/// 앱 전체 테마 상태: 디자인(시안1 · 시안2), 색 구성표(시스템/라이트/다크), 다크 색조(회색/남색), 기준 색, 직접 지정 값.
 /// install() 한 번으로 스타일(FmStyle 또는 WatercolorStyle), 팔레트, 기본 글꼴을 적용한다.
 class ThemeManager final : public QObject
 {
@@ -19,6 +19,9 @@ class ThemeManager final : public QObject
 public:
     enum class Scheme { System, Light, Dark };
     Q_ENUM(Scheme)
+    /// 다크 계열일 때의 색조. 남색은 시안2(워터컬러)에서만 쓰이고 시안1은 회색(다크)을 쓴다.
+    enum class DarkTone { Gray, Navy };
+    Q_ENUM(DarkTone)
 
     static ThemeManager &instance();
 
@@ -33,7 +36,10 @@ public:
     Scheme scheme() const noexcept { return m_scheme; }
     void setScheme(Scheme scheme);
 
-    /// 지금 화면에 쓰이는 변형 (시스템이면 OS 설정을 따른다).
+    DarkTone darkTone() const noexcept { return m_darkTone; }
+    void setDarkTone(DarkTone tone);
+
+    /// 지금 화면에 쓰이는 변형 (시스템이면 OS 설정을 따른다). 다크 계열 + 시안2 + 남색 색조면 Navy.
     Variant effectiveVariant() const noexcept { return m_effective; }
 
     /// 지금 디자인 · 지금 변형의 색.
@@ -63,6 +69,10 @@ public:
     bool coloredTitleBar() const noexcept { return m_coloredTitleBar; }
     void setColoredTitleBar(bool on);
 
+    /// '액세스 키 밑줄 항상 표시'. 디자인을 바꾸면 스타일 객체가 새로 만들어지므로 여기서 보관하고 다시 건다.
+    bool alwaysShowMnemonics() const noexcept { return m_alwaysMnemonics; }
+    void setAlwaysShowMnemonics(bool on);
+
 Q_SIGNALS:
     void changed();
 
@@ -76,16 +86,19 @@ private:
     void rebuild();
     void apply();
     Variant systemVariant() const;
+    QStyle *makeStyle() const;
     void applyTitleBar(QWidget *window) const;
 
     Design m_design = Design::Standard;
     Scheme m_scheme = Scheme::System;
     Variant m_effective = Variant::Light;
     ThemeSeeds m_seeds;
-    TokenOverrides m_overrides[2][2];  // [디자인][변형]
-    ThemeColors m_colors[2][2];
+    DarkTone m_darkTone = DarkTone::Gray;
+    TokenOverrides m_overrides[2][kVariantCount];  // [디자인][변형] — 시안1의 남색 칸은 쓰지 않는다(다크 칸으로 대체)
+    ThemeColors m_colors[2][kVariantCount];
     bool m_darkTitleBar = true;
     bool m_coloredTitleBar = true;
+    bool m_alwaysMnemonics = false;
     bool m_installed = false;
 };
 

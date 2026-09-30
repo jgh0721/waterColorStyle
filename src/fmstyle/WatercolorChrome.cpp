@@ -146,13 +146,90 @@ WatercolorChrome makeDark()
     return c;
 }
 
+// 캔버스 .fm.navy — 파란 창 틀을 남색으로 낮추고 몸통도 남색. 비활성 제목 · 스크롤 막대 · 도구 설명은
+// 캔버스에 없어 다크 값이 CSS 변수와 맺는 관계를 옮겼다(docs/specs/06-watercolor.md §3.1, §7.4).
+WatercolorChrome makeNavy()
+{
+    WatercolorChrome c;
+    c.out = rgb(0x6C80B0);
+    c.hi = rgb(0x3A4C78);
+    c.lo = rgb(0x0A1022);
+    c.g1 = rgb(0x2C3F6A);
+    c.g2 = rgb(0x24355C);
+    c.g3 = rgb(0x1D2C50);
+    c.h1 = rgb(0x5282C8);
+    c.h2 = rgb(0x4574BA);
+    c.h3 = rgb(0x3C69AC);
+    c.hoverHi = rgb(0x7EA3DA);
+    c.hoverLo = rgb(0x14305F);
+    c.hoverFg = rgb(0xFFFFFF);
+    c.p1 = rgb(0x2A4E8C);
+    c.p2 = rgb(0x244680);
+    c.p3 = rgb(0x1F3E74);
+    c.disLine = rgb(0x2E3D60);
+    c.disFg = rgb(0x6E7EA0);
+    c.fieldOuter = rgb(0x050A18);
+    c.fieldBright = rgb(0x3A4C78);
+    c.fieldInner = rgb(0x0A1022);
+    c.checkOuter = rgb(0x050A18);
+    c.checkInner = rgb(0x02050D);
+    c.checkBright = rgb(0x6C80B0);
+    c.checkLight = rgb(0x34487A);
+    c.title = rgb(0x24488A);
+    c.titleHi = rgb(0x3A62AE);
+    c.titleLo = rgb(0x1A3670);
+    c.titleLo2 = rgb(0x1E3C78);
+    c.titleEdge = rgb(0x3A62AE);
+    c.titleCap = rgb(0x172F60);
+    c.frame = rgb(0x1B346A);
+    c.frameOuter = rgb(0x3A5A9A);
+    c.capFill = rgb(0x172F60);
+    c.capLine = rgb(0x5A78B4);
+    c.capGlyph = rgb(0xD2DEF2);
+    c.capHoverLine = rgb(0xD2DEF2);
+    c.mosaic1 = rgb(0x4C74C2);
+    c.mosaic2 = rgb(0x3E64B0);
+    c.mosaic3 = rgb(0x2C5096);
+    c.titleInactive = rgb(0x243453);
+    c.titleInactiveHi = rgb(0x34466E);
+    c.capInactiveLine = rgb(0x4A5F8E);
+    c.capInactiveGlyph = rgb(0xA9B6D0);
+    c.tab = rgb(0x1D2946);
+    c.tabLine = rgb(0x34487A);
+    c.tabHover = rgb(0x2F4F86);
+    c.tabHi = rgb(0x3A4C78);
+    c.trough = rgb(0x0F172C);
+    c.menuLine = rgb(0x4A5F8E);
+    c.menuHover = rgba(80, 130, 210, 0.38);
+    c.menuHoverLine = rgba(120, 165, 230, 0.60);
+    c.danger1 = rgb(0xC46060);
+    c.danger2 = rgb(0xB04848);
+    c.danger3 = rgb(0x9C3E3E);
+    c.dangerOuter = rgb(0xD89090);
+    c.sbTrack = rgb(0x1D2C50);
+    c.sbThumb = rgb(0x2C3F6A);
+    c.sbThumbLine = rgb(0x4A5F8E);
+    c.sbGrip = rgb(0x4A5F8E);
+    c.sbArrow = rgb(0xE4EAF6);
+    c.tipBg = rgb(0x2E2A1A);
+    c.tipLine = rgb(0x6C80B0);
+    c.tipFg = rgb(0xE4EAF6);
+    return c;
+}
+
 } // namespace
 
 const WatercolorChrome &watercolorChrome(Variant variant) noexcept
 {
     static const WatercolorChrome light = makeLight();
     static const WatercolorChrome dark = makeDark();
-    return variant == Variant::Light ? light : dark;
+    static const WatercolorChrome navy = makeNavy();
+    switch (variant) {
+    case Variant::Light: return light;
+    case Variant::Dark:  return dark;
+    case Variant::Navy:  return navy;
+    }
+    return light;
 }
 
 } // namespace fm::style

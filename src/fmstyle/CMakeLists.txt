@@ -1,5 +1,7 @@
 qt_add_library(fmstyle STATIC
     include/fmstyle/FmStyle.h
+    include/fmstyle/Glyphs.h
+    include/fmstyle/StylePaint.h
     include/fmstyle/StyleProps.h
     include/fmstyle/ThemeColors.h
     include/fmstyle/ThemeManager.h
@@ -9,6 +11,8 @@ qt_add_library(fmstyle STATIC
     ColorMath_p.h
     StyleCommon_p.h
     FmStyle.cpp
+    Glyphs.cpp
+    StylePaint.cpp
     StyleProps.cpp
     ThemeColors.cpp
     ThemeManager.cpp
@@ -30,16 +34,13 @@ target_link_libraries(fmstyle
     PUBLIC
         Qt6::Widgets
     PRIVATE
+        Qt6::Svg
+    PRIVATE
         # DwmSetWindowAttribute (dark title bar)
         $<$<PLATFORM_ID:Windows>:dwmapi>
 )
 
-target_compile_options(fmstyle
-    PRIVATE
-        # Korean string literals are UTF-8; MSVC needs /utf-8 to read them correctly.
-        $<$<CXX_COMPILER_ID:MSVC>:/utf-8 /W4 /permissive- /Zc:__cplusplus>
-        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
-)
+fm_set_compile_options(fmstyle)
 
 # The static library is also linked into the Designer plugin (a shared library).
 set_target_properties(fmstyle PROPERTIES POSITION_INDEPENDENT_CODE ON)

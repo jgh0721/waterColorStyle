@@ -12,8 +12,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 6.4 is the minimum only because the Linux test environment ships it.
 # The product targets Qt 6.11; 6.6+ (QPalette::Accent) and 6.8+ (QStyleHints::setColorScheme)
 # features are used behind QT_VERSION checks.
-find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets)
+# Svg: 목업 아이콘(fmstyle Glyphs)을 SVG 경로 그대로 그린다.
+find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets Svg)
 qt_standard_project_setup()
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(FmCompileOptions)
 
 add_subdirectory(src/fmstyle)
 add_subdirectory(src/fmwidgets)

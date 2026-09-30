@@ -10,7 +10,7 @@
 
 namespace fm::style {
 
-/// 한 디자인 · 한 변형(라이트 또는 다크)의 토큰 51개 값.
+/// 한 디자인 · 한 변형(라이트 · 다크 · 남색)의 토큰 51개 값.
 class ThemeColors
 {
 public:
@@ -24,7 +24,8 @@ public:
 
     Variant variant() const noexcept { return m_variant; }
     Design design() const noexcept { return m_design; }
-    bool isDark() const noexcept { return m_variant == Variant::Dark; }
+    bool isDark() const noexcept { return isDarkVariant(m_variant); }  // 다크 · 남색
+    bool isNavy() const noexcept { return m_variant == Variant::Navy; }
     bool isWatercolor() const noexcept { return m_design == Design::Watercolor; }
 
     QColor color(Token t) const { return m_colors[indexOf(t)]; }

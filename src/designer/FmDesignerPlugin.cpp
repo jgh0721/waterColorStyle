@@ -33,6 +33,18 @@ fm::style::Design previewDesign()
     return design;
 }
 
+// 미리 볼 변형 — FMSTYLE_VARIANT=light | dark | navy. 없으면 Designer 팔레트의 밝기로 고른다(prepare).
+// 남색은 시안2 전용이라 시안1에서는 다크 색이 쓰인다.
+fm::style::Variant previewVariant()
+{
+    const QString v = qEnvironmentVariable("FMSTYLE_VARIANT").trimmed().toLower();
+    if (v == u"navy")
+        return fm::style::Variant::Navy;
+    if (v == u"dark")
+        return fm::style::Variant::Dark;
+    return fm::style::Variant::Light;
+}
+
 // Designer 안에서도 목업처럼 보이도록 만든 위젯에만 스타일을 건다.
 // 팔레트는 건드리지 않는다 — 팔레트를 바꾸면 .ui에 저장될 수 있다.
 QStyle *designerStyle()
@@ -49,8 +61,11 @@ QWidget *prepare(QWidget *w)
         app && (app->inherits("fm::style::FmStyle") || app->inherits("fm::style::WatercolorStyle")))
         return w;
 
-    const bool dark = QApplication::palette().color(QPalette::Window).lightness() < 128;
-    const auto variant = dark ? fm::style::Variant::Dark : fm::style::Variant::Light;
+    fm::style::Variant variant = previewVariant();
+    if (!qEnvironmentVariableIsSet("FMSTYLE_VARIANT")) {
+        const bool dark = QApplication::palette().color(QPalette::Window).lightness() < 128;
+        variant = dark ? fm::style::Variant::Dark : fm::style::Variant::Light;
+    }
     fm::style::ThemeScope::set(w, fm::style::ThemeManager::instance().colors(previewDesign(), variant), false);
     w->setStyle(designerStyle());
     const auto children = w->findChildren<QWidget *>();

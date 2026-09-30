@@ -81,60 +81,60 @@ constexpr bool tableMatchesEnum() noexcept
 }
 static_assert(tableMatchesEnum(), "token table order must match enum Token");
 
-// 시안2(워터컬러) — 캔버스 "파일 관리자 UI(워터컬러)"의 .fm.light / .fm.dark 값. 순서는 enum Token과 같다.
-struct Pair { QRgb light; QRgb dark; };
-constexpr std::array<Pair, kTokenCount> kWatercolor{{
-    {0xFFEBEBE4, 0xFF2E2E2A},  // --win
-    {0xFFEBEBE4, 0xFF2E2E2A},  // --foot
-    {0xFFFFFFFF, 0xFF1F1F1C},  // --surface
-    {0xFFF4F4EF, 0xFF252522},  // --alt
-    {0xFFEBEBE4, 0xFF34342F},  // --head
-    {0xFFFFFFFF, 0xFF1F1F1C},  // --field
-    {0xFFEBEBE4, 0xFF3B3B36},  // --btn
-    {0xFFA1A18C, 0xFF6C6C63},  // --btn-line
-    {0xFFC2C2B1, 0xFF4A4A43},  // --line
-    {0xFFE1E1D7, 0xFF33332E},  // --grid
-    {0xFF000000, 0xFFECECE6},  // --fg
-    {0xFF3D3D38, 0xFFC2C2B8},  // --fg2
-    {0xFF66665F, 0xFF9A9A90},  // --fg3
-    {0xFFFFFFFF, 0xFFFFFFFF},  // --on-accent
-    {0xFFFFFFFF, 0xFFFFFFFF},  // --on-danger
-    {0xFF3367BC, 0xFF3F74CC},  // --accent
-    {0xFF2A559E, 0xFF93B8F2},  // --accent-fg
-    {0xFFD6E3F5, 0xFF2A3A55},  // --accent-soft
-    {0xFF3367BC, 0xFF3367BC},  // --sel          선택은 강조색 채움 + 흰 글자
-    {0xFFD4D4CD, 0xFF45453F},  // --sel-in
-    {0xFF000000, 0xFFECECE6},  // --focus        점선 포커스 · 커서
-    {0xFF24428A, 0xFFD8D8D0},  // --inv-cur
-    {0xFFFFFFFF, 0xFF1F1F1C},  // --on-inv-cur
-    {0xFFFFD75E, 0xFF1A4FB0},  // --inv-cur-sel
-    {0xFF3367BC, 0xFF3367BC},  // --inv-sel
-    {0xFFFFFFFF, 0xFFFFFFFF},  // --on-inv-sel
-    {0xFF8A8A80, 0xFF55554E},  // --inv-sel-in
-    {0xFFF0F0EA, 0xFF2A2A26},  // --tint
-    {0x29FFFFFF, 0x14FFFFFF},  // --tint-sel     흰색 16 % / 8 %
-    {0x24FFFFFF, 0x1A000000},  // --tint-inv     흰색 14 % / 검정 10 %
-    {0xFF8F4A05, 0xFFF2BA52},  // --warn
-    {0xFFFFFFE1, 0xFF3A3318},  // --warn-bg
-    {0xFFD8C878, 0xFF6A5A22},  // --warn-line
-    {0xFFB8231A, 0xFFF2766B},  // --danger
-    {0xFFB84A4A, 0xFFB04848},  // --danger-fill
-    {0xFFFBE9E7, 0xFF3A1E1B},  // --danger-bg
-    {0xFFDFA2A2, 0xFF6E302A},  // --danger-line
-    {0xFF1C7A32, 0xFF6CCB8E},  // --ok
-    {0xFFE4F2E4, 0xFF1A2E20},  // --ok-bg
-    {0xFF8A7A55, 0xFFB8A36E},  // --paused
-    {0xFFE5A11A, 0xFFE5A11A},  // --shield
-    {0xFFB7780B, 0xFFB7780B},  // --shield-2
-    {0xFFE0AA2E, 0xFFD9A441},  // --folder
-    {0xFF2F6BD6, 0xFF5B92F0},  // --k-exe
-    {0xFFC4382D, 0xFFEE6A5E},  // --k-pdf
-    {0xFF138A7E, 0xFF3CC0B0},  // --k-img
-    {0xFF7A4FC4, 0xFFA583E8},  // --k-zip
-    {0xFF2E8540, 0xFF5CBF6E},  // --k-code
-    {0xFF6B7280, 0xFF9AA1AC},  // --k-doc
-    {0xFFA0A6AE, 0xFF6F757E},  // --k-sys
-    {0x4C000000, 0x99000000},  // --shadow       x3 y3 · 30 % / 60 %
+// 시안2(워터컬러) — 캔버스 "파일 관리자 UI(워터컬러)"의 .fm.light / .fm.dark / .fm.navy 값. 순서는 enum Token과 같다.
+struct Triple { QRgb light; QRgb dark; QRgb navy; };
+constexpr std::array<Triple, kTokenCount> kWatercolor{{
+    {0xFFEBEBE4, 0xFF2E2E2A, 0xFF17213A},  // --win
+    {0xFFEBEBE4, 0xFF2E2E2A, 0xFF17213A},  // --foot
+    {0xFFFFFFFF, 0xFF1F1F1C, 0xFF0F172C},  // --surface
+    {0xFFF4F4EF, 0xFF252522, 0xFF131C33},  // --alt
+    {0xFFEBEBE4, 0xFF34342F, 0xFF1D2946},  // --head
+    {0xFFFFFFFF, 0xFF1F1F1C, 0xFF0F172C},  // --field
+    {0xFFEBEBE4, 0xFF3B3B36, 0xFF22325A},  // --btn
+    {0xFFA1A18C, 0xFF6C6C63, 0xFF4A5F8E},  // --btn-line
+    {0xFFC2C2B1, 0xFF4A4A43, 0xFF2C3C62},  // --line
+    {0xFFE1E1D7, 0xFF33332E, 0xFF1A2540},  // --grid
+    {0xFF000000, 0xFFECECE6, 0xFFE4EAF6},  // --fg
+    {0xFF3D3D38, 0xFFC2C2B8, 0xFFAEBBD6},  // --fg2
+    {0xFF66665F, 0xFF9A9A90, 0xFF8494B5},  // --fg3
+    {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF},  // --on-accent
+    {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF},  // --on-danger
+    {0xFF3367BC, 0xFF3F74CC, 0xFF3F74CC},  // --accent
+    {0xFF2A559E, 0xFF93B8F2, 0xFF8FB4F0},  // --accent-fg
+    {0xFFD6E3F5, 0xFF2A3A55, 0xFF22365E},  // --accent-soft
+    {0xFF3367BC, 0xFF3367BC, 0xFF3367BC},  // --sel          선택은 강조색 채움 + 흰 글자
+    {0xFFD4D4CD, 0xFF45453F, 0xFF2D3B5C},  // --sel-in
+    {0xFF000000, 0xFFECECE6, 0xFFE4EAF6},  // --focus        점선 포커스 · 커서
+    {0xFF24428A, 0xFFD8D8D0, 0xFFD5DDF0},  // --inv-cur
+    {0xFFFFFFFF, 0xFF1F1F1C, 0xFF0F172C},  // --on-inv-cur
+    {0xFFFFD75E, 0xFF1A4FB0, 0xFF1A4FB0},  // --inv-cur-sel
+    {0xFF3367BC, 0xFF3367BC, 0xFF3367BC},  // --inv-sel
+    {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF},  // --on-inv-sel
+    {0xFF8A8A80, 0xFF55554E, 0xFF3A4A70},  // --inv-sel-in
+    {0xFFF0F0EA, 0xFF2A2A26, 0xFF16203A},  // --tint
+    {0x29FFFFFF, 0x14FFFFFF, 0x14FFFFFF},  // --tint-sel     흰색 16 % / 8 % / 8 %
+    {0x24FFFFFF, 0x1A000000, 0x1A000000},  // --tint-inv     흰색 14 % / 검정 10 % / 10 %
+    {0xFF8F4A05, 0xFFF2BA52, 0xFFF2BA52},  // --warn
+    {0xFFFFFFE1, 0xFF3A3318, 0xFF2E2A1A},  // --warn-bg
+    {0xFFD8C878, 0xFF6A5A22, 0xFF5A4E22},  // --warn-line
+    {0xFFB8231A, 0xFFF2766B, 0xFFF2766B},  // --danger
+    {0xFFB84A4A, 0xFFB04848, 0xFFB04848},  // --danger-fill
+    {0xFFFBE9E7, 0xFF3A1E1B, 0xFF361B22},  // --danger-bg
+    {0xFFDFA2A2, 0xFF6E302A, 0xFF6A2D38},  // --danger-line
+    {0xFF1C7A32, 0xFF6CCB8E, 0xFF6CCB8E},  // --ok
+    {0xFFE4F2E4, 0xFF1A2E20, 0xFF142A26},  // --ok-bg
+    {0xFF8A7A55, 0xFFB8A36E, 0xFFB8A36E},  // --paused
+    {0xFFE5A11A, 0xFFE5A11A, 0xFFE5A11A},  // --shield
+    {0xFFB7780B, 0xFFB7780B, 0xFFB7780B},  // --shield-2
+    {0xFFE0AA2E, 0xFFD9A441, 0xFFD9A441},  // --folder
+    {0xFF2F6BD6, 0xFF5B92F0, 0xFF5B92F0},  // --k-exe
+    {0xFFC4382D, 0xFFEE6A5E, 0xFFEE6A5E},  // --k-pdf
+    {0xFF138A7E, 0xFF3CC0B0, 0xFF3CC0B0},  // --k-img
+    {0xFF7A4FC4, 0xFFA583E8, 0xFFA583E8},  // --k-zip
+    {0xFF2E8540, 0xFF5CBF6E, 0xFF5CBF6E},  // --k-code
+    {0xFF6B7280, 0xFF9AA1AC, 0xFF9AA1AC},  // --k-doc
+    {0xFFA0A6AE, 0xFF6F757E, 0xFF6F757E},  // --k-sys
+    {0x4C000000, 0x99000000, 0xA6000000},  // --shadow       x3 y3 · 30 % / 60 % / 65 %
 }};
 
 } // namespace
@@ -161,18 +161,31 @@ QString tokenCssName(Token t)
 
 QRgb builtinColor(Token t, Variant variant, Design design) noexcept
 {
-    const bool light = variant == Variant::Light;
     if (design == Design::Watercolor) {
-        const Pair &p = kWatercolor[indexOf(t)];
-        return light ? p.light : p.dark;
+        const Triple &p = kWatercolor[indexOf(t)];
+        switch (variant) {
+        case Variant::Light: return p.light;
+        case Variant::Dark:  return p.dark;
+        case Variant::Navy:  return p.navy;
+        }
     }
     const TokenInfo &info = kTokens[indexOf(t)];
-    return light ? info.light : info.dark;
+    return variant == Variant::Light ? info.light : info.dark;  // 시안1에는 남색이 없다 → 다크
 }
 
 QString designLabel(Design design)
 {
     return design == Design::Watercolor ? QStringLiteral("시안2 · 워터컬러") : QStringLiteral("시안1 · 기본");
+}
+
+QString variantLabel(Variant variant)
+{
+    switch (variant) {
+    case Variant::Light: return QStringLiteral("라이트");
+    case Variant::Dark:  return QStringLiteral("다크");
+    case Variant::Navy:  return QStringLiteral("다크(남색)");
+    }
+    return {};
 }
 
 } // namespace fm::style

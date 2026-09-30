@@ -15,8 +15,17 @@ class SegmentedControl : public QWidget
     Q_OBJECT
     Q_PROPERTY(QStringList items READ items WRITE setItems)
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
+    Q_PROPERTY(Size size READ segmentSize WRITE setSegmentSize)
+    Q_PROPERTY(bool expanding READ isExpanding WRITE setExpanding)
+    Q_PROPERTY(QStringList itemToolTips READ itemToolTips WRITE setItemToolTips)
 
 public:
+    // Qt Designer · uic 호환을 위해 범위 없는 enum.
+    /// Mini: 높이 20 · 11.5 px(그래프 축 전환), Small: 26 · 12 px(레코드 전환),
+    /// Normal: 창 밀도를 따른다(대화상자 32 · 설정 30 · 메인 창 시안1 30 / 시안2 24).
+    enum Size { Mini, Small, Normal };
+    Q_ENUM(Size)
+
     explicit SegmentedControl(QWidget *parent = nullptr);
     explicit SegmentedControl(const QStringList &items, QWidget *parent = nullptr);
 
@@ -25,6 +34,16 @@ public:
 
     int currentIndex() const noexcept { return m_current; }
     void setCurrentIndex(int index);
+
+    Size segmentSize() const noexcept { return m_size; }
+    void setSegmentSize(Size size);
+
+    /// 조각을 같은 폭으로 늘려 가로를 채운다(다중 이름 변경의 확장자 대소문자).
+    bool isExpanding() const noexcept { return m_expanding; }
+    void setExpanding(bool expanding);
+
+    QStringList itemToolTips() const { return m_toolTips; }
+    void setItemToolTips(const QStringList &toolTips);
 
     int count() const noexcept { return int(m_items.size()); }
     QAbstractButton *button(int index) const;
@@ -37,9 +56,13 @@ protected:
 
 private:
     void rebuild();
+    void applyLook();
 
     QStringList m_items;
+    QStringList m_toolTips;
     int m_current = -1;
+    Size m_size = Normal;
+    bool m_expanding = false;
     QHBoxLayout *m_layout = nullptr;
     QButtonGroup *m_group = nullptr;
 };

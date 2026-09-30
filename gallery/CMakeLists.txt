@@ -8,8 +8,4 @@ target_link_libraries(fmstyle_gallery
         Fm::widgets
 )
 
-target_compile_options(fmstyle_gallery
-    PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/utf-8 /W4 /permissive- /Zc:__cplusplus>
-        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
-)
+fm_set_compile_options(fmstyle_gallery)

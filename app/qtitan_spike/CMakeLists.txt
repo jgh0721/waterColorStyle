@@ -9,8 +9,4 @@ target_link_libraries(qtitan_spike
         Qtitan::Grid
 )
 
-target_compile_options(qtitan_spike
-    PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/utf-8 /W4 /permissive- /Zc:__cplusplus>
-        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
-)
+fm_set_compile_options(qtitan_spike)

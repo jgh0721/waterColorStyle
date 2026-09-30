@@ -3,11 +3,23 @@
 //   fmstyle_gallery --design watercolor   시안2(워터컬러)로 시작
 //   fmstyle_gallery --shot gallery.png    스크린샷을 저장하고 끝냄 (QT_QPA_PLATFORM=offscreen 가능)
 //   fmstyle_gallery --accent "#0F7A6E"    강조색을 바꿔 파생 규칙 확인
+//   fmstyle_gallery --parts               대화상자 부품 구역만
+//   fmstyle_gallery --dark-tone navy      시안2 다크를 남색으로
 
 #include <fmstyle/FmStyle.h>
 #include <fmstyle/StyleProps.h>
 #include <fmstyle/ThemeManager.h>
+#include <fmwidgets/Banner.h>
+#include <fmwidgets/Button.h>
+#include <fmwidgets/DialogFooter.h>
+#include <fmwidgets/DialogHeader.h>
+#include <fmwidgets/KeyChip.h>
+#include <fmwidgets/Label.h>
+#include <fmwidgets/ProgressBar.h>
+#include <fmwidgets/SegmentedControl.h>
+#include <fmwidgets/Tag.h>
 #include <fmwidgets/TransferGraph.h>
+#include <fmstyle/StylePaint.h>
 
 #include <QApplication>
 #include <QButtonGroup>
@@ -667,6 +679,175 @@ QWidget *chromeSection(const fs::ThemeColors &tc)
     return box;
 }
 
+// 대화상자 부품 — 머리 블록 · 배너 · 태그 · 키 칩 · 밀도별 입력 · 세그먼트 크기 · 진행 막대 두께 ·
+// 평면 표 머리글 · 글자 역할 · 버튼 영역(키 칩 단추 · 링크 단추). 목업: 복사 · 삭제 · 진행 · 권한 대화상자.
+QWidget *dialogPartsSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"대화상자 부품"_s);
+    auto *v = new QVBoxLayout(box);
+    v->setContentsMargins(14, 12, 14, 14);
+    v->setSpacing(12);
+
+    // 머리 블록 3종
+    auto *h1 = new fm::ui::DialogHeader;
+    h1->setGlyph(fm::ui::glyph::Copy);
+    h1->setTitle(u"3개 항목 복사"_s);
+    h1->setSubtitle(u"Qt-6.11.0-windows-x64-msvc2026-offline-installer-with-debug-symbols.exe 외 2개 · 3.95 GB · D:\\Downloads"_s);
+    h1->setSubtitleElide(Qt::ElideMiddle);
+    auto *h2 = new fm::ui::DialogHeader;
+    h2->setGlyph(fm::ui::glyph::Trash);
+    h2->setTone(fm::ui::DialogHeader::Danger);
+    h2->setTitle(u"3개 항목을 영구 삭제"_s);
+    h2->setSubtitle(u"휴지통을 거치지 않으며 되돌릴 수 없습니다"_s);
+    auto *h3 = new fm::ui::DialogHeader;
+    h3->setGlyph(fm::ui::glyph::Shield);
+    h3->setTone(fm::ui::DialogHeader::Warn);
+    h3->setTitle(u"이름을 바꾸려면 관리자 권한이 필요합니다"_s);
+    h3->setSubtitle(u"이 폴더의 항목은 관리자만 이름을 바꿀 수 있습니다."_s);
+    h3->setSubtitleWrap(true);
+    for (auto *h : {h1, h2, h3})
+        v->addWidget(h);
+
+    // 배너 3종
+    v->addWidget(new fm::ui::Banner(fm::ui::Banner::Info, fm::ui::glyph::Info,
+                                    u"휴지통으로 옮긴 항목은 <b>30일</b> 동안 되살릴 수 있습니다."_s));
+    v->addWidget(new fm::ui::Banner(fm::ui::Banner::Warn, fm::ui::glyph::Shield,
+                                    u"관리자 권한으로 남은 항목 12개를 처리하고 있습니다."_s));
+    v->addWidget(new fm::ui::Banner(fm::ui::Banner::Danger, fm::ui::glyph::Warning,
+                                    u"영구 삭제한 항목은 되돌릴 수 없습니다."_s));
+
+    // 태그 · 키 칩
+    auto *tags = new QHBoxLayout;
+    tags->setSpacing(6);
+    auto *okTag = new fm::ui::Tag(u"이 이름을 쓸 수 있습니다"_s, fm::ui::Tag::Ok);
+    okTag->setGlyph(fm::ui::glyph::Check);
+    tags->addWidget(new fm::ui::Tag(u"이동"_s, fm::ui::Tag::Info));
+    tags->addWidget(new fm::ui::Tag(u"같은 볼륨 · 즉시 처리"_s, fm::ui::Tag::Mute));
+    tags->addWidget(okTag);
+    auto *bad = new fm::ui::Tag(u"잘못된 이름"_s, fm::ui::Tag::Bad);
+    bad->setCompact(true);
+    tags->addWidget(bad);
+    tags->addSpacing(8);
+    for (const QString &k : {u"F2"_s, u"Alt+1"_s, u"Del"_s})
+        tags->addWidget(new fm::ui::KeyChip(k));
+    tags->addStretch(1);
+    v->addLayout(tags);
+
+    // 대화상자 밀도의 입력(32) · 오류 입력 · 세그먼트 크기 · 진행 막대 두께
+    auto *dense = new QWidget;
+    fs::setDensity(dense, fs::Density::Dialog);
+    auto *grid = new QGridLayout(dense);
+    grid->setContentsMargins(0, 0, 0, 0);
+    grid->setHorizontalSpacing(8);
+    grid->setVerticalSpacing(6);
+    auto *path = new QLineEdit(u"E:\\Backup\\Installers\\"_s);
+    path->setFont(fs::monoFont(13));
+    auto *policy = new QComboBox;
+    policy->addItem(u"매번 묻기"_s);
+    auto *invalid = new QLineEdit(u"report:2026?.pdf"_s);
+    fs::setInvalid(invalid);
+    grid->addWidget(new fm::ui::Label(u"대상 폴더(D) · 대화상자 밀도 32"_s, fm::ui::Label::FieldLabel), 0, 0);
+    grid->addWidget(new fm::ui::Label(u"파일이 이미 있을 때(E)"_s, fm::ui::Label::FieldLabel), 0, 1);
+    grid->addWidget(path, 1, 0);
+    grid->addWidget(policy, 1, 1);
+    grid->addWidget(invalid, 2, 0);
+    auto *help = new fm::ui::Label(u"이름에 쓸 수 없는 문자: ? :"_s, fm::ui::Label::Help);
+    help->setTone(fm::ui::Label::Danger);
+    grid->addWidget(help, 2, 1);
+    auto *segs = new QHBoxLayout;
+    segs->setSpacing(8);
+    auto *mini = new fm::ui::SegmentedControl({u"진행률"_s, u"시간"_s});
+    mini->setSegmentSize(fm::ui::SegmentedControl::Mini);
+    auto *small = new fm::ui::SegmentedControl({u"1줄"_s, u"2줄"_s, u"자동"_s});
+    small->setSegmentSize(fm::ui::SegmentedControl::Small);
+    small->setCurrentIndex(2);
+    auto *normal = new fm::ui::SegmentedControl({u"그대로"_s, u"소문자"_s, u"대문자"_s});
+    normal->setExpanding(true);
+    segs->addWidget(mini);
+    segs->addWidget(small);
+    segs->addWidget(normal, 1);
+    grid->addLayout(segs, 3, 0, 1, 2);
+    auto *thin = new fm::ui::ProgressBar;
+    thin->setThickness(fm::ui::ProgressBar::ThinBar);
+    thin->setValue(72);
+    auto *thick = new fm::ui::ProgressBar;
+    thick->setThickness(fm::ui::ProgressBar::ThickBar);
+    thick->setValue(37);
+    auto *busy = new fm::ui::ProgressBar;
+    busy->setRange(0, 0);
+    grid->addWidget(thin, 4, 0);
+    grid->addWidget(thick, 4, 1);
+    grid->addWidget(busy, 5, 0, 1, 2);
+    v->addWidget(dense);
+
+    // 글자 역할 · 평면 표 머리글
+    auto *stats = new QHBoxLayout;
+    stats->setSpacing(18);
+    for (const auto &[label, value] : {std::pair{u"속도"_s, u"172 MB/s"_s}, {u"남은 시간"_s, u"약 14초"_s}, {u"항목"_s, u"2,418 / 3,902"_s}}) {
+        auto *col = new QVBoxLayout;
+        col->setSpacing(0);
+        col->addWidget(new fm::ui::Label(label, fm::ui::Label::StatLabel));
+        col->addWidget(new fm::ui::Label(value, fm::ui::Label::StatValue));
+        stats->addLayout(col);
+    }
+    stats->addWidget(new fm::ui::Label(u"37%"_s, fm::ui::Label::BigNumber));
+    stats->addStretch(1);
+    v->addLayout(stats);
+    auto *table = new QTreeWidget;
+    table->setColumnCount(3);
+    table->setHeaderLabels({u"원래 이름"_s, u"새 이름"_s, u"상태"_s});
+    table->setRootIsDecorated(false);
+    table->setFixedHeight(84);
+    fs::setFlatHeader(table);
+    for (const QStringList &row : {QStringList{u"DSC04417.arw"_s, u"2026-09-14_제주_001.arw"_s, u"변경"_s},
+                                   QStringList{u"report?.pdf"_s, u"report?.pdf"_s, u"잘못된 이름"_s}})
+        table->addTopLevelItem(new QTreeWidgetItem(row));
+    v->addWidget(table);
+
+    // 버튼 영역 — 키 칩 단추 · 링크 단추 · 키 칩 라디오 · 기본 · 취소
+    auto *footer = new fm::ui::DialogFooter;
+    auto *fl = new QHBoxLayout(footer);
+    fl->setContentsMargins(24, 16, 24, 16);
+    fl->setSpacing(8);
+    auto *queue = new fm::ui::Button(u"대기열에 추가(&Q)"_s);
+    queue->setKeyHint(u"F2"_s);
+    auto *link = new fm::ui::Button(u"간단히 보기(&D)"_s);
+    link->setRole(fm::ui::Button::Link);
+    link->setGlyph(fm::ui::glyph::ChevronUp);
+    auto *primary = new fm::ui::Button(u"복사(&C)"_s);
+    primary->setRole(fm::ui::Button::Primary);
+    primary->setDefault(true);
+    auto *cancel = new fm::ui::Button(u"취소"_s);
+    fl->addWidget(queue);
+    fl->addWidget(link);
+    fl->addStretch(1);
+    fl->addWidget(primary);
+    fl->addWidget(cancel);
+    v->addWidget(footer);
+    auto *radios = new QHBoxLayout;
+    auto *trashRadio = new QRadioButton(u"휴지통으로 이동(&R)"_s);
+    trashRadio->setChecked(true);
+    fs::setKeyHint(trashRadio, u"Del"_s);
+    auto *permRadio = new QRadioButton(u"영구 삭제(&P)"_s);
+    fs::setKeyHint(permRadio, u"Shift+Del"_s);
+    auto *danger = new fm::ui::Button(u"영구 삭제"_s);
+    danger->setRole(fm::ui::Button::Danger);
+    danger->setGlyph(fm::ui::glyph::Trash);
+    auto *shieldButton = new QPushButton(u"관리자 권한으로 이름 바꾸기(&R)"_s);
+    shieldButton->setIcon(shieldButton->style()->standardIcon(QStyle::SP_VistaShield, nullptr, shieldButton));
+    radios->addWidget(trashRadio);
+    radios->addWidget(permRadio);
+    radios->addStretch(1);
+    radios->addWidget(danger);
+    v->addLayout(radios);
+    v->addWidget(shieldButton, 0, Qt::AlignLeft);
+    Q_UNUSED(tc)
+    return box;
+}
+
+// --parts: 대화상자 부품 구역만 (목업 대조용)
+bool g_partsOnly = false;
+
 QWidget *buildTile(fs::Variant variant)
 {
     const fs::ThemeColors &tc = fs::ThemeManager::instance().colors(variant);
@@ -678,12 +859,18 @@ QWidget *buildTile(fs::Variant variant)
     v->setContentsMargins(20, 16, 20, 20);
     v->setSpacing(14);
     const QString design = fs::designLabel(tc.design());
-    auto *title = caption(design + (variant == fs::Variant::Light ? u" · 라이트"_s : u" · 다크"_s), tc, 12);
+    auto *title = caption(design + u" · "_s + fs::variantLabel(variant), tc, 12);
     QFont tf = title->font();
     tf.setWeight(QFont::DemiBold);
     title->setFont(tf);
     v->addWidget(title);
+    if (g_partsOnly) {
+        v->addWidget(dialogPartsSection(tc));
+        v->addStretch(1);
+        return tile;
+    }
     v->addWidget(buttonsSection(tc));
+    v->addWidget(dialogPartsSection(tc));
     v->addWidget(inputsSection(tc));
     v->addWidget(choicesSection(tc));
     v->addWidget(listsSection(tc));
@@ -709,8 +896,13 @@ int main(int argc, char *argv[])
     const QCommandLineOption delayOption(u"shot-delay"_s, u"스크린샷까지 기다릴 시간(ms)."_s, u"ms"_s, u"400"_s);
     const QCommandLineOption designOption(u"design"_s, u"시작 디자인: standard(시안1) · watercolor(시안2)."_s,
                                           u"name"_s, u"standard"_s);
-    parser.addOptions({shotOption, accentOption, noFixOption, delayOption, designOption});
+    const QCommandLineOption partsOption(u"parts"_s, u"대화상자 부품 구역만 보입니다."_s);
+    const QCommandLineOption toneOption(u"dark-tone"_s, u"다크 색조: gray · navy (시안2)."_s, u"tone"_s, u"gray"_s);
+    parser.addOptions({shotOption, accentOption, noFixOption, delayOption, designOption, partsOption, toneOption});
     parser.process(app);
+    g_partsOnly = parser.isSet(partsOption);
+    if (parser.value(toneOption) == u"navy"_s)
+        fs::ThemeManager::instance().setDarkTone(fs::ThemeManager::DarkTone::Navy);
 
     auto &theme = fs::ThemeManager::instance();
     const QString designName = parser.value(designOption).toLower();
@@ -762,6 +954,9 @@ int main(int argc, char *argv[])
         }
         h->addWidget(buildTile(fs::Variant::Light), 1);
         h->addWidget(buildTile(fs::Variant::Dark), 1);
+        // 다크(남색)는 시안2 전용 — Main 보드처럼 라이트 · 다크 · 다크(남색) 세 타일
+        if (fs::ThemeManager::instance().design() == fs::Design::Watercolor)
+            h->addWidget(buildTile(fs::Variant::Navy), 1);
         TransferSimulator::instance().refreshReadouts();
     };
     rebuild();
