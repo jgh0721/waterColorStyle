@@ -64,6 +64,7 @@ void setSizeVariant(QWidget *widget, SizeVariant variant)
     case SizeVariant::Mini: value = u"mini"_s; break;
     case SizeVariant::Thin: value = u"thin"_s; break;
     case SizeVariant::Thick: value = u"thick"_s; break;
+    case SizeVariant::Compact: value = u"compact"_s; break;
     case SizeVariant::Normal: break;
     }
     setAndRefresh(widget, props::kSize, value.isEmpty() ? QVariant() : QVariant(value), true);
@@ -80,6 +81,8 @@ SizeVariant sizeVariant(const QWidget *widget)
         return SizeVariant::Thin;
     if (v == u"thick")
         return SizeVariant::Thick;
+    if (v == u"compact")
+        return SizeVariant::Compact;
     return SizeVariant::Normal;
 }
 

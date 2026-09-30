@@ -1,13 +1,20 @@
 qt_add_library(fmwidgets STATIC
     include/fmwidgets/Banner.h
+    include/fmwidgets/BreadcrumbBar.h
     include/fmwidgets/Button.h
     include/fmwidgets/Card.h
+    include/fmwidgets/CommandLine.h
     include/fmwidgets/DialogChrome.h
     include/fmwidgets/DialogFooter.h
     include/fmwidgets/DialogHeader.h
+    include/fmwidgets/DriveButton.h
+    include/fmwidgets/FindBox.h
+    include/fmwidgets/FunctionKeyBar.h
     include/fmwidgets/Glyph.h
     include/fmwidgets/KeyChip.h
     include/fmwidgets/Label.h
+    include/fmwidgets/PanelStatusBar.h
+    include/fmwidgets/PanelTabStrip.h
     include/fmwidgets/ProgressBar.h
     include/fmwidgets/SegmentedControl.h
     include/fmwidgets/Switch.h
@@ -17,6 +24,8 @@ qt_add_library(fmwidgets STATIC
     DialogHeader.cpp
     DialogParts.cpp
     Label.cpp
+    MainBars.cpp
+    PanelChrome.cpp
     SegmentedControl.cpp
     TransferGraph.cpp
 )

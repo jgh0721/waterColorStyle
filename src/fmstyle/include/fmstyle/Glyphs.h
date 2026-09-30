@@ -42,6 +42,19 @@ enum class Glyph : std::uint8_t {
     Undo,
     ReturnArrow,
     Close,
+    // 메인 창(01 §1.3) — 도구 모음 · 주소 줄 · 보기 세그먼트
+    Back,
+    Forward,
+    ArrowUp,
+    Refresh,
+    Move,
+    MultiRename,
+    Search,
+    Drive,
+    ChevronRight,   // viewBox 12 — 경로 조각 사이
+    ViewOneLine,
+    ViewTwoLine,
+    ViewThumbnails,
 
     Count
 };
@@ -52,6 +65,16 @@ void paintGlyph(QPainter *painter, Glyph glyph, const QRectF &rect, const QColor
 
 /// 한 색(또는 두 색) 아이콘. px는 논리 크기, 고해상도 화면용으로 2배 픽스맵도 넣는다.
 QIcon glyphIcon(Glyph glyph, const QColor &primary, int px = 16, const QColor &secondary = QColor());
+
+/// 상태별 색 — normal은 필수, 나머지는 비어 있으면 넣지 않는다(Qt가 normal에서 만든다).
+struct GlyphStateColors
+{
+    QColor normal;
+    QColor active;    // 마우스 올림(QIcon::Active)
+    QColor disabled;
+    QColor on;        // 켜짐(QIcon::On) — 세그먼트 · 토글
+};
+QIcon glyphIcon(Glyph glyph, const GlyphStateColors &colors, int px = 16);
 
 /// 방패 아이콘(--shield / --shield-2). QStyle::SP_VistaShield로도 얻는다.
 QIcon shieldIcon(const ThemeColors &colors, int px = 16);

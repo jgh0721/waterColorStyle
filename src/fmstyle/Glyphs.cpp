@@ -59,6 +59,21 @@ const std::array<Def, std::size_t(Glyph::Count)> &defs()
         {16, FM_STROKE("1.4") "<path d='M5.5 3L2.5 6l3 3'/><path d='M2.5 6h7a4 4 0 0 1 0 8h-2'/></g>"},
         {16, FM_STROKE("1.4") "<path d='M4 3v5a2 2 0 0 0 2 2h7M10.5 7.5L13 10l-2.5 2.5'/></g>"},
         {10, "<g fill='none' stroke='%1' stroke-width='1'><path d='M0.5 0.5l9 9M9.5 0.5l-9 9'/></g>"},
+        // 메인 창 도구 모음(선 1.4) · 찾기(1.5) · 드라이브(1.3) · 경로 꺾쇠(1.3) · 보기 세그먼트(1.4)
+        {16, FM_STROKE("1.4") "<path d='M10 3L5 8l5 5'/></g>"},
+        {16, FM_STROKE("1.4") "<path d='M6 3l5 5-5 5'/></g>"},
+        {16, FM_STROKE("1.4") "<path d='M8 13V3.5M4.5 7L8 3.5L11.5 7'/></g>"},
+        {16, FM_STROKE("1.4") "<path d='M13 8a5 5 0 1 1-1.5-3.6'/><path d='M13 2.5V5h-2.5'/></g>"},
+        {16, FM_STROKE("1.4") "<path d='M2 8h9.5M8.5 4.5L12 8l-3.5 3.5'/><path d='M14 3v10'/></g>"},
+        {16, FM_STROKE("1.4") "<path d='M2 3.5h7M2 7h5M2 10.5h3.5'/><path d='M11.5 6.5l2 2L9 13H7v-2z'/></g>"},
+        {16, FM_STROKE("1.5") "<circle cx='7' cy='7' r='4.5'/><path d='M10.5 10.5L14 14'/></g>"},
+        {16, FM_STROKE("1.3") "<rect x='1.5' y='4.5' width='13' height='7' rx='1.5'/></g>"
+             "<circle cx='11.5' cy='8' r='0.9' fill='%1'/>"},
+        {12, FM_STROKE("1.3") "<path d='M4.5 2.5L8 6L4.5 9.5'/></g>"},
+        {16, FM_STROKE("1.4") "<path d='M2.5 4h11M2.5 8h11M2.5 12h11'/></g>"},
+        {16, FM_STROKE("1.4") "<path d='M2.5 3h11M2.5 6h6.5M2.5 10h11M2.5 13h6.5'/></g>"},
+        {16, FM_STROKE("1.4") "<rect x='2' y='2' width='5' height='5' rx='1'/><rect x='9' y='2' width='5' height='5' rx='1'/>"
+             "<rect x='2' y='9' width='5' height='5' rx='1'/><rect x='9' y='9' width='5' height='5' rx='1'/></g>"},
     }};
     return table;
 }
@@ -148,6 +163,32 @@ QIcon glyphIcon(Glyph glyph, const QColor &primary, int px, const QColor &second
         p.end();
         icon.addPixmap(pm);
     }
+    return icon;
+}
+
+QIcon glyphIcon(Glyph glyph, const GlyphStateColors &colors, int px)
+{
+    QIcon icon;
+    if (glyph == Glyph::None || glyph == Glyph::Count)
+        return icon;
+    auto add = [&](const QColor &color, QIcon::Mode mode, QIcon::State state) {
+        if (!color.isValid())
+            return;
+        for (const qreal dpr : {1.0, 2.0}) {
+            QPixmap pm(QSize(px, px) * dpr);
+            pm.setDevicePixelRatio(dpr);
+            pm.fill(Qt::transparent);
+            QPainter p(&pm);
+            paintGlyph(&p, glyph, QRectF(0, 0, px, px), color);
+            p.end();
+            icon.addPixmap(pm, mode, state);
+        }
+    };
+    add(colors.normal, QIcon::Normal, QIcon::Off);
+    add(colors.active, QIcon::Active, QIcon::Off);
+    add(colors.disabled, QIcon::Disabled, QIcon::Off);
+    add(colors.on, QIcon::Normal, QIcon::On);
+    add(colors.on, QIcon::Active, QIcon::On);
     return icon;
 }
 

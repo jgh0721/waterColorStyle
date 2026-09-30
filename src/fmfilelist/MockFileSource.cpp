@@ -193,4 +193,100 @@ MockFolder thumbnailPreview()
     return f;
 }
 
+namespace {
+
+QString cleanPath(QString path)
+{
+    path.replace(u'/', u'\\');
+    while (path.size() > 3 && path.endsWith(u'\\'))
+        path.chop(1);
+    if (path.size() == 2 && path.at(1) == u':')
+        path += u'\\';
+    return path;
+}
+
+} // namespace
+
+QString parentPath(const QString &path)
+{
+    const QString p = cleanPath(path);
+    if (p.size() <= 3)
+        return QString();
+    const qsizetype slash = p.lastIndexOf(u'\\');
+    return slash <= 2 ? p.left(3) : p.left(slash);
+}
+
+QStringList pathSegments(const QString &path)
+{
+    const QString p = cleanPath(path);
+    return p.mid(3).split(u'\\', Qt::SkipEmptyParts);
+}
+
+QString pathPrefix(const QString &path, int segments)
+{
+    const QString p = cleanPath(path);
+    const QStringList parts = pathSegments(p);
+    QString result = p.left(3);
+    for (int i = 0; i < segments && i < parts.size(); ++i)
+        result = childPath(result, parts.at(i));
+    return result;
+}
+
+QString childPath(const QString &path, const QString &name)
+{
+    const QString p = cleanPath(path);
+    return p.endsWith(u'\\') ? p + name : p + u'\\' + name;
+}
+
+MockFolder folder(const QString &path)
+{
+    const QString p = cleanPath(path);
+    if (p.compare(u"D:\\Work\\fm-core"_s, Qt::CaseInsensitive) == 0)
+        return left();
+    if (p.compare(u"D:\\Downloads"_s, Qt::CaseInsensitive) == 0)
+        return right();
+
+    MockFolder f;
+    f.path = p;
+    f.volumeLabel = u"새 볼륨"_s;
+    f.freeText = u"여유 312 GB / 1.82 TB"_s;
+    const QString key = p.toLower();
+    if (key == u"d:\\") {
+        f.entries = {
+            folder(u"Backup"_s, u"2026-09-27 23:50"_s),
+            folder(u"Downloads"_s, u"2026-09-27 23:14"_s),
+            folder(u"Work"_s, u"2026-09-28 09:12"_s),
+            file(u"desktop"_s, u"ini"_s, u"구성 설정"_s, 174, u"2026-08-01 09:00"_s, u"-ahs"_s, Kind::Sys),
+        };
+    } else if (key == u"d:\\work") {
+        f.entries = {
+            up(),
+            folder(u"fm-core"_s, u"2026-09-28 09:12"_s),
+            folder(u"qtitan-samples"_s, u"2026-09-26 18:44"_s),
+            file(u"notes"_s, u"md"_s, u"Markdown 문서"_s, 5210, u"2026-09-25 17:03"_s, u"-a--"_s, Kind::Doc),
+        };
+    } else if (key == u"d:\\work\\qtitan-samples") {
+        f.entries = {
+            up(),
+            folder(u"BandedTableView"_s, u"2026-09-26 18:44"_s),
+            folder(u"CardView"_s, u"2026-09-26 18:44"_s),
+            folder(u"TreeView"_s, u"2026-09-26 18:44"_s),
+            file(u"CMakeLists"_s, u"txt"_s, u"텍스트 문서"_s, 2208, u"2026-09-26 18:40"_s, u"-a--"_s, Kind::Code),
+            file(u"qtitan-samples"_s, u"sln"_s, u"Visual Studio 솔루션"_s, 3480, u"2026-09-26 18:41"_s, u"-a--"_s, Kind::Code),
+            file(u"README"_s, u"md"_s, u"Markdown 문서"_s, 4120, u"2026-09-26 18:40"_s, u"-a--"_s, Kind::Doc),
+        };
+    } else if (key == u"d:\\backup") {
+        f.entries = {
+            up(),
+            folder(u"2026-09"_s, u"2026-09-27 23:50"_s),
+            file(u"fm-core_2026-09-27"_s, u"7z"_s, u"7Z 압축 파일"_s, 94 * MB, u"2026-09-27 23:48"_s, u"-a--"_s, Kind::Zip),
+            file(u"settings.json"_s, u"bak"_s, u"BAK 파일"_s, 3890, u"2026-09-20 10:11"_s, u"-a--"_s, Kind::Other),
+        };
+    } else {
+        f.entries = {up()};
+    }
+    setPaths(f);
+    return f;
+}
+
 } // namespace fm::filelist::MockFileSource

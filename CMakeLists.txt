@@ -34,6 +34,7 @@ if(FMSTYLE_WITH_QTITAN)
     add_subdirectory(src/fmfilelist)
     add_subdirectory(app/qtitan_spike)
     add_subdirectory(app/filelist_lab)
+    add_subdirectory(app/fmdemo)
 endif()
 
 option(FMSTYLE_BUILD_GALLERY "Build the widget gallery used to compare against the mockups" ON)

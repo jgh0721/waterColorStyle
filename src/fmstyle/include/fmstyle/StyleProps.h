@@ -34,7 +34,8 @@ enum class ButtonRole { Normal, Primary, Danger, Subtle, Link };
 
 /// 크기 변형(fmSize). Small: 작은 단추 · 26 px 세그먼트 · 시안2 얇은 진행 막대. Mini: 20 px 세그먼트.
 /// Thin · Thick: 진행 막대 4 · 8 px(시안1), 12 · 16 px(시안2).
-enum class SizeVariant { Normal, Small, Mini, Thin, Thick };
+/// Compact: 메인 창 주소 줄의 보기 세그먼트 — 시안1 28 · 좌우 10, 시안2 24.
+enum class SizeVariant { Normal, Small, Mini, Thin, Thick, Compact };
 
 /// 컨트롤 밀도(fmDensity). 창 · 대화상자 루트에 한 번 걸면 안의 컨트롤이 따른다.
 /// Dialog: 파일 작업 대화상자(시안1 입력 32, 세그먼트 32, 작은 단추 28). Settings: 설정 창(입력 30, 세그먼트 30).

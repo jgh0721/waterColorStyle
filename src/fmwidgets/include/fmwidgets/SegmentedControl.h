@@ -1,5 +1,7 @@
 #pragma once
 
+#include "fmwidgets/Glyph.h"
+
 #include <QStringList>
 #include <QWidget>
 
@@ -23,7 +25,8 @@ public:
     // Qt Designer · uic 호환을 위해 범위 없는 enum.
     /// Mini: 높이 20 · 11.5 px(그래프 축 전환), Small: 26 · 12 px(레코드 전환),
     /// Normal: 창 밀도를 따른다(대화상자 32 · 설정 30 · 메인 창 시안1 30 / 시안2 24).
-    enum Size { Mini, Small, Normal };
+    /// Compact: 메인 창 주소 줄의 보기 방식(시안1 28 · 12 px · 좌우 10, 시안2 24).
+    enum Size { Mini, Small, Normal, Compact };
     Q_ENUM(Size)
 
     explicit SegmentedControl(QWidget *parent = nullptr);
@@ -45,6 +48,10 @@ public:
     QStringList itemToolTips() const { return m_toolTips; }
     void setItemToolTips(const QStringList &toolTips);
 
+    /// 조각마다 아이콘(목업 글리프, 14 px). None이면 글자만. 색은 글자색을 따른다(켜짐 · 워터컬러 포함).
+    QList<glyph::Glyph> itemGlyphs() const { return m_glyphs; }
+    void setItemGlyphs(const QList<glyph::Glyph> &glyphs);
+
     int count() const noexcept { return int(m_items.size()); }
     QAbstractButton *button(int index) const;
 
@@ -57,9 +64,11 @@ protected:
 private:
     void rebuild();
     void applyLook();
+    void refreshIcons();
 
     QStringList m_items;
     QStringList m_toolTips;
+    QList<glyph::Glyph> m_glyphs;
     int m_current = -1;
     Size m_size = Normal;
     bool m_expanding = false;

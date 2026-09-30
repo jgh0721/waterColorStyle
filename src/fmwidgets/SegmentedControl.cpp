@@ -2,6 +2,8 @@
 
 #include <fmstyle/StylePaint.h>
 #include <fmstyle/StyleProps.h>
+#include <fmstyle/ThemeManager.h>
+#include <fmstyle/WatercolorChrome.h>
 
 #include <QButtonGroup>
 #include <QEvent>
@@ -27,6 +29,7 @@ SegmentedControl::SegmentedControl(const QStringList &items, QWidget *parent)
     m_group->setExclusive(true);
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     connect(m_group, &QButtonGroup::idClicked, this, &SegmentedControl::setCurrentIndex);
+    connect(&fm::style::ThemeManager::instance(), &fm::style::ThemeManager::changed, this, &SegmentedControl::refreshIcons);
     setItems(items);
 }
 
@@ -57,6 +60,7 @@ void SegmentedControl::rebuild()
     }
     fm::style::setSegments(buttons);
     applyLook();
+    refreshIcons();
     if (m_items.isEmpty())
         m_current = -1;
     else
@@ -94,12 +98,13 @@ void SegmentedControl::applyLook()
     const auto buttons = m_group->buttons();
     for (QAbstractButton *b : buttons) {
         const int i = m_group->id(b);
-        fm::style::setSizeVariant(b, m_size == Mini    ? fm::style::SizeVariant::Mini
-                                     : m_size == Small ? fm::style::SizeVariant::Small
-                                                       : fm::style::SizeVariant::Normal);
+        fm::style::setSizeVariant(b, m_size == Mini      ? fm::style::SizeVariant::Mini
+                                     : m_size == Small   ? fm::style::SizeVariant::Small
+                                     : m_size == Compact ? fm::style::SizeVariant::Compact
+                                                         : fm::style::SizeVariant::Normal);
         if (m_size == Mini)
             b->setFont(fm::style::pixelFont(QFont(), 11.5));
-        else if (m_size == Small)
+        else if (m_size == Small || m_size == Compact)
             b->setFont(fm::style::pixelFont(QFont(), 12));
         else
             b->setFont(QFont());
@@ -108,6 +113,42 @@ void SegmentedControl::applyLook()
         b->setToolTip(i < m_toolTips.size() ? m_toolTips.at(i) : QString());
     }
     setSizePolicy(m_expanding ? QSizePolicy::Expanding : QSizePolicy::Fixed, QSizePolicy::Fixed);
+    updateGeometry();
+}
+
+void SegmentedControl::setItemGlyphs(const QList<glyph::Glyph> &glyphs)
+{
+    m_glyphs = glyphs;
+    refreshIcons();
+}
+
+// 아이콘 색은 조각 글자색을 따른다: 시안1 --fg2 · 켜짐 --accent-fg, 시안2 --fg · 마우스 올림/켜짐 흰 글자(입체 hover).
+void SegmentedControl::refreshIcons()
+{
+    const fm::style::ThemeColors &tc = fm::style::themeColorsFor(this);
+    fm::style::GlyphStateColors colors;
+    if (tc.isWatercolor()) {
+        const fm::style::WatercolorChrome &x = fm::style::watercolorChrome(tc.variant());
+        colors.normal = tc[fm::style::Token::Fg];
+        colors.active = x.hoverFg;
+        colors.on = x.hoverFg;
+        colors.disabled = x.disFg;
+    } else {
+        colors.normal = tc[fm::style::Token::Fg2];
+        colors.on = tc[fm::style::Token::AccentFg];
+        colors.disabled = tc[fm::style::Token::Fg3];
+    }
+    const auto buttons = m_group->buttons();
+    for (QAbstractButton *b : buttons) {
+        const int i = m_group->id(b);
+        const glyph::Glyph g = i < m_glyphs.size() ? m_glyphs.at(i) : glyph::None;
+        if (g == glyph::None) {
+            b->setIcon(QIcon());
+            continue;
+        }
+        b->setIcon(fm::style::glyphIcon(glyph::toStyle(g), colors, 14));
+        b->setIconSize(QSize(14, 14));
+    }
     updateGeometry();
 }
 
@@ -139,6 +180,8 @@ void SegmentedControl::changeEvent(QEvent *event)
         for (QAbstractButton *b : buttons)
             b->setStyle(style());
     }
+    if (event->type() == QEvent::PaletteChange && !m_glyphs.isEmpty())
+        refreshIcons();  // ThemeScope 등으로 색이 바뀌었다
     QWidget::changeEvent(event);
 }
 

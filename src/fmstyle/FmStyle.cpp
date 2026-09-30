@@ -80,6 +80,8 @@ constexpr int kSegmentHeightSmall = 26;   // fmSize=small
 constexpr int kSegmentPadXSmall = 12;
 constexpr int kSegmentHeightMini = 20;    // fmSize=mini
 constexpr int kSegmentPadXMini = 8;
+constexpr int kSegmentHeightCompact = 28; // fmSize=compact — 메인 창 주소 줄(전체 28, 안쪽 26)
+constexpr int kSegmentPadXCompact = 10;
 constexpr int kHeaderHeightFlat = 28;     // 대화상자 · 설정 표 머리글
 constexpr int kLinkHeight = 24;           // fmRole=link
 constexpr int kKeyChipGap = 8;            // 글자와 키 칩 사이
@@ -93,7 +95,8 @@ int progressThickness(const QWidget *w)
     case SizeVariant::Thick: return kProgressThick;
     case SizeVariant::Normal:
     case SizeVariant::Small:
-    case SizeVariant::Mini: break;
+    case SizeVariant::Mini:
+    case SizeVariant::Compact: break;
     }
     return kProgressThickness;
 }
@@ -103,6 +106,7 @@ int segmentHeight(const QWidget *w)
     switch (sizeVariant(w)) {
     case SizeVariant::Mini: return kSegmentHeightMini;
     case SizeVariant::Small: return kSegmentHeightSmall;
+    case SizeVariant::Compact: return kSegmentHeightCompact;
     case SizeVariant::Normal:
     case SizeVariant::Thin:
     case SizeVariant::Thick: break;
@@ -115,6 +119,7 @@ int segmentPadX(const QWidget *w)
     switch (sizeVariant(w)) {
     case SizeVariant::Mini: return kSegmentPadXMini;
     case SizeVariant::Small: return kSegmentPadXSmall;
+    case SizeVariant::Compact: return kSegmentPadXCompact;
     case SizeVariant::Normal:
     case SizeVariant::Thin:
     case SizeVariant::Thick: break;
@@ -715,7 +720,7 @@ void FmStyle::drawTabShape(const QStyleOption *option, QPainter *p, const QWidge
         p->setBrush(Qt::NoBrush);
         p->drawPath(edge);
         // 활성 패널: 선택 탭 안쪽 위에 강조색 2 px (목업 .pane.on .tab.is-on)
-        if (boolProp(w, props::kPaneActive)) {
+        if (paneActiveProperty(w)) {
             p->setClipPath(topRoundedPath(r.adjusted(0.5, 0.5, -0.5, 0), kCardRadius - 0.5));
             p->fillRect(QRectF(r.left(), r.top(), r.width(), 2.5), tc[T::Accent]);
         }

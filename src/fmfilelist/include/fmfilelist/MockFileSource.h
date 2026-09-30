@@ -30,6 +30,19 @@ MockFolder settingsPanelPreview();
 /// 설정 › 섬네일 보기 미리보기 — 9개(선택 2개, 커서 3번째, 만드는 중 1개, 숨김 1개).
 MockFolder thumbnailPreview();
 
+/// 샘플 드라이브 D:의 가상 폴더 — 메인 창에서 샘플 데이터로 폴더를 옮겨 다닐 때.
+/// D:\ · D:\Work · D:\Work\fm-core(= left) · D:\Work\qtitan-samples · D:\Downloads(= right) · D:\Backup.
+/// 그 밖의 경로는 ".."만 있는 빈 폴더다.
+MockFolder folder(const QString &path);
+/// "D:\Work\fm-core" → "D:\Work", "D:\Work" → "D:\", 드라이브 루트는 빈 문자열.
+QString parentPath(const QString &path);
+/// 드라이브 다음 조각들 — "D:\Work\fm-core" → {"Work", "fm-core"}.
+QStringList pathSegments(const QString &path);
+/// 조각 n개까지의 경로 — ("D:\Work\fm-core", 1) → "D:\Work", 0 → "D:\".
+QString pathPrefix(const QString &path, int segments);
+/// 폴더 경로에 이름을 붙인다.
+QString childPath(const QString &path, const QString &name);
+
 } // namespace MockFileSource
 
 } // namespace fm::filelist

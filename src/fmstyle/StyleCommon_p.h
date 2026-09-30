@@ -108,6 +108,19 @@ inline const QWidget *paintingWidget(const QWidget *w)
 }
 
 // 활성 패널 판단: 명시 속성(위젯 또는 상위 — 패널 컨테이너에 한 번 걸어 둘 수 있다) → 창 활성 + 포커스.
+/// 위젯 또는 조상에 건 fmPaneActive(없으면 false) — 포커스로 짐작하지 않는다(탭 줄의 강조 띠).
+inline bool paneActiveProperty(const QWidget *w)
+{
+    for (const QWidget *p = w; p; p = p->parentWidget()) {
+        const QVariant v = p->property(props::kPaneActive);
+        if (v.isValid())
+            return v.toBool();
+        if (p->isWindow())
+            break;
+    }
+    return false;
+}
+
 inline bool paneActive(const QStyleOption *option, const QWidget *w)
 {
     for (const QWidget *p = w; p; p = p->parentWidget()) {

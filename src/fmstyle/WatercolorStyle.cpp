@@ -91,6 +91,7 @@ int segmentHeight(const QWidget *w)
     switch (sizeVariant(w)) {
     case SizeVariant::Mini: return kSegmentHeightMini;
     case SizeVariant::Small: return kSegmentHeightSmall;
+    case SizeVariant::Compact: return kButtonHeightSmall;  // 메인 창 주소 줄 24
     case SizeVariant::Normal:
     case SizeVariant::Thin:
     case SizeVariant::Thick: break;
@@ -108,6 +109,7 @@ int segmentPadX(const QWidget *w)
     switch (sizeVariant(w)) {
     case SizeVariant::Mini: return 8;
     case SizeVariant::Small: return 12;
+    case SizeVariant::Compact: return 10;
     case SizeVariant::Normal:
     case SizeVariant::Thin:
     case SizeVariant::Thick: break;
@@ -694,7 +696,7 @@ void WatercolorStyle::drawTabShape(const QStyleOption *option, QPainter *p, cons
         vLine(p, in.left(), in.top(), in.bottom(), x.tabHi);
         vLine(p, in.right(), in.top(), in.bottom(), x.tabHi);
         // 활성 패널: 안쪽 위 2 px 강조색 (목업 .pane.on .tab.is-on)
-        if (boolProp(w, props::kPaneActive))
+        if (paneActiveProperty(w))
             p->fillRect(QRect(in.left(), in.top(), in.width(), 2), tc[T::Accent]);
         else
             hLine(p, in.left(), in.right(), in.top(), x.tabHi);
