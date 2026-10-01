@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SettingsKeysPage</class>
+ <widget class="QWidget" name="SettingsKeysPage">
+  <property name="geometry"><rect><x>0</x><y>0</y><width>899</width><height>720</height></rect></property>
+  <layout class="QVBoxLayout" name="pageLayout" stretch="0,0,0,0,1">
+   <property name="spacing"><number>14</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <layout class="QHBoxLayout" name="toolbar">
+     <property name="spacing"><number>10</number></property>
+     <item>
+      <widget class="fm::ui::SearchField" name="searchEdit">
+       <property name="minimumSize"><size><width>280</width><height>0</height></size></property>
+       <property name="maximumSize"><size><width>280</width><height>16777215</height></size></property>
+       <property name="placeholderText"><string>명령 또는 키 찾기</string></property>
+       <property name="accessibleName"><string>명령 또는 키 찾기</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::SegmentedControl" name="scopeSegment" native="true">
+       <property name="items"><stringlist><string>전체</string><string>파일 작업</string><string>패널</string><string>탐색</string><string>대화상자</string></stringlist></property>
+       <property name="accessibleName"><string>범위</string></property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="toolbarStretch">
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="fm::ui::Label" name="layoutLabel">
+       <property name="text"><string>키 배열</string></property>
+       <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+       <property name="buddy"><cstring>layoutCombo</cstring></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="layoutCombo">
+       <property name="minimumSize"><size><width>172</width><height>0</height></size></property>
+       <property name="maximumSize"><size><width>172</width><height>16777215</height></size></property>
+       <property name="accessibleName"><string>키 배열</string></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="fm::ui::Card" name="tableCard">
+     <layout class="QVBoxLayout" name="tableLayout">
+      <property name="spacing"><number>0</number></property>
+      <property name="leftMargin"><number>1</number></property>
+      <property name="topMargin"><number>1</number></property>
+      <property name="rightMargin"><number>1</number></property>
+      <property name="bottomMargin"><number>1</number></property>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="fm::ui::Label" name="dialogTitle">
+     <property name="text"><string>대화상자</string></property>
+     <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="fm::ui::Card" name="dialogCard">
+     <layout class="QVBoxLayout" name="dialogLayout">
+      <property name="spacing"><number>0</number></property>
+      <property name="leftMargin"><number>1</number></property>
+      <property name="topMargin"><number>1</number></property>
+      <property name="rightMargin"><number>1</number></property>
+      <property name="bottomMargin"><number>1</number></property>
+      <item>
+       <widget class="fm::ui::SettingRow" name="mnemonicRow">
+        <property name="title"><string>액세스 키 밑줄 항상 표시</string></property>
+        <property name="description"><string>끄면 Alt를 누를 때만 밑줄이 보임 (Windows 기본)</string></property>
+        <widget class="fm::ui::Switch" name="mnemonicSwitch">
+         <property name="onText"><string>켬</string></property>
+         <property name="offText"><string>끔</string></property>
+        </widget>
+       </widget>
+      </item>
+      <item>
+       <widget class="fm::ui::SettingRow" name="escRow">
+        <property name="title"><string>진행 창에서 Esc</string></property>
+        <widget class="QComboBox" name="escCombo">
+         <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+         <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+         <item><property name="text"><string>취소 전에 한 번 확인</string></property></item>
+         <item><property name="text"><string>바로 취소</string></property></item>
+         <item><property name="text"><string>창만 숨김(작업은 계속)</string></property></item>
+        </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="pageStretch">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::Label</class><extends>QLabel</extends><header>fmwidgets/Label.h</header></customwidget>
+  <customwidget><class>fm::ui::Card</class><extends>QFrame</extends><header>fmwidgets/Card.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::SettingRow</class><extends>QWidget</extends><header>fmwidgets/SettingsWidgets.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::SearchField</class><extends>QLineEdit</extends><header>fmwidgets/SettingsWidgets.h</header></customwidget>
+  <customwidget><class>fm::ui::Switch</class><extends>QCheckBox</extends><header>fmwidgets/Switch.h</header></customwidget>
+  <customwidget><class>fm::ui::SegmentedControl</class><extends>QWidget</extends><header>fmwidgets/SegmentedControl.h</header></customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

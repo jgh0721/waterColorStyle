@@ -232,18 +232,85 @@ void ThemeManager::setColoredTitleBar(bool on)
 
 void ThemeManager::rebuild()
 {
+    ThemeSeeds seeds = m_seeds;
+    if (seeds.useSystemAccent) {
+        if (const auto accent = systemAccent())
+            seeds.accent = *accent;
+    }
     for (const Design d : {Design::Standard, Design::Watercolor}) {
         for (const Variant v : {Variant::Light, Variant::Dark, Variant::Navy}) {
             if (d == Design::Standard && v == Variant::Navy)
                 continue;  // 다크 칸을 같이 쓴다(variantIndex)
             const int vi = variantIndex(d, v);
-            m_colors[designIndex(d)][vi] = deriveColors(v, m_seeds, m_overrides[designIndex(d)][vi], d);
+            m_colors[designIndex(d)][vi] = deriveColors(v, seeds, m_overrides[designIndex(d)][vi], d);
         }
+    }
+}
+
+ColorScheme ThemeManager::colorScheme() const
+{
+    ColorScheme scheme;
+    scheme.id = m_schemeId;
+    scheme.name = m_schemeName;
+    scheme.seeds = m_seeds;
+    for (int d = 0; d < 2; ++d) {
+        for (std::size_t v = 0; v < kVariantCount; ++v)
+            scheme.overrides[d][v] = m_overrides[d][v];
+    }
+    return scheme;
+}
+
+void ThemeManager::setColorScheme(const ColorScheme &scheme)
+{
+    m_schemeId = scheme.id;
+    m_schemeName = scheme.name;
+    bool same = m_seeds == scheme.seeds;
+    for (int d = 0; d < 2; ++d) {
+        for (std::size_t v = 0; v < kVariantCount; ++v) {
+            same = same && m_overrides[d][v] == scheme.overrides[d][v];
+            m_overrides[d][v] = scheme.overrides[d][v];
+        }
+    }
+    if (same)
+        return;
+    m_seeds = scheme.seeds;
+    rebuild();
+    apply();
+}
+
+std::optional<QColor> ThemeManager::systemAccent()
+{
+#ifdef Q_OS_WIN
+    // DWM AccentColor = 0xAABBGGRR
+    const QSettings dwm(u"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\DWM"_s, QSettings::NativeFormat);
+    bool ok = false;
+    const uint value = dwm.value(u"AccentColor"_s).toUInt(&ok);
+    if (ok && value != 0)
+        return QColor(int(value & 0xFF), int((value >> 8) & 0xFF), int((value >> 16) & 0xFF));
+#endif
+    return std::nullopt;
+}
+
+ThemeManager::Batch::Batch(ThemeManager &manager)
+    : m_manager(manager)
+{
+    ++m_manager.m_batch;
+}
+
+ThemeManager::Batch::~Batch()
+{
+    if (--m_manager.m_batch == 0 && m_manager.m_batchDirty) {
+        m_manager.m_batchDirty = false;
+        m_manager.apply();
     }
 }
 
 void ThemeManager::apply()
 {
+    if (m_batch > 0) {
+        m_batchDirty = true;
+        return;
+    }
     const Variant base = m_scheme == Scheme::Light ? Variant::Light
                        : m_scheme == Scheme::Dark  ? Variant::Dark
                                                    : systemVariant();

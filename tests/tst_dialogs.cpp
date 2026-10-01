@@ -1,5 +1,6 @@
 // 파일 작업 · 권한 대화상자(P5 · P6) 테스트 — 다중 이름 변경 엔진(02 §9.5 표의 값), 이름 검사 · 이동 해석 · 새 폴더 계획,
-// 진행 시뮬레이터, 대화상자 변형 전체 생성, 다중 이름 변경 · 진행 창 동작, 권한 대화상자 8종 · 흐름 시뮬레이션.
+// 진행 시뮬레이터, 대화상자 변형 전체 생성, 다중 이름 변경 · 진행 창 동작, 권한 대화상자 8종 · 흐름 시뮬레이션,
+// 설정 창(P7) 페이지 동작.
 
 #include <fmdialogs/DialogCatalog.h>
 #include <fmdialogs/ElevationDialog.h>
@@ -11,8 +12,14 @@
 #include <fmdialogs/ProgressSimulator.h>
 #include <fmdialogs/RenameEngine.h>
 #include <fmdialogs/RenamePreview.h>
+#include <fmdialogs/SettingsDialog.h>
+#include <fmsettings/Commands.h>
+#include <fmsettings/SettingsStore.h>
+#include <fmstyle/ThemeManager.h>
 #include <fmwidgets/Button.h>
 #include <fmwidgets/DialogCards.h>
+#include <fmwidgets/SegmentedControl.h>
+#include <fmwidgets/SettingsWidgets.h>
 
 #include <QApplication>
 #include <QCheckBox>
@@ -24,6 +31,8 @@
 #include <QSignalSpy>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
+#include <QTreeView>
 
 #include <memory>
 
@@ -50,6 +59,8 @@ private Q_SLOTS:
     void elevationDialogs();
     void elevationChoices();
     void elevationFlows();
+    void settingsKeys();
+    void settingsPages();
 };
 
 // ------------------------------------------------------------------------------------ 규칙 엔진
@@ -325,10 +336,11 @@ void TestDialogs::allVariants()
         dialog->show();
         QVERIFY2(QTest::qWaitForWindowExposed(dialog.get()), qPrintable(v.id));
         QVERIFY2(!dialog->windowTitle().isEmpty(), qPrintable(v.id));
-        // 고정 크기 대화상자는 목업 클라이언트 크기(간단히 진행 창은 폭만)
-        if (v.client.height() > 0 && v.dialog != u"multirename")
-            QCOMPARE(dialog->size(), v.client);
-        else if (v.client.width() > 0)
+        // 고정 크기 대화상자는 목업 클라이언트 크기(간단히 진행 창은 폭만). 제안 변형(목업에 없음 — 예: 128개 삭제는
+        // 목록이 5행)은 내용에 맞춰 커질 수 있어 폭만 본다.
+        if (v.fromMockup && v.client.height() > 0 && v.dialog != u"multirename" && v.dialog != u"settings")
+            QVERIFY2(dialog->size() == v.client, qPrintable(u"%1: %2x%3 (목업 %4x%5)"_s.arg(v.id).arg(dialog->width()).arg(dialog->height()).arg(v.client.width()).arg(v.client.height())));
+        else if (v.client.width() > 0 && v.dialog != u"settings")  // 설정 창은 화면의 92 %까지만(작은 화면 · offscreen)
             QCOMPARE(dialog->width(), v.client.width());
         dialog->close();
     }
@@ -680,6 +692,216 @@ void TestDialogs::elevationFlows()
         QTRY_COMPARE(finished.size(), 1);
         QCOMPARE(finished.first().first().toString(), u"작업 취소"_s);
     }
+}
+
+void TestDialogs::settingsKeys()
+{
+    namespace st = fm::settings;
+    SettingsDialog dialog;
+    dialog.setCurrentPage(u"keys"_s);
+    dialog.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+    auto *view = dialog.findChild<QTreeView *>(u"keyTable"_s);
+    QVERIFY(view);
+    constexpr int kCommandRole = Qt::UserRole + 2;
+    auto rowOf = [&](const QString &id) {
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        for (int r = 0; r < view->model()->rowCount(); ++r) {
+            if (view->model()->index(r, 0).data(kCommandRole).toString() == id)
+                return view->model()->index(r, 0);
+        }
+        return QModelIndex();
+    };
+    auto captureOf = [&](const QString &id) { return qobject_cast<fm::ui::KeyCaptureEdit *>(view->indexWidget(rowOf(id).siblingAtColumn(1))); };
+    auto keysOf = [&](const QString &id) { return st::effectiveKeys(dialog.session()->pending().keys, id); };
+    auto banner = [&] {
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        return view->findChild<QWidget *>(u"conflictBanner"_s);
+    };
+
+    // 새 폴더(F7)에 F5 → 복사(F5, 같은 파일 목록 범위)와 겹침 → 배너, 설정은 아직 그대로
+    Q_EMIT view->doubleClicked(rowOf(u"newFolder"_s));
+    fm::ui::KeyCaptureEdit *capture = captureOf(u"newFolder"_s);
+    QVERIFY(capture && capture->isCapturing());
+    QTest::keyClick(capture, Qt::Key_F5);
+    QWidget *alert = banner();
+    QVERIFY(alert);
+    QVERIFY(alert->findChild<QLabel *>()->text().contains(u"‘복사’"_s));
+    QCOMPARE(keysOf(u"newFolder"_s), QList<QKeySequence>{QKeySequence(Qt::Key_F7)});
+    if (const QString dir = qEnvironmentVariable("FM_TEST_SHOTS"); !dir.isEmpty())
+        dialog.grab().save(dir + u"/settings-keys-conflict.png"_s);
+
+    // 다른 키 누르기 → 다시 입력 상태 · 배너 닫힘
+    auto buttons = alert->findChildren<QPushButton *>();
+    QCOMPARE(buttons.size(), 2);
+    QTest::mouseClick(buttons.at(1), Qt::LeftButton);
+    QVERIFY(!banner());
+    capture = captureOf(u"newFolder"_s);
+    QVERIFY(capture && capture->isCapturing());
+
+    // 다시 F5 → 그래도 바꾸기 → 새 폴더 = F5, 복사 = 없음
+    QTest::keyClick(capture, Qt::Key_F5);
+    alert = banner();
+    QVERIFY(alert);
+    QTest::mouseClick(alert->findChildren<QPushButton *>().at(0), Qt::LeftButton);
+    QVERIFY(!banner());
+    QCOMPARE(keysOf(u"newFolder"_s), QList<QKeySequence>{QKeySequence(Qt::Key_F5)});
+    QVERIFY(keysOf(u"copy"_s).isEmpty());
+    QVERIFY(dialog.session()->pending().keys.overrides.contains(u"copy"_s));
+
+    // 금지 키는 받지 않고 입력을 이어 간다 · Esc = 취소
+    Q_EMIT view->doubleClicked(rowOf(u"rename"_s));
+    capture = captureOf(u"rename"_s);
+    QVERIFY(capture);
+    QTest::keyClick(capture, Qt::Key_F4, Qt::AltModifier);
+    QVERIFY(capture->isCapturing());
+    QTest::keyClick(capture, Qt::Key_Escape);
+    QVERIFY(!captureOf(u"rename"_s));
+    QCOMPARE(keysOf(u"rename"_s), QList<QKeySequence>{QKeySequence(Qt::Key_F2)});
+
+    // 대기열에 추가(F2, 복사 · 이동 대화상자)는 파일 목록의 F2와 겹치지 않는다 → 바로 반영
+    Q_EMIT view->doubleClicked(rowOf(u"queue"_s));
+    capture = captureOf(u"queue"_s);
+    QVERIFY(capture);
+    QTest::keyClick(capture, Qt::Key_F2);
+    QVERIFY(!banner());
+    QCOMPARE(keysOf(u"queue"_s), QList<QKeySequence>{QKeySequence(Qt::Key_F2)});
+    QVERIFY(!dialog.session()->pending().keys.overrides.contains(u"queue"_s));  // 기본값과 같으면 사용자 지정 없음
+
+    // Backspace = 키 지우기
+    Q_EMIT view->doubleClicked(rowOf(u"rename"_s));
+    QTest::keyClick(captureOf(u"rename"_s), Qt::Key_Backspace);
+    QVERIFY(keysOf(u"rename"_s).isEmpty());
+
+    // 범위 세그먼트 · 검색(키 글자)
+    auto *scope = dialog.findChild<fm::ui::SegmentedControl *>(u"scopeSegment"_s);
+    QVERIFY(scope);
+    scope->setCurrentIndex(2);  // 패널
+    QVERIFY(rowOf(u"showHidden"_s).isValid());
+    QVERIFY(!rowOf(u"newFolder"_s).isValid());
+    scope->setCurrentIndex(0);
+    auto *search = dialog.findChild<fm::ui::SearchField *>(u"searchEdit"_s);
+    QVERIFY(search);
+    search->setText(u"ctrl+h"_s);
+    QVERIFY(rowOf(u"showHidden"_s).isValid());
+    QVERIFY(!rowOf(u"copy"_s).isValid());
+    search->clear();
+
+    // 기본값으로 되돌리기
+    QPushButton *reset = nullptr;
+    for (QPushButton *b : dialog.findChildren<QPushButton *>()) {
+        if (b->isVisible() && b->text() == u"기본값으로 되돌리기(&R)"_s)
+            reset = b;
+    }
+    QVERIFY(reset);
+    QTest::mouseClick(reset, Qt::LeftButton);
+    QVERIFY(dialog.session()->pending().keys.overrides.isEmpty());
+    QCOMPARE(keysOf(u"copy"_s), QList<QKeySequence>{QKeySequence(Qt::Key_F5)});
+}
+
+void TestDialogs::settingsPages()
+{
+    namespace st = fm::settings;
+    namespace fl = fm::filelist;
+    const QString shots = qEnvironmentVariable("FM_TEST_SHOTS");
+    SettingsDialog dialog;
+    dialog.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+    const AppSettings defaults;
+    auto pending = [&]() -> const AppSettings & { return dialog.session()->pending(); };
+    auto button = [&](const QString &text) -> QPushButton * {
+        for (QPushButton *b : dialog.findChildren<QPushButton *>()) {
+            if (b->isVisible() && b->text() == text)
+                return b;
+        }
+        return nullptr;
+    };
+
+    // 9개 페이지 모두 실제 페이지(임시 페이지 없음)
+    QCOMPARE(dialog.pageIds().size(), 9);
+    for (const QString &id : dialog.pageIds()) {
+        dialog.setCurrentPage(id);
+        QCOMPARE(dialog.currentPageId(), id);
+        QVERIFY(!dialog.findChild<QLabel *>(u"(준비 중)"_s));
+        if (!shots.isEmpty())
+            dialog.grab().save(shots + u"/settings-"_s + id + u".png"_s);
+    }
+
+    // 일반 · 모양: 다크 카드 → 테마 다크, 강조색 견본 → 테마 구성표의 기준 색(두 페이지가 같은 보류 값)
+    dialog.setCurrentPage(u"appearance"_s);
+    auto *darkCard = dialog.findChild<fm::ui::ThemeModeCard *>(u"darkCard"_s);
+    QVERIFY(darkCard);
+    QTest::mouseClick(darkCard, Qt::LeftButton);
+    QCOMPARE(pending().appearance.scheme, st::Scheme::Dark);
+    auto *picker = dialog.findChild<fm::ui::AccentPicker *>(u"accentPicker"_s);
+    QVERIFY(picker);
+    Q_EMIT picker->accentChosen(QColor(0x0F7A6E));
+    QCOMPARE(pending().theme.scheme.seeds.accent, std::optional<QColor>(QColor(0x0F7A6E)));
+    QVERIFY(dialog.session()->isDirty());
+    QPushButton *reset = button(u"기본값으로 되돌리기(&R)"_s);
+    QVERIFY(reset);
+    QTest::mouseClick(reset, Qt::LeftButton);
+    QCOMPARE(pending().appearance.scheme, defaults.appearance.scheme);
+    QVERIFY(!pending().theme.scheme.seeds.accent);
+
+    // 파일 패널: 섬네일 모드면 미리보기가 섬네일로 · 링크가 보인다
+    dialog.setCurrentPage(u"panel"_s);
+    auto *mode = dialog.findChild<fm::ui::SegmentedControl *>(u"viewModeSegment"_s);
+    QVERIFY(mode);
+    mode->setCurrentIndex(int(fl::ViewMode::Thumbnails));
+    QCOMPARE(pending().panel.defaultViewMode, fl::ViewMode::Thumbnails);
+    QVERIFY(dialog.findChild<QPushButton *>(u"thumbsLink"_s)->isVisible());
+    mode->setCurrentIndex(int(fl::ViewMode::Auto));
+
+    // 파일 그룹: 새 그룹 → 선택 그룹 뒤에 추가, 이름 편집, 삭제(기본 제공 그룹은 삭제 불가)
+    dialog.setCurrentPage(u"groups"_s);
+    const int groups = int(pending().groups.groups.size());
+    QTest::mouseClick(button(u"새 그룹(&W)"_s), Qt::LeftButton);
+    QCOMPARE(int(pending().groups.groups.size()), groups + 1);
+    auto *name = dialog.findChild<QLineEdit *>(u"nameEdit"_s);
+    QVERIFY(name && name->isEnabled());
+    name->selectAll();
+    QTest::keyClicks(name, u"Test group"_s);  // QTest는 ASCII 키만 보낸다
+    QCOMPARE(pending().groups.groups.at(1).name, u"Test group"_s);
+    auto *remove = dialog.findChild<QToolButton *>(u"deleteButton"_s);
+    QVERIFY(remove && remove->isEnabled());
+    QTest::mouseClick(remove, Qt::LeftButton);
+    QCOMPARE(int(pending().groups.groups.size()), groups);
+
+    // 열: 사용자 정의 열 → 선택 열 뒤에 식 열, 제거
+    dialog.setCurrentPage(u"columns"_s);
+    const int columns = int(pending().columns.sets.first().columns.size());
+    QTest::mouseClick(button(u"사용자 정의 열 만들기(&U)"_s), Qt::LeftButton);
+    QCOMPARE(int(pending().columns.sets.first().columns.size()), columns + 1);
+    QVERIFY(pending().columns.sets.first().columns.at(1).custom);
+    QTest::mouseClick(dialog.findChild<QToolButton *>(u"columnRemoveButton"_s), Qt::LeftButton);
+    QCOMPARE(int(pending().columns.sets.first().columns.size()), columns);
+
+    // 테마 색상: 모든 토큰 보기, 편집 변형 다크, 직접 지정 → 칩 · 되돌리기
+    dialog.setCurrentPage(u"theme"_s);
+    dialog.session()->edit(Section::Dialog, [](AppSettings &p) { p.dialog.themeView = u"adv"_s; });
+    auto *tree = dialog.findChild<QTreeView *>(u"tokenTree"_s);
+    QVERIFY(tree && tree->isVisible());
+    QPushButton *override = button(u"직접 지정(&D)"_s);
+    QVERIFY(override);
+    QTest::mouseClick(override, Qt::LeftButton);
+    const auto d = std::size_t(pending().appearance.design);
+    const bool dark = fm::style::isDarkVariant(fm::style::ThemeManager::instance().effectiveVariant());
+    const auto &ov = pending().theme.scheme.overrides[d][dark ? 1 : 0];
+    QVERIFY(ov[std::size_t(fm::style::Token::AccentFg)].has_value());
+    if (!shots.isEmpty())
+        dialog.grab().save(shots + u"/settings-theme-adv.png"_s);
+    QTest::mouseClick(button(u"자동으로 되돌리기(&U)"_s), Qt::LeftButton);
+    QVERIFY(pending().theme.scheme.isPristine());
+
+    // 적용 → 보관소(메모리 — 경로 없음)에 반영
+    QVERIFY(st::SettingsStore::instance().filePath().isEmpty());
+    dialog.session()->edit(Section::Panel, [](AppSettings &p) { p.panel.showHidden = true; });
+    dialog.applyPending();
+    QVERIFY(st::SettingsStore::instance().settings().panel.showHidden);
+    QVERIFY(!dialog.session()->isDirty());
+    dialog.session()->edit(Section::Panel, [](AppSettings &p) { p.panel.showHidden = false; });
+    dialog.applyPending();
 }
 
 QTEST_MAIN(TestDialogs)

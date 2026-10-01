@@ -4,17 +4,20 @@
 //   fmdemo --left-mode thumb --right-mode thumb     섬네일(왼쪽 Qt 목록 · 오른쪽 Qtitan 카드)
 //   fmdemo --sep2 tint --name-below --inv-cursor    표시 변형
 //   fmdemo --shot main.png                          스크린샷을 저장하고 끝냄
+//   fmdemo --settings my.json                       설정 파일(없으면 %APPDATA%m toolssettings.json, 스냅숏 · --open은 메모리만)
 
 #include "FilePanel.h"
 #include "MainWindow.h"
 
 #include <fmdialogs/DialogCatalog.h>
 #include <fmfilelist/ListAppearance.h>
+#include <fmsettings/SettingsStore.h>
 #include <fmstyle/ThemeManager.h>
 
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDialog>
+#include <QFileInfo>
 #include <QScreen>
 #include <QTimer>
 
@@ -72,9 +75,10 @@ int main(int argc, char *argv[])
     const QCommandLineOption openOption(u"open"_s, u"대화상자 변형을 연다(예: copy.default, delete.permanent). --shot이면 대화상자만 찍는다."_s, u"id"_s);
     const QCommandLineOption listOption(u"list-dialogs"_s, u"대화상자 변형 ID를 출력하고 끝냅니다."_s);
     const QCommandLineOption flowOption(u"flow"_s, u"권한 흐름 시뮬레이션을 시작한다: copy | delete"_s, u"name"_s);
+    const QCommandLineOption settingsOption(u"settings"_s, u"설정 파일(JSON). 주지 않으면 기본 위치, --shot · --open이면 메모리에만 둔다."_s, u"file"_s);
     parser.addOptions({designOption, schemeOption, leftModeOption, rightModeOption, activeOption, sep1Option, sep2Option,
                        nameBelowOption, invCursorOption, invSelOption, sizeOption, shotOption, delayOption, openOption,
-                       listOption, flowOption});
+                       listOption, flowOption, settingsOption});
     parser.process(app);
 
     auto &theme = fs::ThemeManager::instance();
@@ -86,6 +90,21 @@ int main(int argc, char *argv[])
                                            : fs::ThemeManager::Scheme::Dark);
     theme.install(app);
     theme.setAlwaysShowMnemonics(true);  // 목업은 액세스 키 밑줄을 항상 보인다(PLAN §11)
+
+    // 설정 보관소 — 스냅숏 · 대화상자 단독 실행은 메모리에만(목업과 같은 상태를 늘 재현), 그 밖에는 설정 파일을 읽고 쓴다
+    auto &store = fm::settings::SettingsStore::instance();
+    const bool snapshot = parser.isSet(shotOption) || parser.isSet(openOption) || parser.isSet(listOption);
+    QString settingsPath = parser.value(settingsOption);
+    if (settingsPath.isEmpty() && !snapshot)
+        settingsPath = fm::settings::SettingsStore::defaultFilePath();
+    bool settingsLoaded = false;
+    if (!settingsPath.isEmpty()) {
+        store.setFilePath(settingsPath);
+        QString error;
+        settingsLoaded = QFileInfo::exists(settingsPath) && store.load(&error);
+        if (!error.isEmpty())
+            std::fprintf(stderr, "settings: %s\n", qPrintable(error));
+    }
 
     if (parser.isSet(listOption)) {
         for (const fm::dialogs::DialogVariant &v : fm::dialogs::dialogVariants())
@@ -126,6 +145,21 @@ int main(int argc, char *argv[])
     if (parser.isSet(rightModeOption))
         window.rightPanel()->setViewMode(modeFrom(parser.value(rightModeOption), fl::ViewMode::Auto));
     window.setActivePanel(parser.value(activeOption) == u"left"_s ? window.leftPanel() : window.rightPanel());
+
+    using S = fm::settings::Section;
+    if (settingsLoaded) {
+        // 저장된 설정을 따른다. 명령줄에서 디자인 · 색 구성표를 주었으면 테마만 그대로 둔다.
+        fm::settings::Sections sections = S::General | S::Tabs | S::Panel | S::Thumbs | S::Groups | S::Columns | S::FileOps | S::Elevation | S::Keys;
+        if (!parser.isSet(designOption) && !parser.isSet(schemeOption))
+            sections |= S::Appearance | S::Theme;
+        window.applySettings(sections);
+    } else {
+        // 설정 파일이 없으면 지금 창 상태(보드)가 첫 설정 — 적용할 때까지 파일은 만들지 않는다
+        const QString path = store.filePath();
+        store.setFilePath(QString());
+        window.captureSettings();
+        store.setFilePath(path);
+    }
 
     const QStringList wh = parser.value(sizeOption).split(u'x');
     window.resize(wh.value(0).toInt() > 0 ? wh.value(0).toInt() : 1440, wh.value(1).toInt() > 0 ? wh.value(1).toInt() : 900);

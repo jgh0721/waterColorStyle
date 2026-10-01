@@ -7,9 +7,13 @@
 #include <fmdialogs/FileOpDialogs.h>
 #include <fmdialogs/MultiRenameDialog.h>
 #include <fmdialogs/ProgressDialog.h>
+#include <fmdialogs/SettingsDialog.h>
+#include <fmfilelist/FileGroups.h>
 #include <fmfilelist/FileListView.h>
 #include <fmfilelist/FileRoles.h>
 #include <fmfilelist/FileSortProxy.h>
+#include <fmsettings/Commands.h>
+#include <fmsettings/SettingsStore.h>
 #include <fmstyle/Glyphs.h>
 #include <fmstyle/ThemeManager.h>
 #include <fmstyle/WatercolorChrome.h>
@@ -37,6 +41,7 @@
 using namespace Qt::StringLiterals;
 namespace fl = fm::filelist;
 namespace fs = fm::style;
+namespace st = fm::settings;
 
 namespace fm::app {
 
@@ -94,6 +99,7 @@ MainWindow::MainWindow(QWidget *parent)
         syncThemeControls();
         refreshIcons();
     });
+    connect(&st::SettingsStore::instance(), &st::SettingsStore::changed, this, &MainWindow::applySettings);
     syncThemeControls();
     refreshIcons();
     resize(1440, 900);
@@ -152,12 +158,12 @@ void MainWindow::createActions()
     }
     action(u"delete"_s)->setShortcuts({QKeySequence(Qt::Key_F8), QKeySequence(Qt::Key_Delete)});
 
-    // 파일 작업(P5) — 설정 창은 P7에서 붙인다
+    // 파일 작업(P5) · 설정 창(P7)
     for (const char *id : {"newFolder", "newFile", "copy", "move", "rename", "delete", "deletePermanent", "multiRename"}) {
         const QString key = QString::fromLatin1(id);
         connect(action(key), &QAction::triggered, this, [this, key] { openFileOperation(key); });
     }
-    connect(action(u"settings"_s), &QAction::triggered, this, [this] { showPending(action(u"settings"_s)->text()); });
+    connect(action(u"settings"_s), &QAction::triggered, this, &MainWindow::openSettings);
     for (const char *id : {"view", "edit"}) {
         QAction *a = action(QString::fromLatin1(id));
         connect(a, &QAction::triggered, this, [this, a] {
@@ -203,8 +209,11 @@ void MainWindow::createActions()
     const QList<std::pair<QString, QKeySequence>> modes = {
         {u"1줄"_s, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_1)}, {u"2줄"_s, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_2)},
         {u"자동"_s, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_3)}, {u"섬네일"_s, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_4)}};
+    static const char *const modeIds[] = {"viewOneLine", "viewTwoLine", "viewAuto", "viewThumbnails"};  // 명령 id(설정 › 키보드)
     for (int i = 0; i < modes.size(); ++i) {
         QAction *a = m_viewModes->addAction(modes[i].first);
+        a->setObjectName(QString::fromLatin1(modeIds[i]));
+        m_actions.insert(a->objectName(), a);
         a->setCheckable(true);
         a->setShortcut(modes[i].second);
         a->setData(i);
@@ -563,9 +572,90 @@ void MainWindow::refreshIcons()
     }
 }
 
-void MainWindow::showPending(const QString &title)
+void MainWindow::openSettings()
 {
-    QMessageBox::information(this, title, u"%1 대화상자는 다음 단계(P7)에서 연결합니다."_s.arg(title));
+    if (m_settingsDialog) {
+        m_settingsDialog->raise();
+        m_settingsDialog->activateWindow();
+        return;
+    }
+    auto *dialog = new fm::dialogs::SettingsDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    m_settingsDialog = dialog;
+    dialog->open();
+}
+
+void MainWindow::applySettings(st::Sections sections)
+{
+    using S = st::Section;
+    const st::AppSettings &s = st::SettingsStore::instance().settings();
+    if (sections & (S::Appearance | S::Theme))
+        st::applyTheme(s);  // 디자인 · 색 구성표 · 다크 색조 · 기준 색 · 제목 표시줄 · 액세스 키 밑줄
+    if (sections & S::Keys)
+        fs::ThemeManager::instance().setAlwaysShowMnemonics(s.keys.alwaysShowMnemonics);
+    if (sections & S::Panel) {
+        setListAppearance(s.panel.toListAppearance());
+        {
+            const QSignalBlocker block(action(u"showHidden"_s));
+            action(u"showHidden"_s)->setChecked(s.panel.showHidden);
+        }
+        for (FilePanel *panel : {m_left, m_right}) {
+            panel->setShowHidden(s.panel.showHidden);
+            panel->model()->setFoldersFirst(s.panel.foldersFirst);
+        }
+        m_sep1->actions().value(int(s.panel.separator1))->setChecked(true);
+        m_sep2->actions().value(int(s.panel.separator2))->setChecked(true);
+    }
+    if (sections & (S::Panel | S::Thumbs)) {
+        for (FilePanel *panel : {m_left, m_right}) {
+            fl::ThumbnailAppearance t = s.thumbs.toThumbnailAppearance(s.panel);
+            t.size = panel->thumbnailView()->appearance().size;  // 크기는 패널에서 Ctrl+휠로 바꾼 값 유지
+            panel->setThumbnailAppearance(t);
+        }
+    }
+    if (sections & S::Groups) {
+        const auto matcher = std::make_shared<const fl::FileGroupMatcher>(s.groups);
+        for (FilePanel *panel : {m_left, m_right})
+            panel->model()->setGroupMatcher(matcher);
+    }
+    if (sections & S::General) {
+        m_commandLine->setVisible(s.general.showCommandLine);
+        m_functionKeys->setVisible(s.general.showFunctionKeyBar);
+    }
+    if (sections & S::Keys)
+        applyKeyBindings(s.keys);
+}
+
+void MainWindow::applyKeyBindings(const st::KeyBindingSettings &keys)
+{
+    // 명령 id = QAction objectName(05 §2.5.4). 도구 설명의 "(F5)"도 새 키로.
+    for (const st::CommandDef &c : st::commands()) {
+        QAction *a = action(c.id);
+        if (!a)
+            continue;
+        const QList<QKeySequence> sequences = st::effectiveKeys(keys, c.id);
+        a->setShortcuts(sequences);
+        if (!a->toolTip().isEmpty() && a->toolTip() != a->text()) {
+            QString tip = a->text();
+            if (!sequences.isEmpty())
+                tip += u" (%1)"_s.arg(sequences.first().toString(QKeySequence::NativeText));
+            a->setToolTip(tip);
+        }
+    }
+}
+
+void MainWindow::captureSettings()
+{
+    st::AppSettings s = st::SettingsStore::instance().settings();
+    st::captureTheme(s);
+    const fl::ListAppearance &a = m_listAppearance;
+    s.panel.separator1 = a.oneLineSeparator;
+    s.panel.separator2 = a.twoLineSeparator;
+    s.panel.nameBelow = a.nameBelow;
+    s.panel.inverseCursor = a.invertCursor;
+    s.panel.inverseSelection = a.invertSelection;
+    s.panel.showHidden = action(u"showHidden"_s)->isChecked();
+    st::SettingsStore::instance().setSettings(s);
 }
 
 fm::dialogs::ElevationFlow *MainWindow::startElevationFlow(int scenario)

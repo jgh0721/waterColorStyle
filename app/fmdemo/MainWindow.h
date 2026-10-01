@@ -1,13 +1,16 @@
 #pragma once
 
 #include <fmfilelist/ListAppearance.h>
+#include <fmsettings/AppSettings.h>
 
 #include <QHash>
 #include <QMainWindow>
+#include <QPointer>
 
 #include <memory>
 
 class QAction;
+class QDialog;
 class QActionGroup;
 class QMenu;
 class QSplitter;
@@ -55,6 +58,13 @@ public:
     /// 권한 흐름 시뮬레이션(03 §0) — 0 = 보호된 폴더로 복사, 1 = 삭제 · 소유권. 흐름은 창의 자식으로 남는다.
     fm::dialogs::ElevationFlow *startElevationFlow(int scenario);
 
+    /// 설정 창(단일 인스턴스, 창 모달). 적용하면 SettingsStore::changed로 applySettings가 불린다.
+    void openSettings();
+    /// 적용된 설정을 창에 반영한다 — 테마 · 목록 · 섬네일 모양, 숨김 파일 · 폴더 먼저, 파일 그룹, 명령줄 · 기능 키 막대, 단축키.
+    void applySettings(fm::settings::Sections sections);
+    /// 지금 창 상태(도구 모음의 테마, 보드의 목록 표시)를 설정 보관소에 옮긴다 — 설정 파일이 없을 때 첫 상태.
+    void captureSettings();
+
 private:
     void createActions();
     void createMenus();
@@ -64,13 +74,13 @@ private:
     void syncThemeControls();
     void updateWindowTitle();
     void updateActionStates();
-    void showPending(const QString &title);
     /// 활성 패널의 대상(표시 · 커서)과 반대 패널 경로로 대화상자 입력을 만든다.
     fm::dialogs::FileOpContext operationContext() const;
     /// 파일 작업 대화상자를 연다(copy · move · rename · delete · deletePermanent · newFolder · newFile · multiRename).
     /// 데모는 읽기 전용 — 복사 · 이동 · 삭제는 확인 후 진행 창만 시뮬레이터로 보인다.
     void openFileOperation(const QString &id);
     QAction *action(const QString &id) const { return m_actions.value(id); }
+    void applyKeyBindings(const fm::settings::KeyBindingSettings &keys);
 
     FilePanel *m_left = nullptr;
     FilePanel *m_right = nullptr;
@@ -92,6 +102,7 @@ private:
     QActionGroup *m_sep2 = nullptr;
     fm::filelist::ListAppearance m_listAppearance;
     bool m_syncing = false;
+    QPointer<QDialog> m_settingsDialog;
 };
 
 } // namespace fm::app

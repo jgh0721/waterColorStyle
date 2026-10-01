@@ -1,5 +1,6 @@
 #include "fmstyle/ThemeColors.h"
 
+#include "fmstyle/ColorScheme.h"
 #include "fmstyle/WatercolorChrome.h"
 
 #include "ColorMath_p.h"
@@ -88,62 +89,7 @@ QPalette ThemeColors::toPalette() const
 ThemeColors deriveColors(Variant variant, const ThemeSeeds &seeds, const TokenOverrides &overrides,
                          Design design)
 {
-    ThemeColors c(variant, design);
-    const bool light = variant == Variant::Light;  // 남색은 다크 규칙
-    const bool watercolor = design == Design::Watercolor;
-
-    if (seeds.accent && seeds.accent->isValid()) {
-        const QColor white(0xFF, 0xFF, 0xFF);
-        const QColor black(0x00, 0x00, 0x00);
-        const QColor seed = light ? *seeds.accent : mix(*seeds.accent, white, 0.08);
-        const QColor surface = c[T::Surface];
-        const bool fix = seeds.fixContrast;
-
-        // 강조 채움 — 흰 글자 대비가 모자라면 어둡게
-        QColor accent = seed;
-        if (fix && contrast(white, accent) < 4.5)
-            accent = pushUntil(accent, black, white, 4.5);
-        c.setColor(T::Accent, accent);
-
-        // 강조 글자 — 목록 바탕 대비 4.5 이상
-        QColor accentFg = light ? mix(seed, black, 0.10) : mix(seed, white, 0.45);
-        if (fix && contrast(accentFg, surface) < 4.5)
-            accentFg = pushUntil(accentFg, light ? black : white, surface, 4.5);
-        c.setColor(T::AccentFg, accentFg);
-
-        c.setColor(T::AccentSoft, mix(surface, accent, light ? 0.13 : 0.28));
-        if (!watercolor)  // 워터컬러의 포커스는 글자색 점선
-            c.setColor(T::Focus, light ? accent : mix(accent, white, 0.30));
-        c.setColor(T::OnAccent, fix ? bestTextOn(accent) : white);
-
-        if (watercolor) {
-            // 선택 — 강조색 채움 + 강조 위 글자 (캔버스 시안2의 테마 색상 규칙)
-            c.setColor(T::Sel, accent);
-        } else {
-            // 선택 — 강조색 연동, 글자 대비 유지
-            QColor sel = mix(surface, accent, light ? 0.20 : 0.40);
-            if (fix && contrast(c[T::Fg], sel) < 4.5)
-                sel = pushUntil(sel, surface, c[T::Fg], 4.5);
-            c.setColor(T::Sel, sel);
-        }
-
-        // 역상 선택 — 강조 채움과 같음
-        c.setColor(T::InvSel, accent);
-        c.setColor(T::OnInvSel, fix ? bestTextOn(accent) : white);
-
-        // 선택 위 역상 커서 글자
-        const QColor invCur = c[T::InvCur];
-        QColor invCurSel = light ? mix(accent, white, 0.55) : mix(accent, black, 0.25);
-        if (fix && contrast(invCurSel, invCur) < 4.5)
-            invCurSel = pushUntil(invCurSel, light ? white : black, invCur, 4.5);
-        c.setColor(T::InvCurSel, invCurSel);
-    }
-
-    for (std::size_t i = 0; i < overrides.size(); ++i) {
-        if (overrides[i])
-            c.setColor(static_cast<Token>(i), *overrides[i]);
-    }
-    return c;
+    return deriveTheme(variant, seeds, overrides, design).colors;
 }
 
 double contrastRatio(const QColor &a, const QColor &b)

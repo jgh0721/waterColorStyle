@@ -149,6 +149,12 @@ void Switch::setOffText(const QString &text)
     syncText();
 }
 
+void Switch::checkStateSet()
+{
+    QCheckBox::checkStateSet();
+    syncText();
+}
+
 void Switch::syncText()
 {
     if (m_onText.isEmpty() || m_offText.isEmpty())

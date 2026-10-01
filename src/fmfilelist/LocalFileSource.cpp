@@ -45,7 +45,8 @@ int attributesOf(const QString &path)
     if (a == INVALID_FILE_ATTRIBUTES)
         return 0;
     return ((a & FILE_ATTRIBUTE_READONLY) ? ReadOnly : 0) | ((a & FILE_ATTRIBUTE_ARCHIVE) ? Archive : 0)
-         | ((a & FILE_ATTRIBUTE_HIDDEN) ? Hidden : 0) | ((a & FILE_ATTRIBUTE_SYSTEM) ? System : 0);
+         | ((a & FILE_ATTRIBUTE_HIDDEN) ? Hidden : 0) | ((a & FILE_ATTRIBUTE_SYSTEM) ? System : 0)
+         | ((a & FILE_ATTRIBUTE_REPARSE_POINT) ? ReparsePoint : 0);
 #else
     const QFileInfo info(path);
     return (info.isHidden() ? Hidden : 0) | (info.isWritable() ? 0 : ReadOnly);

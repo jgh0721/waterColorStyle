@@ -19,6 +19,7 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/PanelTabStrip.h
     include/fmwidgets/ProgressBar.h
     include/fmwidgets/SegmentedControl.h
+    include/fmwidgets/SettingsWidgets.h
     include/fmwidgets/Switch.h
     include/fmwidgets/Tag.h
     include/fmwidgets/TransferGraph.h
@@ -31,6 +32,7 @@ qt_add_library(fmwidgets STATIC
     MainBars.cpp
     PanelChrome.cpp
     SegmentedControl.cpp
+    SettingsWidgets.cpp
     TransferGraph.cpp
 )
 

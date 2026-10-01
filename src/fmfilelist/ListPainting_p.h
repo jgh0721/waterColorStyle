@@ -45,6 +45,7 @@ struct RecordGeometry
     int nameHeight = 22;      // 2줄 이름 줄
     int metaHeight = 18;      // 2줄 메타 줄
     int headerHeight = 27;    // 머리글(아래 선 포함)
+    int oneLineMetaWidth = kExtWidth + kSizeWidth + kDateWidth1 + kAttrWidth1;  // 1줄 메타 열 폭 합(틴트 띠 — 열 배치가 정함)
     qreal radius = 0;         // 여백 방식 블록 모서리
 
     static RecordGeometry make(bool watercolor, bool twoLine, const ListAppearance &appearance);
@@ -83,7 +84,8 @@ TextColors textColors(const fm::style::ThemeColors &tc, const ListAppearance &a,
 
 /// 레코드 바탕(교차 배경 · 선택 · 역상 · 틴트 띠 · 구분선). alternate = 교차 배경 대상 레코드.
 void paintRecordBackground(QPainter *p, const QRect &record, const RecordGeometry &g, const ListAppearance &a,
-                           const RecordState &s, bool alternate, const fm::style::ThemeColors &tc);
+                           const RecordState &s, bool alternate, const fm::style::ThemeColors &tc,
+                           const QColor &groupBackground = QColor());
 /// 커서 틀(레코드 둘레 하나).
 void paintRecordCursor(QPainter *p, const QRect &record, const RecordGeometry &g, const ListAppearance &a,
                        const RecordState &s, const fm::style::ThemeColors &tc);

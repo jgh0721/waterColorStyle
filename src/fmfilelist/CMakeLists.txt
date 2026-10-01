@@ -1,5 +1,7 @@
 # Fm::filelist — 파일 목록 모델(샘플 · 읽기 전용 실제 폴더), FileListView(Qtitan 밴드 보기), 섬네일 두 구현.
 qt_add_library(fmfilelist STATIC
+    include/fmfilelist/ColumnSets.h
+    include/fmfilelist/FileGroups.h
     include/fmfilelist/FileIconPainter.h
     include/fmfilelist/FileListModel.h
     include/fmfilelist/FileListStats.h
@@ -7,17 +9,21 @@ qt_add_library(fmfilelist STATIC
     include/fmfilelist/FileRoles.h
     include/fmfilelist/FileSortProxy.h
     include/fmfilelist/ListAppearance.h
+    include/fmfilelist/ListColumns.h
     include/fmfilelist/LocalFileSource.h
     include/fmfilelist/MockFileSource.h
     include/fmfilelist/ThumbnailPainter.h
     include/fmfilelist/ThumbnailProvider.h
     include/fmfilelist/ThumbnailView.h
+    ColumnSets.cpp
+    FileGroups.cpp
     FileIconPainter.cpp
     FileListModel.cpp
     FileListStats.cpp
     FileListView.cpp
     FileRoles.cpp
     FileSortProxy.cpp
+    ListColumns.cpp
     ListPainting.cpp
     ListPainting_p.h
     LocalFileSource.cpp

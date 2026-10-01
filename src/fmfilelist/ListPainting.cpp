@@ -127,7 +127,8 @@ TextColors textColors(const fm::style::ThemeColors &tc, const ListAppearance &a,
 }
 
 void paintRecordBackground(QPainter *p, const QRect &record, const RecordGeometry &g, const ListAppearance &a,
-                           const RecordState &s, bool alternate, const fm::style::ThemeColors &tc)
+                           const RecordState &s, bool alternate, const fm::style::ThemeColors &tc,
+                           const QColor &groupBackground)
 {
     p->save();
     p->fillRect(record, tc[Token::Surface]);
@@ -143,6 +144,8 @@ void paintRecordBackground(QPainter *p, const QRect &record, const RecordGeometr
     else if (s.marked)
         fill = s.active ? tc[Token::Sel] : tc[Token::SelIn];
     const QRectF block = g.block(record);
+    if (!fill.isValid() && groupBackground.isValid())
+        fill = groupBackground;  // 파일 그룹 배경(선택 · 역상이 우선)
     if (fill.isValid()) {
         if (g.radius > 0) {
             p->setRenderHint(QPainter::Antialiasing);
@@ -165,7 +168,7 @@ void paintRecordBackground(QPainter *p, const QRect &record, const RecordGeometr
             radius = 4;
         } else {
             // 1줄: 메타 열(확장자~속성)에만, 위아래 2 · 왼쪽 2 안쪽, 모서리 3
-            const qreal left = record.right() + 1 - (kExtWidth + kSizeWidth + kDateWidth1 + kAttrWidth1);
+            const qreal left = record.right() + 1 - g.oneLineMetaWidth;
             band = QRectF(left, record.top(), record.right() + 1 - kRowGutter - left, record.height()).adjusted(2, 2, 0, -2);
             radius = 3;
         }

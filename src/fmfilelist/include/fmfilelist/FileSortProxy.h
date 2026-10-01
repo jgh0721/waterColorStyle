@@ -3,7 +3,11 @@
 #include <QCollator>
 #include <QSortFilterProxyModel>
 
+#include <memory>
+
 namespace fm::filelist {
+
+class FileGroupMatcher;
 
 /// 목록 정렬 · 찾기 필터. ".."은 정렬 방향과 상관없이 맨 위, 폴더를 먼저(선택), 이름은 자연 정렬(숫자 크기 · 대소문자 무시).
 /// 정렬 열이 -1이면 원본 순서를 그대로 둔다 — 샘플 데이터는 보드의 순서가 이름순이 아니다(01 §11).
@@ -37,6 +41,12 @@ public:
     void markAll(bool marked);
     void invertMarks();
 
+    /// 파일 그룹 · 색상 — 행마다 GroupStyleRole(해석된 스타일)을 돌려준다. 비우면 그룹 색을 쓰지 않는다.
+    void setGroupMatcher(std::shared_ptr<const FileGroupMatcher> matcher);
+    std::shared_ptr<const FileGroupMatcher> groupMatcher() const { return m_groups; }
+
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
 protected:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
@@ -49,6 +59,7 @@ private:
     bool m_showSystem = true;
     QString m_quickFilter;
     QCollator m_collator;
+    std::shared_ptr<const FileGroupMatcher> m_groups;
 };
 
 } // namespace fm::filelist

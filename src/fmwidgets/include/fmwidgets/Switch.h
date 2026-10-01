@@ -21,6 +21,10 @@ public:
     QString offText() const { return m_offText; }
     void setOffText(const QString &text);
 
+protected:
+    /// setChecked()가 신호를 막은 채 불려도(설정 창 동기화) 글자가 따라가게.
+    void checkStateSet() override;
+
 private:
     void syncText();
 

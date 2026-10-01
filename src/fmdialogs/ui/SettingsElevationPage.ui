@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SettingsElevationPage</class>
+ <widget class="QWidget" name="SettingsElevationPage">
+  <property name="geometry"><rect><x>0</x><y>0</y><width>899</width><height>720</height></rect></property>
+  <layout class="QHBoxLayout" name="columnsLayout">
+   <property name="spacing"><number>24</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <layout class="QVBoxLayout" name="leftColumn" stretch="0,0,0,0,0,0,1">
+     <property name="spacing"><number>8</number></property>
+     <item>
+      <widget class="fm::ui::Label" name="requestTitle">
+       <property name="text"><string>권한 요청</string></property>
+       <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="requestCard">
+       <layout class="QVBoxLayout" name="requestLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+        <item>
+         <widget class="fm::ui::SettingRow" name="preflightRow">
+          <property name="title"><string>작업 전 사전 확인</string></property>
+          <property name="description"><string>권한이 필요한 항목을 먼저 찾아 한 번에 물음</string></property>
+          <widget class="fm::ui::Switch" name="preflightSwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="applyRow">
+          <property name="title"><string>남은 항목에도 같은 선택 적용</string></property>
+          <property name="description"><string>권한 대화상자 체크 상자의 처음 값</string></property>
+          <widget class="fm::ui::Switch" name="applySwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="helperRow">
+          <property name="title"><string>권한 상승 도우미 유지</string></property>
+          <property name="description"><string>작업마다 닫는 것이 가장 안전</string></property>
+          <widget class="fm::ui::SegmentedControl" name="helperSegment" native="true">
+           <property name="items"><stringlist><string>작업마다</string><string>5분</string><string>앱 종료까지</string></stringlist></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="uacRow">
+          <property name="title"><string>UAC 응답 기다리기</string></property>
+          <widget class="QComboBox" name="uacCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>1분 뒤 이 항목 건너뜀</string></property></item>
+           <item><property name="text"><string>2분 뒤 이 항목 건너뜀</string></property></item>
+           <item><property name="text"><string>5분 뒤 이 항목 건너뜀</string></property></item>
+           <item><property name="text"><string>계속 기다림</string></property></item>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Label" name="ownerTitle">
+       <property name="text"><string>TrustedInstaller 소유 항목</string></property>
+       <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="ownerCard">
+       <layout class="QVBoxLayout" name="ownerLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+        <item>
+         <widget class="fm::ui::SettingRow" name="takeRow">
+          <property name="title"><string>소유권 가져오기</string></property>
+          <property name="description"><string>관리자 권한으로도 거부될 때</string></property>
+          <widget class="QComboBox" name="takeCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>매번 묻기</string></property></item>
+           <item><property name="text"><string>묻지 않고 건너뛰기</string></property></item>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="defaultButtonRow">
+          <property name="title"><string>대화상자 기본 버튼</string></property>
+          <widget class="QComboBox" name="defaultButtonCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>건너뛰기</string></property></item>
+           <item><property name="text"><string>소유권 가져오기</string></property></item>
+           <item><property name="text"><string>취소</string></property></item>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="backupRow">
+          <property name="title"><string>바꾸기 전 원래 권한 저장</string></property>
+          <property name="description"><string>되돌릴 수 있도록 ACL을 백업</string></property>
+          <widget class="fm::ui::Switch" name="backupSwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Label" name="adminTitle">
+       <property name="text"><string>앱 전체가 관리자로 실행될 때</string></property>
+       <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="adminCard">
+       <layout class="QVBoxLayout" name="adminLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+        <item>
+         <widget class="fm::ui::SettingRow" name="warningRow">
+          <property name="title"><string>제목 표시줄에 경고 표시</string></property>
+          <property name="description"><string>방패 아이콘과 “관리자” 표시로 일반 창과 구분</string></property>
+          <widget class="fm::ui::Switch" name="warningSwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <spacer name="leftStretch">
+       <property name="orientation"><enum>Qt::Vertical</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="rightColumn" stretch="0,0,0,0,1">
+     <property name="spacing"><number>8</number></property>
+     <item>
+      <layout class="QHBoxLayout" name="protectedHeader">
+       <property name="spacing"><number>8</number></property>
+       <item>
+        <widget class="fm::ui::Label" name="protectedTitle">
+         <property name="text"><string>보호된 위치</string></property>
+         <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="fm::ui::Label" name="protectedNote">
+         <property name="text"><string>· 여기서 삭제 · 이동할 때는 한 번 더 확인</string></property>
+         <property name="textRole"><enum>fm::ui::Label::Minor</enum></property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="protectedHeaderStretch">
+         <property name="orientation"><enum>Qt::Horizontal</enum></property>
+         <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="protectedCard">
+       <layout class="QVBoxLayout" name="protectedLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Label" name="logTitle">
+       <property name="text"><string>최근 권한 요청</string></property>
+       <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="logCard">
+       <layout class="QVBoxLayout" name="logLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <spacer name="rightStretch">
+       <property name="orientation"><enum>Qt::Vertical</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::Label</class><extends>QLabel</extends><header>fmwidgets/Label.h</header></customwidget>
+  <customwidget><class>fm::ui::Card</class><extends>QFrame</extends><header>fmwidgets/Card.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::SettingRow</class><extends>QWidget</extends><header>fmwidgets/SettingsWidgets.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Switch</class><extends>QCheckBox</extends><header>fmwidgets/Switch.h</header></customwidget>
+  <customwidget><class>fm::ui::SegmentedControl</class><extends>QWidget</extends><header>fmwidgets/SegmentedControl.h</header></customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

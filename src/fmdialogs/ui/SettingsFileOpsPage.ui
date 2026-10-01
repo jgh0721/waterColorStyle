@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SettingsFileOpsPage</class>
+ <widget class="QWidget" name="SettingsFileOpsPage">
+  <property name="geometry"><rect><x>0</x><y>0</y><width>899</width><height>720</height></rect></property>
+  <layout class="QHBoxLayout" name="columnsLayout">
+   <property name="spacing"><number>24</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <layout class="QVBoxLayout" name="leftColumn" stretch="0,0,0,0,1">
+     <property name="spacing"><number>8</number></property>
+     <item>
+      <widget class="fm::ui::Label" name="copyTitle">
+       <property name="text"><string>복사 · 이동</string></property>
+       <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="copyCard">
+       <layout class="QVBoxLayout" name="copyLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+        <item>
+         <widget class="fm::ui::SettingRow" name="conflictRow">
+          <property name="title"><string>같은 이름이 있을 때</string></property>
+          <widget class="QComboBox" name="conflictCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>매번 묻기</string></property></item>
+           <item><property name="text"><string>덮어쓰기</string></property></item>
+           <item><property name="text"><string>새 것이면 덮어쓰기</string></property></item>
+           <item><property name="text"><string>건너뛰기</string></property></item>
+           <item><property name="text"><string>둘 다 유지(새 이름)</string></property></item>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="verifyRow">
+          <property name="title"><string>복사 후 해시로 검증</string></property>
+          <property name="description"><string>원본과 사본을 다시 읽어 비교 · 시간이 더 걸림</string></property>
+          <widget class="fm::ui::Switch" name="verifySwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="attributesRow">
+          <property name="title"><string>속성 · 타임스탬프 유지</string></property>
+          <widget class="fm::ui::Switch" name="attributesSwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="aclRow">
+          <property name="title"><string>NTFS 권한(ACL) 복사</string></property>
+          <property name="description"><string>다른 볼륨으로 복사할 때 원본 권한을 그대로</string></property>
+          <widget class="fm::ui::Switch" name="aclSwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="adsRow">
+          <property name="title"><string>대체 데이터 스트림 복사</string></property>
+          <property name="description"><string>끄면 인터넷에서 받은 파일 표시(Zone.Identifier)도 빠짐</string></property>
+          <widget class="fm::ui::Switch" name="adsSwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="linksRow">
+          <property name="title"><string>심볼릭 링크 · 정션</string></property>
+          <widget class="QComboBox" name="linksCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>링크로 복사</string></property></item>
+           <item><property name="text"><string>가리키는 내용을 복사</string></property></item>
+           <item><property name="text"><string>건너뛰기</string></property></item>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Label" name="deleteTitle">
+       <property name="text"><string>삭제</string></property>
+       <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="deleteCard">
+       <layout class="QVBoxLayout" name="deleteLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+        <item>
+         <widget class="fm::ui::SettingRow" name="deleteModeRow">
+          <property name="title"><string>기본 삭제 방식</string></property>
+          <property name="description"><string>F8 · Del — Shift를 누르면 반대로</string></property>
+          <widget class="fm::ui::SegmentedControl" name="deleteModeSegment" native="true">
+           <property name="items"><stringlist><string>휴지통</string><string>영구 삭제</string></stringlist></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="confirmRow">
+          <property name="title"><string>삭제 전 확인</string></property>
+          <widget class="fm::ui::Switch" name="confirmSwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="readOnlyRow">
+          <property name="title"><string>읽기 전용 파일</string></property>
+          <widget class="QComboBox" name="readOnlyCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>매번 묻기</string></property></item>
+           <item><property name="text"><string>묻지 않고 삭제</string></property></item>
+           <item><property name="text"><string>건너뛰기</string></property></item>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <spacer name="leftStretch">
+       <property name="orientation"><enum>Qt::Vertical</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="rightColumn" stretch="0,0,0,0,1">
+     <property name="spacing"><number>8</number></property>
+     <item>
+      <widget class="fm::ui::Label" name="progressTitle">
+       <property name="text"><string>진행 창 · 대기열</string></property>
+       <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="progressCard">
+       <layout class="QVBoxLayout" name="progressLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+        <item>
+         <widget class="fm::ui::SettingRow" name="progressShowRow">
+          <property name="title"><string>진행 창 표시</string></property>
+          <widget class="QComboBox" name="progressShowCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>바로</string></property></item>
+           <item><property name="text"><string>1초 넘게 걸리면</string></property></item>
+           <item><property name="text"><string>3초 넘게 걸리면</string></property></item>
+           <item><property name="text"><string>표시 안 함(알림만)</string></property></item>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="progressOpenRow">
+          <property name="title"><string>처음 열 때</string></property>
+          <property name="description"><string>속도 그래프와 현재 파일</string></property>
+          <widget class="fm::ui::SegmentedControl" name="progressOpenSegment" native="true">
+           <property name="items"><stringlist><string>간단히</string><string>자세히</string></stringlist></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="closeRow">
+          <property name="title"><string>완료되면 창 닫기</string></property>
+          <widget class="fm::ui::Switch" name="closeSwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="notifyRow">
+          <property name="title"><string>완료 알림</string></property>
+          <property name="description"><string>Windows 알림 · 10초 넘게 걸린 작업만</string></property>
+          <widget class="fm::ui::Switch" name="notifySwitch">
+           <property name="onText"><string>켬</string></property>
+           <property name="offText"><string>끔</string></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="jobsRow">
+          <property name="title"><string>동시에 실행할 작업</string></property>
+          <property name="description"><string>나머지는 대기열에서 기다림 · 대화상자에서 F2로 추가</string></property>
+          <widget class="QComboBox" name="jobsCombo">
+           <property name="minimumSize"><size><width>96</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>96</width><height>16777215</height></size></property>
+           <item><property name="text"><string>1개</string></property></item>
+           <item><property name="text"><string>2개</string></property></item>
+           <item><property name="text"><string>3개</string></property></item>
+           <item><property name="text"><string>4개</string></property></item>
+           <item><property name="text"><string>제한 없음</string></property></item>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Label" name="renameTitle">
+       <property name="text"><string>다중 이름 변경</string></property>
+       <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="renameCard">
+       <layout class="QVBoxLayout" name="renameLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+        <item>
+         <widget class="fm::ui::SettingRow" name="recordRow">
+          <property name="title"><string>미리보기 레코드</string></property>
+          <widget class="fm::ui::SegmentedControl" name="recordSegment" native="true">
+           <property name="items"><stringlist><string>1줄</string><string>2줄</string><string>자동</string></stringlist></property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="presetRow">
+          <property name="title"><string>처음 쓸 프리셋</string></property>
+          <widget class="QComboBox" name="presetCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>사진 · 날짜_장소_번호</string></property></item>
+           <item><property name="text"><string>스크린샷 · 날짜_시각</string></property></item>
+           <item><property name="text"><string>원래 이름 · 모두 소문자</string></property></item>
+           <item><property name="text"><string>마지막에 쓴 것</string></property></item>
+           <item><property name="text"><string>없음</string></property></item>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="undoRow">
+          <property name="title"><string>되돌리기 기록</string></property>
+          <widget class="QComboBox" name="undoCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>최근 10회</string></property></item>
+           <item><property name="text"><string>최근 20회</string></property></item>
+           <item><property name="text"><string>최근 50회</string></property></item>
+           <item><property name="text"><string>최근 100회</string></property></item>
+           <item><property name="text"><string>기록 안 함</string></property></item>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="problemRow">
+          <property name="title"><string>충돌 · 오류가 있으면</string></property>
+          <widget class="QComboBox" name="problemCombo">
+           <property name="minimumSize"><size><width>196</width><height>0</height></size></property>
+           <property name="maximumSize"><size><width>196</width><height>16777215</height></size></property>
+           <item><property name="text"><string>이름 바꾸기 막기</string></property></item>
+           <item><property name="text"><string>문제 항목만 건너뛰기</string></property></item>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <spacer name="rightStretch">
+       <property name="orientation"><enum>Qt::Vertical</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::Label</class><extends>QLabel</extends><header>fmwidgets/Label.h</header></customwidget>
+  <customwidget><class>fm::ui::Card</class><extends>QFrame</extends><header>fmwidgets/Card.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::SettingRow</class><extends>QWidget</extends><header>fmwidgets/SettingsWidgets.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Switch</class><extends>QCheckBox</extends><header>fmwidgets/Switch.h</header></customwidget>
+  <customwidget><class>fm::ui::SegmentedControl</class><extends>QWidget</extends><header>fmwidgets/SegmentedControl.h</header></customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "fmstyle/ColorScheme.h"
 #include "fmstyle/ThemeColors.h"
 
 #include <QObject>
@@ -73,6 +74,25 @@ public:
     bool alwaysShowMnemonics() const noexcept { return m_alwaysMnemonics; }
     void setAlwaysShowMnemonics(bool on);
 
+    /// 이름 있는 색 구성표(설정 › 테마 색상) — 기준 색과 모든 직접 지정을 한 번에 바꾼다(재계산 · 적용 1회).
+    ColorScheme colorScheme() const;
+    void setColorScheme(const ColorScheme &scheme);
+
+    /// Windows 강조색(DWM AccentColor). 읽지 못하면 nullopt. 기준 색의 useSystemAccent가 켜져 있으면 강조색 대신 쓴다.
+    static std::optional<QColor> systemAccent();
+
+    /// 여러 설정을 한꺼번에 바꿀 때 — 범위가 끝날 때 한 번만 적용한다(설정 창의 적용 · 확인).
+    class Batch
+    {
+    public:
+        explicit Batch(ThemeManager &manager);
+        ~Batch();
+
+    private:
+        Q_DISABLE_COPY_MOVE(Batch)
+        ThemeManager &m_manager;
+    };
+
 Q_SIGNALS:
     void changed();
 
@@ -100,6 +120,10 @@ private:
     bool m_coloredTitleBar = true;
     bool m_alwaysMnemonics = false;
     bool m_installed = false;
+    QString m_schemeId = QStringLiteral("builtin");
+    QString m_schemeName;
+    int m_batch = 0;
+    bool m_batchDirty = false;
 };
 
 /// 디자인에 맞는 스타일을 새로 만든다 (호출한 쪽이 소유).

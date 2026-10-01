@@ -9,9 +9,13 @@
 #include <fmfilelist/FileListView.h>
 #include <fmfilelist/FileRoles.h>
 #include <fmfilelist/FileSortProxy.h>
+#include <fmdialogs/SettingsDialog.h>
 #include <fmfilelist/ThumbnailView.h>
+#include <fmsettings/SettingsStore.h>
 #include <fmstyle/ThemeManager.h>
 #include <fmwidgets/BreadcrumbBar.h>
+#include <fmwidgets/CommandLine.h>
+#include <fmwidgets/FunctionKeyBar.h>
 
 #include <QAction>
 #include <QApplication>
@@ -41,6 +45,8 @@ private Q_SLOTS:
     void breadcrumbs();
     void fileOperations();
     void elevationFlowMenu();
+    void settingsWiring();
+    void designSwitchFromSettings();
 
 private:
     QString nameAt(FilePanel *panel, int row) const
@@ -237,6 +243,86 @@ void TestMainWindow::elevationFlowMenu()
     QCOMPARE(dialog->parentWidget(), static_cast<QWidget *>(m_window.get()));
     dialog->choose(fm::dialogs::elev::Choice::Cancel);
     QTRY_VERIFY(flow.isNull());  // finished → deleteLater
+}
+
+void TestMainWindow::settingsWiring()
+{
+    namespace st = fm::settings;
+    auto &store = st::SettingsStore::instance();
+    QVERIFY(store.filePath().isEmpty());  // 테스트는 메모리 보관소
+    m_window->captureSettings();
+    const st::AppSettings original = store.settings();
+    QVERIFY(original.panel.showHidden);  // 보드 상태를 옮겼다
+
+    // 설정 명령 → 설정 창 하나(다시 눌러도 같은 창)
+    QAction *settings = m_window->findChild<QAction *>(u"settings"_s);
+    QVERIFY(settings);
+    settings->trigger();
+    QPointer<fm::dialogs::SettingsDialog> dialog = m_window->findChild<fm::dialogs::SettingsDialog *>();
+    QVERIFY(dialog && dialog->isVisible());
+    settings->trigger();
+    QCOMPARE(m_window->findChildren<fm::dialogs::SettingsDialog *>().size(), 1);
+
+    // 적용 → 창에 반영: 명령줄 · 기능 키 막대, 숨김 파일, 단축키
+    dialog->session()->edit(st::Section::General, [](st::AppSettings &p) {
+        p.general.showCommandLine = false;
+        p.general.showFunctionKeyBar = false;
+    });
+    dialog->session()->edit(st::Section::Panel, [](st::AppSettings &p) { p.panel.showHidden = false; });
+    dialog->session()->edit(st::Section::Keys, [](st::AppSettings &p) {
+        p.keys.overrides.insert(u"newFolder"_s, {QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N)});
+    });
+    dialog->applyPending();
+    QVERIFY(!m_window->findChild<fm::ui::CommandLine *>()->isVisible());
+    QVERIFY(!m_window->findChild<fm::ui::FunctionKeyBar *>()->isVisible());
+    QVERIFY(!m_window->findChild<QAction *>(u"showHidden"_s)->isChecked());
+    QAction *newFolder = m_window->findChild<QAction *>(u"newFolder"_s);
+    QCOMPARE(newFolder->shortcut(), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N));
+    QVERIFY(newFolder->toolTip().contains(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N).toString(QKeySequence::NativeText)));
+
+    // 확인으로 닫고 원래 설정으로 되돌린다
+    dialog->accept();
+    QTRY_VERIFY(dialog.isNull());
+    store.setSettings(original);
+    QVERIFY(m_window->findChild<fm::ui::CommandLine *>()->isVisible());
+    QCOMPARE(newFolder->shortcut(), QKeySequence(Qt::Key_F7));
+}
+
+void TestMainWindow::designSwitchFromSettings()
+{
+    // 설정 창에서 디자인을 워터컬러로 적용하면 앱이 종료되던 문제 — 앱 스타일 교체 중 Qtitan 그리드가
+    // QApplication::setStyle을 다시 불렀다(재진입). 설정 창(미리보기 그리드 여럿)을 연 채 두 디자인을 오간다.
+    namespace st = fm::settings;
+    namespace fs = fm::style;
+    m_window->captureSettings();
+    const st::AppSettings original = st::SettingsStore::instance().settings();
+    m_window->openSettings();
+    QPointer<fm::dialogs::SettingsDialog> dialog = m_window->findChild<fm::dialogs::SettingsDialog *>();
+    QVERIFY(dialog);
+    for (const QString &page : {u"panel"_s, u"groups"_s, u"columns"_s, u"theme"_s, u"thumbs"_s})
+        dialog->setCurrentPage(page);  // 미리보기 그리드를 모두 만든다
+    for (const fs::Design design : {fs::Design::Watercolor, fs::Design::Standard, fs::Design::Watercolor}) {
+        dialog->session()->edit(st::Section::Appearance, [design](st::AppSettings &p) { p.appearance.design = design; });
+        dialog->applyPending();
+        QCOMPARE(fs::ThemeManager::instance().design(), design);
+        QTest::qWait(50);
+    }
+    dialog->reject();
+    QTRY_VERIFY(dialog.isNull());
+
+    // 시작 때처럼 보이기 전의 창에서 저장된 디자인을 적용
+    {
+        MainWindow hidden;
+        hidden.loadBoardState();
+        st::AppSettings s = original;
+        s.appearance.design = fs::Design::Standard;
+        st::SettingsStore::instance().setSettings(s);
+        s.appearance.design = fs::Design::Watercolor;
+        st::SettingsStore::instance().setSettings(s);
+        QCOMPARE(fs::ThemeManager::instance().design(), fs::Design::Watercolor);
+    }
+    st::SettingsStore::instance().setSettings(original);
+    QCOMPARE(fs::ThemeManager::instance().design(), original.appearance.design);
 }
 
 QTEST_MAIN(TestMainWindow)

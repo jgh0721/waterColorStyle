@@ -5,6 +5,7 @@
 #include "fmdialogs/FileOpDialogs.h"
 #include "fmdialogs/MultiRenameDialog.h"
 #include "fmdialogs/ProgressDialog.h"
+#include "fmdialogs/SettingsDialog.h"
 
 using namespace Qt::StringLiterals;
 
@@ -86,6 +87,15 @@ QList<DialogVariant> dialogVariants()
         list.append({u"elev."_s + id, u"elev"_s, label, mockup, QSize(design.width() - 2, design.height() - 38)});
     }
     list.append({u"elev.uac"_s, u"elev"_s, u"UAC 확인 창 흉내(흐름 시뮬레이션)"_s, false, QSize(460, 0)});
+    // 설정 창 — 페이지마다 하나(창 1180 × 900, 클라이언트 1180 × 864)
+    const QList<QPair<QString, QString>> settings = {
+        {u"appearance"_s, u"일반 · 모양"_s}, {u"theme"_s, u"테마 색상"_s}, {u"panel"_s, u"파일 패널"_s},
+        {u"thumbs"_s, u"섬네일 보기"_s}, {u"groups"_s, u"파일 그룹 · 색상"_s}, {u"columns"_s, u"열 · 사용자 정의 열"_s},
+        {u"fileops"_s, u"파일 작업"_s}, {u"elevation"_s, u"관리자 권한"_s}, {u"keys"_s, u"키보드"_s},
+        {u"theme.adv"_s, u"테마 색상 — 모든 토큰 51"_s},
+    };
+    for (const auto &[id, label] : settings)
+        list.append({u"settings."_s + id, u"settings"_s, label, true, QSize(1180, 864)});
     return list;
 }
 
@@ -124,6 +134,14 @@ QDialog *createDialog(const QString &requested, QWidget *parent)
     if (group == u"newfolder") {
         auto *d = new NewFolderDialog(BoardContext::newFolder(), parent);
         d->applyVariant(id);
+        return d;
+    }
+    if (group == u"settings") {
+        auto *d = new SettingsDialog(parent);
+        d->setCurrentPage(id.section(u'.', 1, 1));
+        if (id.endsWith(u".adv"))  // 테마 색상 "모든 토큰 51" 보기(목업 보드 view=adv)
+            d->session()->edit(Section::Dialog, [](AppSettings &p) { p.dialog.themeView = u"adv"_s; });
+        d->showBoardState();
         return d;
     }
     if (id == u"elev.uac")

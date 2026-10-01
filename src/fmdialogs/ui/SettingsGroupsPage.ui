@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SettingsGroupsPage</class>
+ <widget class="QWidget" name="SettingsGroupsPage">
+  <property name="geometry"><rect><x>0</x><y>0</y><width>899</width><height>720</height></rect></property>
+  <layout class="QHBoxLayout" name="columnsLayout" stretch="0,1">
+   <property name="spacing"><number>20</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <widget class="QWidget" name="leftPane">
+     <property name="minimumSize"><size><width>312</width><height>0</height></size></property>
+     <property name="maximumSize"><size><width>312</width><height>16777215</height></size></property>
+     <layout class="QVBoxLayout" name="leftColumn" stretch="0,1">
+      <property name="spacing"><number>8</number></property>
+      <property name="leftMargin"><number>0</number></property>
+      <property name="topMargin"><number>0</number></property>
+      <property name="rightMargin"><number>0</number></property>
+      <property name="bottomMargin"><number>0</number></property>
+      <item>
+       <layout class="QHBoxLayout" name="groupsHeader">
+        <property name="spacing"><number>8</number></property>
+        <item>
+         <widget class="fm::ui::Label" name="groupsTitle">
+          <property name="text"><string>그룹</string></property>
+          <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::Label" name="groupsNote">
+          <property name="text"><string>· 위에 있을수록 우선</string></property>
+          <property name="textRole"><enum>fm::ui::Label::Minor</enum></property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="groupsHeaderStretch">
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="fm::ui::Card" name="groupsCard">
+        <layout class="QVBoxLayout" name="groupsLayout" stretch="0,0,1,0">
+         <property name="spacing"><number>0</number></property>
+         <property name="leftMargin"><number>1</number></property>
+         <property name="topMargin"><number>1</number></property>
+         <property name="rightMargin"><number>1</number></property>
+         <property name="bottomMargin"><number>1</number></property>
+         <item>
+          <widget class="QWidget" name="groupsToolbar">
+           <property name="minimumSize"><size><width>0</width><height>40</height></size></property>
+           <property name="maximumSize"><size><width>16777215</width><height>40</height></size></property>
+           <layout class="QHBoxLayout" name="groupsToolbarLayout">
+            <property name="spacing"><number>2</number></property>
+            <property name="leftMargin"><number>8</number></property>
+            <property name="topMargin"><number>0</number></property>
+            <property name="rightMargin"><number>6</number></property>
+            <property name="bottomMargin"><number>0</number></property>
+            <item>
+             <widget class="fm::ui::Button" name="newGroupButton">
+              <property name="text"><string>새 그룹(&amp;W)</string></property>
+              <property name="compact"><bool>true</bool></property>
+              <property name="autoDefault"><bool>false</bool></property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="toolbarGap">
+              <property name="orientation"><enum>Qt::Horizontal</enum></property>
+              <property name="sizeType"><enum>QSizePolicy::Fixed</enum></property>
+              <property name="sizeHint" stdset="0"><size><width>4</width><height>0</height></size></property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QToolButton" name="duplicateButton">
+              <property name="toolTip"><string>복제 (Ctrl+D)</string></property>
+              <property name="accessibleName"><string>복제</string></property>
+              <property name="autoRaise"><bool>true</bool></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QToolButton" name="deleteButton">
+              <property name="toolTip"><string>삭제 (Del)</string></property>
+              <property name="accessibleName"><string>삭제</string></property>
+              <property name="autoRaise"><bool>true</bool></property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="toolbarStretch">
+              <property name="orientation"><enum>Qt::Horizontal</enum></property>
+              <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QToolButton" name="upButton">
+              <property name="toolTip"><string>위로 (Alt+↑)</string></property>
+              <property name="accessibleName"><string>위로</string></property>
+              <property name="autoRaise"><bool>true</bool></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QToolButton" name="downButton">
+              <property name="toolTip"><string>아래로 (Alt+↓)</string></property>
+              <property name="accessibleName"><string>아래로</string></property>
+              <property name="autoRaise"><bool>true</bool></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QFrame" name="groupsToolbarLine">
+           <property name="frameShape"><enum>QFrame::HLine</enum></property>
+           <property name="frameShadow"><enum>QFrame::Plain</enum></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QListView" name="groupList">
+           <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+           <property name="accessibleName"><string>그룹</string></property>
+           <property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="mergeBox">
+           <layout class="QVBoxLayout" name="mergeLayout">
+            <property name="spacing"><number>8</number></property>
+            <property name="leftMargin"><number>12</number></property>
+            <property name="topMargin"><number>10</number></property>
+            <property name="rightMargin"><number>12</number></property>
+            <property name="bottomMargin"><number>12</number></property>
+            <item>
+             <widget class="fm::ui::Label" name="mergeTitle">
+              <property name="text"><string>여러 그룹에 해당하면(&amp;M)</string></property>
+              <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+              <property name="buddy"><cstring>firstOnlyRadio</cstring></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="firstOnlyRadio">
+              <property name="text"><string>위 그룹 하나만</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="fm::ui::Label" name="firstOnlyNote">
+              <property name="text"><string>처음 맞는 그룹의 설정만 쓰고 나머지는 무시</string></property>
+              <property name="textRole"><enum>fm::ui::Label::Help</enum></property>
+              <property name="wordWrap"><bool>true</bool></property>
+              <property name="indent"><number>24</number></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="mergeRadio">
+              <property name="text"><string>속성별로 합치기</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="fm::ui::Label" name="mergeNote">
+              <property name="text"><string>글자색 · 배경색 · 효과마다 그 항목을 정한 가장 위 그룹의 값</string></property>
+              <property name="textRole"><enum>fm::ui::Label::Help</enum></property>
+              <property name="wordWrap"><bool>true</bool></property>
+              <property name="indent"><number>24</number></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="rightColumn" stretch="0,0,0,0,0,0,1">
+     <property name="spacing"><number>8</number></property>
+     <item>
+      <layout class="QHBoxLayout" name="definitionHeader">
+       <property name="spacing"><number>8</number></property>
+       <item>
+        <widget class="fm::ui::Label" name="definitionTitle">
+         <property name="text"><string>그룹 정의</string></property>
+         <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="definitionHeaderStretch">
+         <property name="orientation"><enum>Qt::Horizontal</enum></property>
+         <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="definitionCard">
+       <layout class="QVBoxLayout" name="definitionLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+        <item>
+         <widget class="QWidget" name="nameBox">
+          <layout class="QHBoxLayout" name="nameLayout">
+           <property name="spacing"><number>0</number></property>
+           <property name="leftMargin"><number>14</number></property>
+           <property name="topMargin"><number>8</number></property>
+           <property name="rightMargin"><number>14</number></property>
+           <property name="bottomMargin"><number>8</number></property>
+           <item>
+            <widget class="fm::ui::Label" name="nameLabel">
+             <property name="minimumSize"><size><width>96</width><height>0</height></size></property>
+             <property name="maximumSize"><size><width>96</width><height>16777215</height></size></property>
+             <property name="text"><string>이름(&amp;N)</string></property>
+             <property name="buddy"><cstring>nameEdit</cstring></property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="nameEdit"/>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QWidget" name="conditionBox">
+          <layout class="QVBoxLayout" name="conditionLayout">
+           <property name="spacing"><number>8</number></property>
+           <property name="leftMargin"><number>14</number></property>
+           <property name="topMargin"><number>10</number></property>
+           <property name="rightMargin"><number>14</number></property>
+           <property name="bottomMargin"><number>12</number></property>
+           <item>
+            <layout class="QHBoxLayout" name="sentenceLayout">
+             <property name="spacing"><number>8</number></property>
+             <item>
+              <widget class="fm::ui::Label" name="sentenceBefore">
+               <property name="text"><string>다음 조건 중</string></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="fm::ui::SegmentedControl" name="matchSegment" native="true">
+               <property name="items"><stringlist><string>하나라도</string><string>모두</string></stringlist></property>
+               <property name="accessibleName"><string>조건 결합</string></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="fm::ui::Label" name="sentenceAfter">
+               <property name="text"><string>맞으면 이 그룹</string></property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="sentenceStretch">
+               <property name="orientation"><enum>Qt::Horizontal</enum></property>
+               <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="conditionRows">
+             <property name="spacing"><number>6</number></property>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="addConditionLayout">
+             <item>
+              <widget class="fm::ui::Button" name="addConditionButton">
+               <property name="text"><string>조건 추가(&amp;D)</string></property>
+               <property name="compact"><bool>true</bool></property>
+               <property name="autoDefault"><bool>false</bool></property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="addConditionStretch">
+               <property name="orientation"><enum>Qt::Horizontal</enum></property>
+               <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="colorHeader">
+       <property name="spacing"><number>8</number></property>
+       <item>
+        <widget class="fm::ui::Label" name="colorTitle">
+         <property name="text"><string>색상과 글꼴 효과</string></property>
+         <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="fm::ui::Label" name="colorNote">
+         <property name="text"><string>· 비워 두면 목록 기본값</string></property>
+         <property name="textRole"><enum>fm::ui::Label::Minor</enum></property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="colorHeaderStretch">
+         <property name="orientation"><enum>Qt::Horizontal</enum></property>
+         <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="colorCard">
+       <layout class="QVBoxLayout" name="colorLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+        <item>
+         <widget class="QWidget" name="colorGrid">
+          <layout class="QGridLayout" name="colorGridLayout" columnstretch="0,1,1">
+           <property name="leftMargin"><number>14</number></property>
+           <property name="topMargin"><number>10</number></property>
+           <property name="rightMargin"><number>14</number></property>
+           <property name="bottomMargin"><number>12</number></property>
+           <property name="horizontalSpacing"><number>12</number></property>
+           <property name="verticalSpacing"><number>6</number></property>
+           <item row="0" column="1">
+            <widget class="fm::ui::Label" name="lightHead">
+             <property name="text"><string>라이트 테마</string></property>
+             <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <layout class="QHBoxLayout" name="darkHeadLayout">
+             <item>
+              <widget class="fm::ui::Label" name="darkHead">
+               <property name="text"><string>다크 테마</string></property>
+               <property name="textRole"><enum>fm::ui::Label::Meta</enum></property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="darkHeadStretch">
+               <property name="orientation"><enum>Qt::Horizontal</enum></property>
+               <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="autoDarkCheck">
+               <property name="text"><string>라이트 색에서 자동</string></property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="1" column="0">
+            <widget class="fm::ui::Label" name="textLabel">
+             <property name="minimumSize"><size><width>64</width><height>30</height></size></property>
+             <property name="text"><string>글자색(&amp;C)</string></property>
+             <property name="alignment"><set>Qt::AlignLeft|Qt::AlignTop</set></property>
+             <property name="buddy"><cstring>textLightButton</cstring></property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <layout class="QVBoxLayout" name="textLightLayout">
+             <property name="spacing"><number>4</number></property>
+             <item><widget class="fm::ui::ColorPickButton" name="textLightButton"><property name="accessibleName"><string>라이트 테마 글자색</string></property></widget></item>
+            </layout>
+           </item>
+           <item row="1" column="2">
+            <layout class="QVBoxLayout" name="textDarkLayout">
+             <property name="spacing"><number>4</number></property>
+             <item><widget class="fm::ui::ColorPickButton" name="textDarkButton"><property name="accessibleName"><string>다크 테마 글자색</string></property></widget></item>
+            </layout>
+           </item>
+           <item row="2" column="0">
+            <widget class="fm::ui::Label" name="backLabel">
+             <property name="minimumSize"><size><width>64</width><height>30</height></size></property>
+             <property name="text"><string>배경색(&amp;G)</string></property>
+             <property name="alignment"><set>Qt::AlignLeft|Qt::AlignTop</set></property>
+             <property name="buddy"><cstring>backLightButton</cstring></property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <layout class="QVBoxLayout" name="backLightLayout">
+             <property name="spacing"><number>4</number></property>
+             <item><widget class="fm::ui::ColorPickButton" name="backLightButton"><property name="accessibleName"><string>라이트 테마 배경색</string></property></widget></item>
+            </layout>
+           </item>
+           <item row="2" column="2">
+            <layout class="QVBoxLayout" name="backDarkLayout">
+             <property name="spacing"><number>4</number></property>
+             <item><widget class="fm::ui::ColorPickButton" name="backDarkButton"><property name="accessibleName"><string>다크 테마 배경색</string></property></widget></item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="fm::ui::SettingRow" name="effectsRow">
+          <property name="title"><string>글꼴 효과</string></property>
+          <property name="rowHeight"><number>48</number></property>
+          <widget class="fm::ui::ToggleChip" name="boldChip"><property name="text"><string>굵게(&amp;B)</string></property></widget>
+          <widget class="fm::ui::ToggleChip" name="italicChip"><property name="text"><string>기울임(&amp;I)</string></property></widget>
+          <widget class="fm::ui::ToggleChip" name="underlineChip"><property name="text"><string>밑줄(&amp;U)</string></property></widget>
+          <widget class="fm::ui::ToggleChip" name="strikeChip"><property name="text"><string>취소선(&amp;K)</string></property></widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="previewHeader">
+       <property name="spacing"><number>8</number></property>
+       <item>
+        <widget class="fm::ui::Label" name="previewTitle">
+         <property name="text"><string>미리보기</string></property>
+         <property name="textRole"><enum>fm::ui::Label::SectionTitle</enum></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="fm::ui::Label" name="previewNote">
+         <property name="textRole"><enum>fm::ui::Label::Minor</enum></property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="previewHeaderStretch">
+         <property name="orientation"><enum>Qt::Horizontal</enum></property>
+         <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="fm::ui::Card" name="previewCard">
+       <layout class="QVBoxLayout" name="previewLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>1</number></property>
+        <property name="topMargin"><number>1</number></property>
+        <property name="rightMargin"><number>1</number></property>
+        <property name="bottomMargin"><number>1</number></property>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <spacer name="rightStretch">
+       <property name="orientation"><enum>Qt::Vertical</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget><class>fm::ui::Label</class><extends>QLabel</extends><header>fmwidgets/Label.h</header></customwidget>
+  <customwidget><class>fm::ui::Card</class><extends>QFrame</extends><header>fmwidgets/Card.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::Button</class><extends>QPushButton</extends><header>fmwidgets/Button.h</header></customwidget>
+  <customwidget><class>fm::ui::SettingRow</class><extends>QWidget</extends><header>fmwidgets/SettingsWidgets.h</header><container>1</container></customwidget>
+  <customwidget><class>fm::ui::ColorPickButton</class><extends>QPushButton</extends><header>fmwidgets/SettingsWidgets.h</header></customwidget>
+  <customwidget><class>fm::ui::ToggleChip</class><extends>QPushButton</extends><header>fmwidgets/SettingsWidgets.h</header></customwidget>
+  <customwidget><class>fm::ui::SegmentedControl</class><extends>QWidget</extends><header>fmwidgets/SegmentedControl.h</header></customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

@@ -37,3 +37,12 @@ if(TARGET Fm::dialogs)
     add_test(NAME tst_dialogs COMMAND tst_dialogs)
     set_tests_properties(tst_dialogs PROPERTIES ENVIRONMENT "${_testEnv}")
 endif()
+
+if(TARGET Fm::settings)
+    # 설정 모델 — 테마 파생 규칙 · 색 구성표 · AppSettings JSON · 파일 그룹 매처 · 명령 키
+    qt_add_executable(tst_settings tst_settings.cpp)
+    target_link_libraries(tst_settings PRIVATE Fm::settings Qt6::Test)
+    fm_set_compile_options(tst_settings)
+    add_test(NAME tst_settings COMMAND tst_settings)
+    set_tests_properties(tst_settings PROPERTIES ENVIRONMENT "${_testEnv}")
+endif()

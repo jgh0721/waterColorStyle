@@ -1,5 +1,6 @@
 #include "fmfilelist/FileSortProxy.h"
 
+#include "fmfilelist/FileGroups.h"
 #include "fmfilelist/FileRoles.h"
 
 #include <QDateTime>
@@ -70,6 +71,30 @@ void FileSortProxy::invertMarks()
 int FileSortProxy::compareNames(const QModelIndex &left, const QModelIndex &right) const
 {
     return m_collator.compare(left.data(FullNameRole).toString(), right.data(FullNameRole).toString());
+}
+
+void FileSortProxy::setGroupMatcher(std::shared_ptr<const FileGroupMatcher> matcher)
+{
+    m_groups = std::move(matcher);
+    if (rowCount() > 0)
+        Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1), {GroupStyleRole});
+}
+
+QVariant FileSortProxy::data(const QModelIndex &index, int role) const
+{
+    if (role != GroupStyleRole)
+        return QSortFilterProxyModel::data(index, role);
+    if (!m_groups || m_groups->isEmpty() || index.data(IsUpRole).toBool())
+        return QVariant();
+    FileFacts facts;
+    facts.name = index.data(FullNameRole).toString();
+    facts.ext = index.data(ExtRole).toString();
+    facts.attributes = index.data(AttributesRole).toInt();
+    facts.size = index.data(SizeBytesRole).toLongLong();
+    facts.modified = index.data(ModifiedRole).toDateTime();
+    facts.isDir = index.data(IsDirRole).toBool();
+    const ResolvedGroupStyle style = m_groups->resolve(facts);
+    return style.isEmpty() ? QVariant() : QVariant::fromValue(style);
 }
 
 bool FileSortProxy::lessThan(const QModelIndex &left, const QModelIndex &right) const

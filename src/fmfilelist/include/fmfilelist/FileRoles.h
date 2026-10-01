@@ -45,6 +45,8 @@ enum Role {
     AspectRole,                   // qreal — 그림의 가로 / 세로, 모르면 0
     BadgeRole,                    // QString — 섬네일 배지("PNG", "1:42:08")
     NoSortRole,                   // 항상 빈 값 — Qtitan 자체 정렬이 모델 순서를 그대로 두게 한다(FileListView)
+    GroupStyleRole,               // QVariant(ResolvedGroupStyle) — 파일 그룹의 글자색 · 배경색 · 글꼴 효과(FileGroups.h)
+    PreviewStateRole,             // int(PreviewState 조합) — 미리보기가 행마다 상태를 정한다(설정 › 테마 색상의 행 상태)
 };
 
 /// 종류 — 아이콘 모양과 종류 띠 색(--k-*)을 정한다.
@@ -53,7 +55,10 @@ enum class Kind : std::uint8_t { Up, Folder, Exe, Pdf, Img, Zip, Code, Doc, Sys,
 /// 섬네일 그림 — 샘플은 목업의 가짜 그림(Shot · Video · Pdf · Photo), 실제 폴더는 Image 또는 Loading.
 enum class Art : std::uint8_t { None, Shot, Video, Pdf, Photo, Loading, Image };
 
-enum Attribute : int { ReadOnly = 0x1, Archive = 0x2, Hidden = 0x4, System = 0x8 };
+enum Attribute : int { ReadOnly = 0x1, Archive = 0x2, Hidden = 0x4, System = 0x8, ReparsePoint = 0x10 };
+
+/// 미리보기 행 상태(PreviewStateRole) — 설정의 테마 미리보기가 한 목록에 여러 상태를 함께 보인다.
+enum PreviewState : int { PreviewMarked = 0x1, PreviewCursor = 0x2, PreviewInvertCursor = 0x4, PreviewInvertSelection = 0x8 };
 
 /// 종류 띠 색 토큰. 폴더는 --folder, 상위 폴더 · 기타는 --k-doc.
 fm::style::Token kindToken(Kind kind) noexcept;

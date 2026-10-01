@@ -44,12 +44,37 @@ private:
     std::array<QColor, kTokenCount> m_colors;
 };
 
-/// 기준 색. 1단계는 강조색만 다룬다 — 나머지 기준 색은 테마 편집 화면을 만들 때 추가.
+/// 기준 색 역할 11개(설정 › 테마 색상, docs/specs/04 §2.2.3). 역할마다 첫 토큰이 시드 토큰이다.
+enum class SeedRole : std::uint8_t { Accent, Win, Surface, Line, Fg, Sel, InvCur, InvSel, Warn, Danger, Ok, Count };
+inline constexpr std::size_t kSeedRoleCount = static_cast<std::size_t>(SeedRole::Count);
+
+/// 디자인 · 변형 하나의 역할 시드. 비어 있는 역할은 손으로 맞춘 내장 값을 쓴다(내장 값 보존 원칙).
+struct VariantSeeds
+{
+    std::array<std::optional<QColor>, kSeedRoleCount> seed{};  // [SeedRole] — Accent 칸은 이 변형만의 강조색
+    bool selFollowsAccent = true;      // 선택 · 강조 연동
+    bool invSelFollowsAccent = true;   // 역상 선택 · 강조 연동
+
+    bool isEmpty() const noexcept;
+    bool operator==(const VariantSeeds &other) const = default;
+};
+
+/// 기준 색. 강조색은 두 디자인 · 두 변형 공통(다크 = 흰색 8 % 섞음), 나머지 역할은 디자인 · 변형별.
 struct ThemeSeeds
 {
     std::optional<QColor> accent;  // 비어 있으면 손으로 맞춘 내장 값을 그대로 쓴다
     bool fixContrast = true;       // 파생 색의 대비가 4.5:1 미만이면 보정
+    bool useSystemAccent = false;  // Windows 강조색 사용(설정 › 일반 · 모양)
+    std::array<std::array<VariantSeeds, kVariantCount>, 2> roles{};  // [디자인][변형]
 
+    const VariantSeeds &variantSeeds(Design design, Variant variant) const noexcept
+    {
+        return roles[static_cast<std::size_t>(design)][static_cast<std::size_t>(variant)];
+    }
+    VariantSeeds &variantSeeds(Design design, Variant variant) noexcept
+    {
+        return roles[static_cast<std::size_t>(design)][static_cast<std::size_t>(variant)];
+    }
     bool operator==(const ThemeSeeds &other) const = default;
 };
 

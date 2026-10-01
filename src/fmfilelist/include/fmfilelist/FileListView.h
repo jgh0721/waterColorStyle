@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fmfilelist/ListAppearance.h"
+#include "fmfilelist/ListColumns.h"
 
 #include <QModelIndex>
 #include <QWidget>
@@ -38,6 +39,10 @@ public:
     /// FileRoles 규약 모델. QSortFilterProxyModel이면 머리글 클릭으로 정렬한다.
     void setModel(QAbstractItemModel *model);
     QAbstractItemModel *model() const;
+
+    /// 열 배치(기본: 파일 목록 열). 설정의 미리보기는 다른 모델(그룹 · 열 세트)과 배치를 준다.
+    const ListColumnLayout &columnLayout() const noexcept;
+    void setColumnLayout(const ListColumnLayout &layout);
 
     /// OneLine · TwoLine · Auto (Thumbnails는 ThumbnailView가 맡는다 — 여기서는 Auto처럼 다룬다).
     ViewMode viewMode() const noexcept;

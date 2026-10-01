@@ -161,6 +161,7 @@ public:
     bool ensureColumns();
     void applyLayout();
     void applyTheme();
+    void scheduleTheme();
     void evaluate();
 
     RenamePreviewView *q;
@@ -173,6 +174,7 @@ public:
     bool twoLine = false;
     bool columnsReady = false;
     bool applying = false;
+    bool themePending = false;
 };
 
 void PreviewRecordPainter::paintBackground(QPainter &p, const Record &record, QWidget *)
@@ -422,6 +424,23 @@ void RenamePreviewViewPrivate::applyLayout()
     applying = false;
 }
 
+/// 변경 이벤트는 QApplication::setStyle() · setPalette()가 모은 위젯 목록을 돌며 온다 — 그 안에서 밴드를 다시 만들면
+/// Qtitan이 열 선택 팝업의 체크 상자를 바로 지워 앱이 죽는다. FileListView와 같이 이벤트 루프로 미룬다.
+void RenamePreviewViewPrivate::scheduleTheme()
+{
+    if (themePending)
+        return;
+    themePending = true;
+    QMetaObject::invokeMethod(
+        q,
+        [this] {
+            themePending = false;
+            if (view)
+                applyTheme();
+        },
+        Qt::QueuedConnection);
+}
+
 void RenamePreviewViewPrivate::applyTheme()
 {
     const fm::style::ThemeColors &tc = colors();
@@ -538,8 +557,7 @@ void RenamePreviewView::changeEvent(QEvent *event)
     case QEvent::PaletteChange:
     case QEvent::FontChange:
     case QEvent::StyleChange:
-        if (d->view)
-            d->applyTheme();
+        d->scheduleTheme();
         break;
     default:
         break;

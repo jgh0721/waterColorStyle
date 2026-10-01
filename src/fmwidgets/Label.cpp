@@ -39,6 +39,8 @@ RoleSpec specOf(Label::TextRole role)
     case Label::Summary:     return {12.5, QFont::Normal, T::Fg2, false, true};
     case Label::Heading:     return {15, QFont::DemiBold, T::Fg, true, false};
     case Label::Description: return {13, QFont::Normal, T::Fg2, true, false};
+    case Label::PageTitle:   return {20, QFont::DemiBold, T::Fg, false, false};
+    case Label::SectionTitle: return {13, QFont::DemiBold, T::Fg, false, false};
     }
     return {13, QFont::Normal, T::Fg, false, false};
 }

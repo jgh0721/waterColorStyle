@@ -12,6 +12,7 @@ qt_add_library(fmdialogs STATIC
     include/fmdialogs/ProgressSimulator.h
     include/fmdialogs/RenameEngine.h
     include/fmdialogs/RenamePreview.h
+    include/fmdialogs/SettingsDialog.h
     DialogCatalog.cpp
     ElevationDialog.cpp
     ElevationFlow.cpp
@@ -24,6 +25,17 @@ qt_add_library(fmdialogs STATIC
     ProgressSimulator.cpp
     RenameEngine.cpp
     RenamePreview.cpp
+    SettingsAppearancePage.cpp
+    SettingsColumnsPage.cpp
+    SettingsDialog.cpp
+    SettingsElevationPage.cpp
+    SettingsFileOpsPage.cpp
+    SettingsGroupsPage.cpp
+    SettingsKeysPage.cpp
+    SettingsPages_p.h
+    SettingsPanelPage.cpp
+    SettingsThemePage.cpp
+    SettingsThumbsPage.cpp
     ui/CopyDialog.ui
     ui/DeleteDialog.ui
     ui/MoveRenameDialog.ui
@@ -31,6 +43,15 @@ qt_add_library(fmdialogs STATIC
     ui/NewFileDialog.ui
     ui/NewFolderDialog.ui
     ui/ProgressDialog.ui
+    ui/SettingsAppearancePage.ui
+    ui/SettingsColumnsPage.ui
+    ui/SettingsElevationPage.ui
+    ui/SettingsFileOpsPage.ui
+    ui/SettingsGroupsPage.ui
+    ui/SettingsKeysPage.ui
+    ui/SettingsPanelPage.ui
+    ui/SettingsThemePage.ui
+    ui/SettingsThumbsPage.ui
 )
 
 add_library(Fm::dialogs ALIAS fmdialogs)
@@ -50,8 +71,10 @@ target_link_libraries(fmdialogs
         Qt6::Widgets
         Fm::widgets
         Fm::filelist
+        Fm::settings
     PRIVATE
         Qtitan::Grid
+        Qt6::Svg
 )
 
 fm_set_compile_options(fmdialogs)

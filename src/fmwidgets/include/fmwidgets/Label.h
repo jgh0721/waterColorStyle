@@ -30,7 +30,9 @@ public:
         Minor,       // .gt-s — 12 px · --fg3
         Summary,     // 버튼 영역 요약 — 12.5 px · --fg2 · 숫자 너비 고정
         Heading,     // .h1 — 15 px 600 · --fg
-        Description  // .desc — 13 px · --fg2 · 줄바꿈
+        Description, // .desc — 13 px · --fg2 · 줄바꿈
+        PageTitle,   // 설정 .ph-t — 20 px 600 · --fg
+        SectionTitle // 설정 .sc-t — 13 px 600 · --fg
     };
     Q_ENUM(TextRole)
 
