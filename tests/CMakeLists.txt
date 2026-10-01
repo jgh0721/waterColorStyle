@@ -46,3 +46,17 @@ if(TARGET Fm::settings)
     add_test(NAME tst_settings COMMAND tst_settings)
     set_tests_properties(tst_settings PROPERTIES ENVIRONMENT "${_testEnv}")
 endif()
+
+if(TARGET fmdesignerplugin)
+    # Designer 플러그인 — 적재 · 등록 정보 · 위젯 생성 · 모든 .ui를 QUiLoader로 열기
+    find_package(Qt6 REQUIRED COMPONENTS UiTools UiPlugin)
+    qt_add_executable(tst_designer tst_designer.cpp)
+    target_link_libraries(tst_designer PRIVATE Qt6::Widgets Qt6::UiTools Qt6::UiPlugin Qt6::Test)
+    target_compile_definitions(tst_designer PRIVATE
+        FM_DESIGNER_PLUGIN_PATH="$<TARGET_FILE:fmdesignerplugin>"
+        FM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    add_dependencies(tst_designer fmdesignerplugin)
+    fm_set_compile_options(tst_designer)
+    add_test(NAME tst_designer COMMAND tst_designer)
+    set_tests_properties(tst_designer PROPERTIES ENVIRONMENT "${_testEnv}")
+endif()

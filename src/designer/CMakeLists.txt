@@ -1,6 +1,6 @@
-find_package(Qt6 6.4 COMPONENTS UiPlugin)
-if(NOT Qt6UiPlugin_FOUND)
-    message(WARNING "Qt6::UiPlugin not found — skipping the Qt Widgets Designer plugin")
+find_package(Qt6 6.4 COMPONENTS UiPlugin Designer)
+if(NOT Qt6UiPlugin_FOUND OR NOT Qt6Designer_FOUND)
+    message(WARNING "Qt6::UiPlugin or Qt6::Designer not found — skipping the Qt Widgets Designer plugin")
     return()
 endif()
 
@@ -9,17 +9,28 @@ qt_add_plugin(fmdesignerplugin SHARED)
 
 target_sources(fmdesignerplugin
     PRIVATE
+        DesignerPreview.cpp
+        DesignerPreview.h
         FmDesignerPlugin.cpp
         FmDesignerPlugin.h
+        WidgetCatalog.cpp
 )
 
+# Qt6::Designer — 위젯 오른쪽 클릭 메뉴(QDesignerTaskMenuExtension)로 미리보기 디자인 · 변형을 바꾼다.
 target_link_libraries(fmdesignerplugin
     PRIVATE
         Qt6::UiPlugin
+        Qt6::Designer
         Qt6::Widgets
         Fm::style
         Fm::widgets
 )
+
+# 파일 목록(Qtitan) · 다중 이름 변경 미리보기도 등록한다 — Qtitan을 정적 링크하므로 DLL을 더 배포하지 않는다.
+if(TARGET Fm::filelist AND TARGET Fm::dialogs)
+    target_link_libraries(fmdesignerplugin PRIVATE Fm::filelist Fm::dialogs)
+    target_compile_definitions(fmdesignerplugin PRIVATE FM_DESIGNER_WITH_FILELIST)
+endif()
 
 fm_set_compile_options(fmdesignerplugin)
 

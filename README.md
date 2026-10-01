@@ -10,7 +10,7 @@
 | 폴더 | 내용 |
 |---|---|
 | `src/fmstyle` | `Fm::style` — FmStyle, WatercolorStyle, 테마 토큰, ThemeManager, ThemeScope |
-| `src/fmwidgets` | `Fm::widgets` — Button, Switch, SegmentedControl, Card, ProgressBar, TransferGraph |
+| `src/fmwidgets` | `Fm::widgets` — 버튼 · 스위치 · 카드 등 기본 부품, 대화상자 · 설정 · 메인 창 부품 |
 | `src/designer` | Qt Widgets Designer 플러그인 (`fmdesignerplugin`) |
 | `examples/designer` | Designer로 만든 `CopyDetails.ui`를 uic로 불러 쓰는 예제 |
 | `gallery` | 목업과 비교하는 위젯 갤러리 |
@@ -22,23 +22,30 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=<Qt 
 cmake --build build
 ```
 
-옵션: `FMSTYLE_BUILD_GALLERY`, `FMSTYLE_BUILD_EXAMPLES`, `FMSTYLE_BUILD_DESIGNER_PLUGIN` (모두 기본 ON).
+옵션: `FMSTYLE_BUILD_GALLERY`, `FMSTYLE_BUILD_EXAMPLES`, `FMSTYLE_BUILD_DESIGNER_PLUGIN` (모두 기본 ON). 플러그인은 Qt6::Designer · Qt6::UiPlugin이 있어야 빌드된다.
 
 ## Qt Widgets Designer 플러그인
 
-위젯 상자의 **FmStyle 위젯** 묶음에 6개 위젯이 들어간다.
+위젯 상자에 **FmStyle — …** 묶음 다섯 개로 42개 위젯이 들어간다. 프로젝트의 모든 .ui(설정 9페이지 · 파일 작업 대화상자 ·
+예제)가 쓰는 위젯을 모두 포함하므로, 어느 .ui든 Designer에서 열면 앱과 같은 모양으로 보인다.
 
-| 위젯 | 바탕 클래스 | Designer에서 고치는 속성 |
-|---|---|---|
-| `fm::ui::Button` | QPushButton | `role` (Normal · Primary · Danger · Subtle), `compact` |
-| `fm::ui::Switch` | QCheckBox | `onText`, `offText` |
-| `fm::ui::SegmentedControl` | QWidget | `items`, `currentIndex` |
-| `fm::ui::Card` | QFrame | 컨테이너 — 안에 레이아웃과 위젯을 넣는다 |
-| `fm::ui::ProgressBar` | QProgressBar | `state` (Normal · Paused · Error), `compact` (시안2에서 12 px) |
-| `fm::ui::TransferGraph` | QWidget | `axis` (Progress · Time), `title`, `showAverage`, `framed`, `speedLimit` (B/s) |
+| 묶음 | 위젯 |
+|---|---|
+| 기본 | `Button`, `Switch`, `SegmentedControl`, `Card`(컨테이너), `ProgressBar`, `TransferGraph`, `Label`, `Tag`, `KeyChip`, `Banner` |
+| 대화상자 | `DialogHeader`, `DialogFooter`(컨테이너), `PathEdit`, `RecentTargetsBar`, `ChoiceCard`, `TokenButton`, `FileSummaryList`, `FolderPlanView`, `KeyValueCard`, `ItemListCard`, `ActionCard`, `OptionRadio` |
+| 설정 | `SettingRow`(컨테이너 — 넣은 위젯은 오른쪽 컨트롤 칸으로 옮겨진다), `SearchField`, `ThemeModeCard`, `ColorSwatchButton`, `AccentPicker`, `HexColorEdit`, `ToggleChip`, `ColorPickButton`, `CheckListCombo`, `KeyCaptureEdit` |
+| 메인 창 | `CommandLine`, `FunctionKeyBar`, `FindBox`, `BreadcrumbBar`, `DriveButton`, `PanelStatusBar`, `PanelTabStrip` |
+| 파일 목록 | `fm::filelist::FileListView`, `fm::filelist::ThumbnailView`, `fm::dialogs::RenamePreviewView` — Qtitan을 정적 링크하므로 DLL을 더 배포하지 않는다 |
 
-미리 볼 디자인은 Designer를 띄우는 환경 변수로 고른다 — `FMSTYLE_DESIGN=watercolor` (또는 `2`)면 시안2,
-없으면 시안1.
+표에서는 클래스 이름 앞의 `fm::ui::`를 줄였다. Designer 안에서는 목록 · 그래프 · 기능 키 막대 등에 예시 데이터를 넣어
+모양을 볼 수 있게 한다(앱이 QUiLoader로 .ui를 읽을 때는 넣지 않는다).
+
+### 미리보기 디자인 · 변형
+
+플러그인 위젯을 **오른쪽 클릭 → 미리보기 디자인 / 미리보기 변형**에서 시안1 · 시안2와 Designer 밝기 따라가기 · 라이트 ·
+다크 · 남색(시안2)을 고른다. 열려 있는 모든 미리보기에 바로 반영되고, 고른 값은 다음 실행에도 남는다.
+처음 값은 환경 변수로도 줄 수 있다 — `FMSTYLE_DESIGN=watercolor`, `FMSTYLE_VARIANT=light|dark|navy`(있으면 저장값보다 우선).
+스타일 · 색은 미리보기 위젯(과 그 안에 넣은 위젯)에만 걸며 .ui에 저장되지 않는다.
 
 ### 설치
 
@@ -61,8 +68,7 @@ qt_add_executable(app main.cpp CopyDetails.ui)
 target_link_libraries(app PRIVATE Fm::style Fm::widgets)
 ```
 
-Designer 미리보기에서는 플러그인이 만든 위젯에만 FmStyle을 걸고 Designer 팔레트의 밝기에 따라
-라이트/다크 토큰을 고른다. 팔레트 · 스타일은 .ui에 저장되지 않는다. 앱에서는
+앱에서는
 `ThemeManager::instance().install(app)`이 스타일과 팔레트를 적용한다.
 
 ## 시안2 · 워터컬러
