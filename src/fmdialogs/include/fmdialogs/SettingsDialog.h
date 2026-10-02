@@ -159,6 +159,10 @@ public Q_SLOTS:
     void reject() override;
     void applyPending();
 
+Q_SIGNALS:
+    /// 섬네일 보기 › 캐시 비우기 — 앱이 만든 섬네일 캐시를 지워 달라는 요청(창을 연 쪽이 받는다).
+    void thumbnailCacheClearRequested();
+
 protected:
     void showEvent(QShowEvent *event) override;
 

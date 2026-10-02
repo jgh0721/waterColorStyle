@@ -1,6 +1,7 @@
 # Fm::filelist — 파일 목록 모델(샘플 · 읽기 전용 실제 폴더), FileListView(Qtitan 밴드 보기), 섬네일 두 구현.
 qt_add_library(fmfilelist STATIC
     include/fmfilelist/ColumnSets.h
+    include/fmfilelist/ColumnValues.h
     include/fmfilelist/FileGroups.h
     include/fmfilelist/FileIconPainter.h
     include/fmfilelist/FileListModel.h
@@ -16,6 +17,7 @@ qt_add_library(fmfilelist STATIC
     include/fmfilelist/ThumbnailProvider.h
     include/fmfilelist/ThumbnailView.h
     ColumnSets.cpp
+    ColumnValues.cpp
     FileGroups.cpp
     FileIconPainter.cpp
     FileListModel.cpp
@@ -50,8 +52,8 @@ target_link_libraries(fmfilelist
 )
 
 if(WIN32)
-    # 셸 섬네일(IShellItemImageFactory)
-    target_link_libraries(fmfilelist PRIVATE shell32 ole32)
+    # 셸 섬네일(IShellItemImageFactory) · 열 세트의 Windows 속성(IPropertyStore)
+    target_link_libraries(fmfilelist PRIVATE shell32 ole32 propsys)
 endif()
 
 fm_set_compile_options(fmfilelist)

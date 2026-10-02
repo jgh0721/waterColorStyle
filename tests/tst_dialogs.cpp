@@ -6,6 +6,7 @@
 #include <fmdialogs/ElevationDialog.h>
 #include <fmdialogs/ElevationFlow.h>
 #include <fmdialogs/FileOpContext.h>
+#include <fmdialogs/FileOpDialogs.h>
 #include <fmdialogs/MultiRenameDialog.h>
 #include <fmdialogs/Planners.h>
 #include <fmdialogs/ProgressDialog.h>
@@ -23,6 +24,7 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialog>
 #include <QLabel>
 #include <QPushButton>
@@ -59,6 +61,8 @@ private Q_SLOTS:
     void elevationDialogs();
     void elevationChoices();
     void elevationFlows();
+    void fileOpSettings();
+    void elevationSettings();
     void settingsKeys();
     void settingsPages();
 };
@@ -691,6 +695,180 @@ void TestDialogs::elevationFlows()
         failed->choose(elev::Choice::Cancel);
         QTRY_COMPARE(finished.size(), 1);
         QCOMPARE(finished.first().first().toString(), u"작업 취소"_s);
+    }
+}
+
+void TestDialogs::fileOpSettings()
+{
+    // 설정 › 파일 작업 · 관리자 권한 · 키보드 → 대화상자 · 진행 창의 처음 값
+    using Ops = fm::settings::FileOpsSettings;
+    FileOpContext context = BoardContext::copy();
+    context.fileOps.onConflict = Ops::Conflict::Skip;
+    context.fileOps.verifyHash = true;
+    context.fileOps.copyAcl = true;
+    context.fileOps.copyAds = false;
+    context.fileOps.links = Ops::Links::CopyTarget;
+    {
+        CopyDialog copy(context);
+        const CopyRequest r = copy.request();
+        QCOMPARE(r.overwritePolicy, 3);
+        QVERIFY(r.verify && r.acl && !r.alternateStreams && !r.symlinksAsLinks && r.keepAttributes);
+    }
+    {
+        FileOpContext remove = BoardContext::remove();
+        QVERIFY(!DeleteDialog(remove, false).request().forceReadOnly);  // 목업 기본: 매번 묻기
+        remove.fileOps.readOnly = Ops::ReadOnly::Delete;
+        QVERIFY(DeleteDialog(remove, false).request().forceReadOnly);
+    }
+
+    // 진행 창: 간단히로 시작 · 완료되면 닫기 끔 · 관리자 제목 끔 · 대기열
+    ProgressDialog::Operation op;
+    op.source = u"C:\\a"_s;
+    op.target = u"C:\\b"_s;
+    op.fileNames = {u"big.bin"_s};
+    op.fileSizes = {qint64(4) << 30};
+    op.detailed = false;
+    op.closeWhenDone = false;
+    {
+        ProgressDialog p(op);
+        QCOMPARE(p.mode(), ProgressDialog::Compact);
+        QVERIFY(!p.findChild<QCheckBox *>(u"closeWhenDoneCheck"_s)->isChecked());
+        p.setWaiting(true);
+        QCOMPARE(p.windowTitle(), u"대기 중 — 복사"_s);
+        QVERIFY(!p.findChild<QPushButton *>(u"pauseButton"_s)->isEnabled());
+        const int before = p.simulator()->percent();
+        QTest::qWait(300);
+        QCOMPARE(p.simulator()->percent(), before);  // 대기 중에는 진행하지 않는다
+        p.setWaiting(false);
+        QVERIFY(p.windowTitle().endsWith(u"% · 복사 중"_s));
+        QVERIFY(p.findChild<QPushButton *>(u"pauseButton"_s)->isEnabled());
+    }
+    op.elevated = true;
+    op.adminTitle = false;
+    {
+        ProgressDialog p(op);
+        QVERIFY(p.windowTitle().endsWith(u"% · 복사 중"_s));  // "(관리자)" 없음
+    }
+    op.elevated = false;
+
+    // Esc: 바로 취소 · 창 숨기기(백그라운드)
+    op.esc = ProgressDialog::Operation::EscAction::CancelImmediately;
+    {
+        ProgressDialog p(op);
+        p.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&p));
+        QSignalSpy rejected(&p, &QDialog::rejected);
+        QTest::keyClick(&p, Qt::Key_Escape);
+        QCOMPARE(rejected.count(), 1);
+    }
+    op.esc = ProgressDialog::Operation::EscAction::HideWindow;
+    {
+        ProgressDialog p(op);
+        p.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&p));
+        QSignalSpy background(&p, &ProgressDialog::backgroundRequested);
+        QSignalSpy rejected(&p, &QDialog::rejected);
+        QTest::keyClick(&p, Qt::Key_Escape);
+        QCOMPARE(background.count(), 1);
+        QCOMPARE(rejected.count(), 0);
+        QVERIFY(!p.isVisible());
+    }
+
+    // 다중 이름 변경: 1줄로 시작 · 되돌리기 기록 1개 · 기록 안 함
+    MultiRenameDialog::Context mc = MultiRenameDialog::boardContext();
+    mc.recordMode = 0;
+    mc.undoDepth = 1;
+    {
+        MultiRenameDialog dialog(mc);
+        QCOMPARE(dialog.findChild<fm::ui::SegmentedControl *>(u"recordSegment"_s)->currentIndex(), 0);
+        QVERIFY(!dialog.previewView()->isTwoLine());
+        dialog.applyRename();
+        dialog.undo();
+        QVERIFY(!dialog.canUndo());  // 기록 1개 — 보드의 이전 기록은 밀려났다
+    }
+    mc.undoDepth = 0;
+    {
+        MultiRenameDialog dialog(mc);
+        QVERIFY(dialog.canUndo());  // 넘겨받은 이전 기록은 그대로
+        dialog.undo();
+        dialog.applyRename();
+        QVERIFY(!dialog.canUndo());  // 기록하지 않는다
+    }
+}
+
+void TestDialogs::elevationSettings()
+{
+    // 설정 › 관리자 권한 → 권한 흐름(사전 확인 끔 · 도우미 실행 중 · 소유권 창 끔 · 소유권 기본 단추 · UAC 계속 기다림)
+    QWidget window;
+    window.resize(800, 600);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    auto elevation = [&](ElevationFlow &flow) -> ElevationDialog * {
+        ElevationDialog *d = nullptr;
+        [&] { QTRY_VERIFY((d = qobject_cast<ElevationDialog *>(flow.currentDialog())) && d->isVisible()); }();
+        return d;
+    };
+    auto closeProgress = [&] {
+        for (ProgressDialog *p : window.findChildren<ProgressDialog *>())
+            p->close();
+    };
+
+    // 사전 확인 끔 → 처리 중 거부 창 · 도우미가 살아 있으면 UAC 없이 · 소유권 창 끔 → 조용히 건너뜀
+    {
+        ElevationFlow flow(ElevationFlow::DeleteWithOwnership, &window);
+        ElevationFlow::Options o;
+        o.preflight = false;
+        o.helperRunning = true;
+        o.askOwnership = false;
+        flow.setOptions(o);
+        QSignalSpy finished(&flow, &ElevationFlow::finished);
+        QSignalSpy approved(&flow, &ElevationFlow::helperApproved);
+        flow.start();
+        ElevationDialog *d = elevation(flow);
+        QCOMPARE(d->windowTitle(), u"삭제 — 관리자 권한 필요"_s);
+        d->choose(elev::Choice::Elevate);
+        QTRY_COMPARE(finished.size(), 1);
+        QCOMPARE(finished.first().first().toString(), u"관리자 권한으로 41개 삭제 · 1개 건너뜀"_s);
+        QVERIFY(flow.log().contains(u"권한 상승 도우미 실행 중 — UAC 확인 생략"_s));
+        QVERIFY(flow.log().contains(u"소유권 창 끔 — 조용히 건너뜀"_s));
+        QCOMPARE(approved.count(), 0);
+        closeProgress();
+    }
+    // 소유권 창의 Enter = 소유권 가져오기, UAC 승인은 helperApproved로 알린다
+    {
+        ElevationFlow flow(ElevationFlow::DeleteWithOwnership, &window);
+        ElevationFlow::Options o;
+        o.ownershipDefault = elev::Choice::TakeOwnership;
+        o.uacTimeout = 0;
+        flow.setOptions(o);
+        QSignalSpy finished(&flow, &ElevationFlow::finished);
+        QSignalSpy approved(&flow, &ElevationFlow::helperApproved);
+        flow.start();
+        elevation(flow)->choose(elev::Choice::Elevate);
+        UacSimulationDialog *uac = nullptr;
+        QTRY_VERIFY((uac = qobject_cast<UacSimulationDialog *>(flow.currentDialog())) && uac->isVisible());
+        QVERIFY(uac->findChild<QLabel *>(u"countdown"_s)->text().contains(u"계속 기다림"_s));
+        uac->respond(UacSimulationDialog::Yes);
+        QCOMPARE(approved.count(), 1);
+        ElevationDialog *d = elevation(flow);
+        QCOMPARE(d->windowTitle(), u"삭제 — 액세스 거부"_s);
+        d->defaultButton()->click();
+        QTRY_COMPARE(finished.size(), 1);
+        QCOMPARE(finished.first().first().toString(), u"관리자 권한으로 42개 삭제 · 소유권 1개 변경"_s);
+        closeProgress();
+    }
+    // 소유권 창의 Enter = 취소
+    {
+        const elev::ItemInfo item{u"x"_s, true, -1, fm::style::Token::KDoc};
+        const elev::PromptSpec spec = elev::prompts::ownershipDenied(elev::Operation::Delete, item, u"C:\\"_s, u"SYSTEM"_s, false,
+                                                                     elev::Choice::Cancel);
+        int defaults = 0;
+        for (const elev::ButtonSpec &b : spec.buttons) {
+            defaults += b.isDefault ? 1 : 0;
+            if (b.isDefault)
+                QCOMPARE(b.choice, elev::Choice::Cancel);
+        }
+        QCOMPARE(defaults, 1);
     }
 }
 

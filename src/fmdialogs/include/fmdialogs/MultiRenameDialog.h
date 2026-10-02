@@ -40,6 +40,9 @@ public:
         QList<QList<RenameFile>> history;
         /// 설정 "충돌 · 오류가 있으면 이름 바꾸기 막기"(끄면 오류 행을 건너뛴다).
         bool blockOnProblems = false;
+        /// 설정 › 파일 작업 › 미리보기 레코드(0 1줄 · 1 2줄 · 2 자동)와 되돌리기 기록 수(0 = 기록하지 않음).
+        int recordMode = 2;
+        int undoDepth = 20;
     };
 
     explicit MultiRenameDialog(const Context &context, QWidget *parent = nullptr);

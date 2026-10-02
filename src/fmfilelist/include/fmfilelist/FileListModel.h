@@ -1,5 +1,6 @@
 #pragma once
 
+#include "fmfilelist/ColumnValues.h"
 #include "fmfilelist/FileRoles.h"
 
 #include <QAbstractTableModel>
@@ -17,6 +18,8 @@ struct FileEntry
     Kind kind = Kind::Other;
     qint64 size = -1;         // 폴더 · 상위 폴더는 -1
     QDateTime modified;
+    QDateTime created;        // 열 세트의 "만든 날짜" · "접근한 날짜"(실제 폴더만)
+    QDateTime accessed;
     int attributes = 0;
     bool marked = false;
     QString path;
@@ -31,8 +34,8 @@ struct FileEntry
     QString fullName() const { return ext.isEmpty() ? stem : stem + u'.' + ext; }
 };
 
-/// 항목 하나의 열 · 역할 값 — 두 원본이 같은 규칙을 쓰도록 모았다.
-QVariant fileEntryData(const FileEntry &entry, int column, int role);
+/// 항목 하나의 열 · 역할 값 — 두 원본이 같은 규칙을 쓰도록 모았다. 크기 · 날짜 글자는 format을 따른다.
+QVariant fileEntryData(const FileEntry &entry, int column, int role, const DisplayFormat &format = {});
 
 /// 샘플 데이터용 표 모델. 표시(MarkedRole)만 바꿀 수 있다.
 class FileListModel : public QAbstractTableModel
@@ -49,6 +52,13 @@ public:
     const QList<FileEntry> &entries() const noexcept { return m_entries; }
     const FileEntry &entry(int row) const { return m_entries.at(row); }
 
+    /// 크기 · 날짜 표시 형식. 바꾸면 모든 행의 dataChanged를 낸다.
+    const DisplayFormat &displayFormat() const noexcept { return m_format; }
+    void setDisplayFormat(const DisplayFormat &format);
+    /// 열 세트의 추가 열(모델 열 ColumnCount부터). 바꾸면 모델을 다시 알린다(reset).
+    const ExtraColumns &extraColumns() const noexcept { return m_extra; }
+    void setExtraColumns(const ExtraColumns &extra);
+
     int rowCount(const QModelIndex &parent = {}) const override;
     int columnCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -58,6 +68,8 @@ public:
 
 private:
     QList<FileEntry> m_entries;
+    DisplayFormat m_format;
+    ExtraColumns m_extra;
 };
 
 /// 열 머리글 문자열(두 원본 공통): "이름", "확장자", "종류", "크기", "수정한 날짜", "속성".

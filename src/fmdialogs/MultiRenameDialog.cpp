@@ -103,6 +103,7 @@ MultiRenameDialog::MultiRenameDialog(const Context &context, QWidget *parent)
         auto *shortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key(Qt::Key_1 + i)), this);
         connect(shortcut, &QShortcut::activated, this, [this, i] { ui->recordSegment->setCurrentIndex(i); });
     }
+    ui->recordSegment->setCurrentIndex(std::clamp(m_context.recordMode, 0, 2));
     // Ctrl+Z — 입력 상자에 포커스가 있으면 QLineEdit의 되돌리기가 먼저(ShortcutOverride).
     auto *undoShortcut = new QShortcut(QKeySequence::Undo, this);
     connect(undoShortcut, &QShortcut::activated, this, &MultiRenameDialog::undo);
@@ -279,7 +280,11 @@ void MultiRenameDialog::applyRename()
     }
     if (done.isEmpty())
         return;
-    m_context.history.append(before);
+    if (m_context.undoDepth > 0) {
+        m_context.history.append(before);
+        while (m_context.history.size() > m_context.undoDepth)
+            m_context.history.removeFirst();  // 오래된 기록부터
+    }
     updatePreview();
     Q_EMIT renamed(done);
 }

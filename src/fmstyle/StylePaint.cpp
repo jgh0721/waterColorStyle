@@ -1,6 +1,7 @@
 #include "fmstyle/StylePaint.h"
 
 #include "ColorMath_p.h"
+#include "fmstyle/ThemeManager.h"
 
 #include <QFontMetricsF>
 #include <QtMath>
@@ -46,7 +47,13 @@ QFont pixelFont(const QFont &base, qreal px, QFont::Weight weight)
 QFont monoFont(qreal px, QFont::Weight weight)
 {
     QFont f;
-    f.setFamilies({u"Cascadia Mono"_s, u"JetBrains Mono"_s, u"Consolas"_s, u"Malgun Gothic"_s});
+    // 설정 › 일반 · 모양의 고정폭 글꼴을 먼저, 없으면 목업 순서(Cascadia Mono → JetBrains Mono → Consolas)
+    QStringList families{ThemeManager::instance().monoFontFamily()};
+    for (const QString &fallback : {u"Cascadia Mono"_s, u"JetBrains Mono"_s, u"Consolas"_s, u"Malgun Gothic"_s}) {
+        if (!families.contains(fallback))
+            families.append(fallback);
+    }
+    f.setFamilies(families);
     f.setStyleHint(QFont::Monospace);
     f.setFixedPitch(true);
     return pixelFont(f, px, weight);

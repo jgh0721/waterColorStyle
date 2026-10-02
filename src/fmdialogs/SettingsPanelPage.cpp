@@ -220,6 +220,7 @@ private:
             return;
         const PS &p = pending().panel;
         m_proxy->setShowHidden(p.showHidden);
+        m_model->setDisplayFormat(p.toDisplayFormat());
         const fl::ViewMode mode = previewMode();
         if (mode == fl::ViewMode::Thumbnails) {
             fl::ThumbnailAppearance a = pending().thumbs.toThumbnailAppearance(p);
@@ -230,7 +231,7 @@ private:
             m_stack->setCurrentWidget(m_thumbs);
             m_stack->setFixedHeight(2 * (96 + 60) + 16);
         } else {
-            m_list->setAppearance(p.toListAppearance());
+            m_list->setAppearance(p.toListAppearance(pending().appearance));
             m_list->setViewMode(mode);
             m_stack->setCurrentWidget(m_list);
             m_stack->setFixedHeight(m_list->preferredHeight(m_proxy->rowCount()));

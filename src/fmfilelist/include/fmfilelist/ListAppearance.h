@@ -3,6 +3,7 @@
 // 목록 · 섬네일의 표시 설정(설정 › 파일 패널 · 섬네일 보기의 값)과 디자인별 치수.
 
 #include <QObject>
+#include <QString>
 
 #include <algorithm>
 #include <cstdint>
@@ -27,6 +28,10 @@ Q_ENUM_NS(InactiveCursor)
 enum class NameElide : std::uint8_t { MiddleKeepExtension, End, Middle };
 Q_ENUM_NS(NameElide)
 
+/// 행 밀도(설정 › 일반 · 모양) — 시안1 1줄 22 · 24 · 28, 2줄 40 · 44 · 52. 시안2도 같은 차이(21 → 19 · 25).
+enum class RowDensity : std::uint8_t { Compact, Normal, Relaxed };
+Q_ENUM_NS(RowDensity)
+
 /// 목록(1줄 · 2줄)의 표시 설정.
 struct ListAppearance
 {
@@ -40,6 +45,9 @@ struct ListAppearance
     NameElide nameElide = NameElide::MiddleKeepExtension;
     int autoWidth = 640;                                       // 자동: 패널 폭이 이보다 작으면 2줄
     int autoPercent = 25;                                      // 자동: 잘린 이름 비율이 이 이상이면 2줄
+    RowDensity density = RowDensity::Normal;                   // 행 밀도(설정 › 일반 · 모양)
+    QString fontFamily;                                        // 목록 글꼴 — 빈 문자열이면 위젯 글꼴 그대로
+    int fontPx = 13;                                           // 목록 글꼴 크기. 메타 · 머리글은 1 px 작게, 행 높이도 따라간다
 
     bool operator==(const ListAppearance &) const = default;
 };

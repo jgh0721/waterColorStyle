@@ -1,5 +1,7 @@
 // fmfilelist 단위 테스트 — 표기 규칙, 샘플 데이터의 상태 줄 문구, 정렬 규칙, 레코드 치수, 키 조작, 읽기 전용 실제 폴더.
 
+#include <fmfilelist/ColumnValues.h>
+#include <fmfilelist/FileGroups.h>
 #include <fmfilelist/FileListModel.h>
 #include <fmfilelist/FileListStats.h>
 #include <fmfilelist/FileListView.h>
@@ -8,14 +10,19 @@
 #include <fmfilelist/LocalFileSource.h>
 #include <fmfilelist/MockFileSource.h>
 #include <fmfilelist/ThumbnailPainter.h>
+#include <fmfilelist/ThumbnailProvider.h>
 #include <fmfilelist/ThumbnailView.h>
 
 #include "ListPainting_p.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <array>
 
 using namespace Qt::StringLiterals;
 using namespace fm::filelist;
@@ -27,6 +34,10 @@ class TestFileList : public QObject
 private Q_SLOTS:
     void formatSize_data();
     void formatSize();
+    void sizeUnits_data();
+    void sizeUnits();
+    void dateFormats();
+    void modelDisplayFormat();
     void splitFileName();
     void kinds();
     void attributes();
@@ -37,6 +48,9 @@ private Q_SLOTS:
     void keyboardMarks();
     void autoTwoLine();
     void thumbnailBackendKeepsCursor();
+    void thumbnailTargets();
+    void columnSets();
+    void propertyReader();
     void localSource();
 };
 
@@ -60,6 +74,75 @@ void TestFileList::formatSize()
     QFETCH(qint64, bytes);
     QFETCH(QString, text);
     QCOMPARE(fm::filelist::formatSize(bytes), text);
+}
+
+void TestFileList::sizeUnits_data()
+{
+    // 설정 › 파일 패널 › 크기 단위 — 바이트는 자리 구분, KB · MB는 올림(탐색기와 같음)
+    QTest::addColumn<int>("unit");
+    QTest::addColumn<qint64>("bytes");
+    QTest::addColumn<QString>("text");
+    QTest::newRow("auto") << int(SizeUnit::Auto) << qint64(1370) << u"1.3 KB"_s;
+    QTest::newRow("bytes") << int(SizeUnit::Bytes) << qint64(1234567) << u"1,234,567 B"_s;
+    QTest::newRow("kb 0") << int(SizeUnit::KB) << qint64(0) << u"0 KB"_s;
+    QTest::newRow("kb 1 B") << int(SizeUnit::KB) << qint64(1) << u"1 KB"_s;
+    QTest::newRow("kb grouped") << int(SizeUnit::KB) << qint64(1234567) << u"1,206 KB"_s;
+    QTest::newRow("mb small") << int(SizeUnit::MB) << qint64(4096) << u"0.1 MB"_s;
+    QTest::newRow("mb") << int(SizeUnit::MB) << qint64(186) * 1024 * 1024 << u"186.0 MB"_s;
+    QTest::newRow("mb grouped") << int(SizeUnit::MB) << qint64(3.74 * 1024 * 1024 * 1024) << u"3,829.8 MB"_s;
+    QTest::newRow("folder") << int(SizeUnit::KB) << qint64(-1) << QString();
+}
+
+void TestFileList::sizeUnits()
+{
+    QFETCH(int, unit);
+    QFETCH(qint64, bytes);
+    QFETCH(QString, text);
+    QCOMPARE(fm::filelist::formatSize(bytes, SizeUnit(unit)), text);
+}
+
+void TestFileList::dateFormats()
+{
+    const QDateTime t(QDate(2026, 9, 27), QTime(23, 14, 5));
+    QCOMPARE(formatDate(t, u"yyyy-MM-dd HH:mm"_s), u"2026-09-27 23:14"_s);
+    QCOMPARE(formatDate(t, u"yyyy-MM-dd HH:mm:ss"_s), u"2026-09-27 23:14:05"_s);
+    QCOMPARE(formatDate(t, QString::fromUtf16(DisplayFormat::kSystemShort)), QLocale::system().toString(t, QLocale::ShortFormat));
+    QCOMPARE(formatDate(QDateTime(), u"yyyy"_s), QString());
+    // 섬네일 정보 줄 — 시각 부분을 뺀 날짜
+    QCOMPARE(formatDay(t, u"yyyy-MM-dd HH:mm"_s), u"2026-09-27"_s);
+    QCOMPARE(formatDay(t, u"dd.MM.yyyy, hh:mm AP"_s), u"27.09.2026"_s);
+    QCOMPARE(formatDay(t, u"yyyy년 M월 d일 HH:mm"_s), u"2026년 9월 27일"_s);
+    QCOMPARE(formatDay(t, u"'at' HH:mm"_s), u"2026-09-27"_s);  // 날짜 기호가 없으면 기본
+    QCOMPARE(formatDay(t, QString::fromUtf16(DisplayFormat::kSystemLong)), QLocale::system().toString(t.date(), QLocale::ShortFormat));
+}
+
+void TestFileList::modelDisplayFormat()
+{
+    // 모델마다 표시 형식 — 크기 · 날짜 열과 섬네일 정보 줄 역할이 따르고, 바꾸면 dataChanged
+    FileEntry file;
+    file.stem = u"report"_s;
+    file.ext = u"pdf"_s;
+    file.kind = Kind::Pdf;
+    file.size = 1234567;
+    file.modified = QDateTime(QDate(2026, 9, 25), QTime(16, 11));
+    FileEntry folder;
+    folder.stem = u"docs"_s;
+    folder.kind = Kind::Folder;
+    FileListModel model({file, folder});
+    QCOMPARE(model.index(0, SizeColumn).data().toString(), u"1.2 MB"_s);
+    QCOMPARE(model.index(0, ModifiedColumn).data().toString(), u"2026-09-25 16:11"_s);
+
+    QSignalSpy changed(&model, &QAbstractItemModel::dataChanged);
+    model.setDisplayFormat({SizeUnit::KB, u"yy/MM/dd HH:mm"_s});
+    QCOMPARE(changed.count(), 1);
+    model.setDisplayFormat({SizeUnit::KB, u"yy/MM/dd HH:mm"_s});  // 같으면 알리지 않는다
+    QCOMPARE(changed.count(), 1);
+    QCOMPARE(model.index(0, SizeColumn).data().toString(), u"1,206 KB"_s);
+    QCOMPARE(model.index(0, ModifiedColumn).data().toString(), u"26/09/25 16:11"_s);
+    QCOMPARE(model.index(0, NameColumn).data(SizeTextRole).toString(), u"1,206 KB"_s);
+    QCOMPARE(model.index(0, NameColumn).data(DateTextRole).toString(), u"26/09/25"_s);
+    QCOMPARE(model.index(1, SizeColumn).data().toString(), QString());  // 폴더는 크기 없음
+    QCOMPARE(model.index(1, NameColumn).data(SizeTextRole).toString(), QString());
 }
 
 void TestFileList::splitFileName()
@@ -209,6 +292,33 @@ void TestFileList::recordGeometry()
     QCOMPARE(g.nameLine(record).height(), 22.0);
     QCOMPARE(g.metaLine(record).height(), 18.0);
     QCOMPARE(g.headerHeight, 45);
+
+    // 행 밀도(04 §2.1.2): 시안1 1줄 22 · 24 · 28, 2줄 40 · 44 · 52 — 시안2도 같은 차이. 2줄은 여전히 짝수.
+    a = ListAppearance{};
+    a.twoLineSeparator = RecordSeparator::Line;
+    const std::pair<RowDensity, std::array<int, 4>> densities[] = {
+        {RowDensity::Compact, {22, 40, 19, 34}},
+        {RowDensity::Normal, {24, 44, 21, 38}},
+        {RowDensity::Relaxed, {28, 52, 25, 46}},
+    };
+    for (const auto &[density, expected] : densities) {
+        a.density = density;
+        QCOMPARE(pitch(false, false, RecordSeparator::None), expected[0]);
+        QCOMPARE(pitch(false, true, RecordSeparator::Line), expected[1]);
+        QCOMPARE(pitch(true, false, RecordSeparator::None), expected[2]);
+        QCOMPARE(pitch(true, true, RecordSeparator::Line), expected[3]);
+        for (auto sep : {RecordSeparator::Space, RecordSeparator::Tint})
+            QCOMPARE(pitch(false, true, sep) % 2, 0);
+    }
+    // 목록 글꼴 크기: 13 px 기준 1 px마다 1줄 +1, 2줄 +2(이름 · 메타 줄이 같이 늘고 위아래 여백은 그대로)
+    a.density = RowDensity::Normal;
+    a.fontPx = 15;
+    QCOMPARE(pitch(false, false, RecordSeparator::None), 26);
+    QCOMPARE(pitch(false, true, RecordSeparator::Line), 48);
+    const RecordGeometry big = RecordGeometry::make(false, true, a);
+    QCOMPARE(big.nameHeight, 24);
+    QCOMPARE(big.metaHeight, 20);
+    QCOMPARE(big.padTop, RecordGeometry::make(false, true, ListAppearance{a.oneLineSeparator, a.twoLineSeparator}).padTop);
 }
 
 void TestFileList::tileGeometry()
@@ -314,6 +424,160 @@ void TestFileList::thumbnailBackendKeepsCursor()
     QTRY_COMPARE(view.cursorRow(), 5);
     view.setBackend(ThumbnailView::QtList);
     QCOMPARE(view.cursorRow(), 5);
+}
+
+void TestFileList::thumbnailTargets()
+{
+    // 설정 › 섬네일 보기 › 대상 · 네트워크/이동식 드라이브는 아이콘만
+    using P = ThumbnailProvider;
+    QCOMPARE(P::targetOf(u"PNG"_s), int(P::Images));
+    QCOMPARE(P::targetOf(u"heic"_s), int(P::Images));
+    QCOMPARE(P::targetOf(u"mkv"_s), int(P::Videos));
+    QCOMPARE(P::targetOf(u"pdf"_s), int(P::Pdf));
+    QCOMPARE(P::targetOf(u"otf"_s), int(P::Fonts));
+    QCOMPARE(P::targetOf(u"docx"_s), int(P::Documents));
+    QCOMPARE(P::targetOf(u"exe"_s), 0);
+
+    ThumbnailProvider provider;
+    QVERIFY(provider.isTarget(u"pdf"_s));
+    QVERIFY(!provider.isTarget(u"docx"_s));  // 기본 대상: 이미지 · 동영상 · PDF · 글꼴
+    QSignalSpy changed(&provider, &ThumbnailProvider::settingsChanged);
+    provider.setTargets(P::Images | P::Documents);
+    provider.setTargets(P::Images | P::Documents);  // 같으면 알리지 않는다
+    QCOMPARE(changed.count(), 1);
+    QVERIFY(!provider.isTarget(u"pdf"_s));
+    QVERIFY(provider.isTarget(u"docx"_s));
+
+    QVERIFY(P::isSlowVolume(u"\\\\server\\share\\a.png"_s));
+    QVERIFY(!P::isSlowVolume(QDir::tempPath() + u"/a.png"_s));
+    provider.setSkipSlowVolumes(true);
+    QCOMPARE(changed.count(), 2);
+    QVERIFY(provider.thumbnail(u"\\\\server\\share\\a.png"_s, QDateTime(), 1).isNull());
+    QVERIFY(!provider.isPending(u"\\\\server\\share\\a.png"_s, QDateTime(), 1));  // 요청하지 않는다
+
+    // 실제 폴더 원본은 대상이 바뀌면 섬네일 역할을 다시 알리고, 대상이 아닌 파일은 종류 아이콘(Art::None)
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QFile pdf(dir.filePath(u"report.pdf"_s));
+    QVERIFY(pdf.open(QIODevice::WriteOnly));
+    pdf.write("%PDF-1.4");
+    pdf.close();
+    LocalFileSource source;
+    source.setPath(dir.path());
+    QTRY_COMPARE(source.model()->rowCount(), 2);  // ".." + report.pdf
+    const QModelIndex file = source.model()->index(1, NameColumn);
+    QSignalSpy roles(source.model(), &QAbstractItemModel::dataChanged);
+    source.thumbnails()->setTargets(P::Images);
+    QVERIFY(roles.count() >= 1);
+    QVERIFY(roles.last().at(2).value<QList<int>>().contains(ArtRole));
+    QCOMPARE(file.data(ArtRole).toInt(), int(Art::None));
+}
+
+void TestFileList::columnSets()
+{
+    // 설정 › 열 · 사용자 정의 열 — 폴더마다 세트 고르기, 메인 창 열 배치, 추가 열 값(05 §2.2)
+    const ColumnSettings settings = ColumnSettings::defaults();
+    auto indexOf = [&](const QString &id) {
+        for (int i = 0; i < settings.sets.size(); ++i)
+            if (settings.sets.at(i).id == id)
+                return i;
+        return -1;
+    };
+    // 경로 와일드카드(D:\Work\*) · 알려진 폴더(실제 다운로드 폴더만) · 맞는 것이 없으면 기본
+    QCOMPARE(resolveColumnSet(settings, u"D:\\Work\\fm-core"_s, false, nullptr, nullptr), indexOf(u"source"_s));
+    QCOMPARE(resolveColumnSet(settings, u"d:\\work\\fm-core\\src"_s, false, nullptr, nullptr), indexOf(u"source"_s));
+    QCOMPARE(resolveColumnSet(settings, u"D:\\Downloads"_s, false, nullptr, nullptr), 0);
+    const QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    QCOMPARE(resolveColumnSet(settings, QDir::toNativeSeparators(downloads), true, nullptr, nullptr), indexOf(u"downloads"_s));
+    QCOMPARE(resolveColumnSet(settings, QDir::toNativeSeparators(downloads), false, nullptr, nullptr), 0);  // 샘플은 아님
+
+    // 그룹 비율 — 이미지 · 영상 그룹이 60 % 이상(폴더 · ".." 제외)
+    auto file = [](const QString &name, const QString &ext) {
+        FileEntry e;
+        e.stem = name;
+        e.ext = ext;
+        e.kind = kindForExtension(ext);
+        e.size = 1000;
+        return e;
+    };
+    FileEntry up;
+    up.kind = Kind::Up;
+    FileEntry folder;
+    folder.stem = u"raw"_s;
+    folder.kind = Kind::Folder;
+    FileListModel photos({up, folder, file(u"a"_s, u"jpg"_s), file(u"b"_s, u"heic"_s), file(u"c"_s, u"mp4"_s), file(u"notes"_s, u"txt"_s)});
+    const FileGroupMatcher groups(FileGroupSettings::defaults());
+    QCOMPARE(resolveColumnSet(settings, u"E:\\Photos"_s, true, &groups, &photos), indexOf(u"photos"_s));  // 3/4 = 75 %
+    FileListModel mixed({file(u"a"_s, u"jpg"_s), file(u"x"_s, u"txt"_s), file(u"y"_s, u"txt"_s)});
+    QCOMPARE(resolveColumnSet(settings, u"E:\\Mixed"_s, true, &groups, &mixed), 0);  // 1/3
+    ColumnSettings off = settings;
+    off.sets[indexOf(u"photos"_s)].autoApply = false;
+    QCOMPARE(resolveColumnSet(off, u"E:\\Photos"_s, true, &groups, &photos), 0);
+
+    // 열 배치 — 기본 세트는 목록 기본 배치 그대로, 사진 세트는 기본 열(크기) + 추가 열(속성 · 식)
+    QList<ColumnDef> extras;
+    QCOMPARE(mainLayoutForSet(settings.sets.first(), &extras), ListColumnLayout::standard());
+    QVERIFY(extras.isEmpty());
+    const ListColumnLayout layout = mainLayoutForSet(settings.sets.at(indexOf(u"photos"_s)), &extras);
+    QStringList extraIds;
+    for (const ColumnDef &d : std::as_const(extras))
+        extraIds.append(d.id);
+    QCOMPARE(extraIds, (QStringList{u"taken"_s, u"resolution"_s, u"duration"_s, u"camera"_s}));
+    QVERIFY(layout.find(SizeColumn));
+    QVERIFY(!layout.find(ExtColumn));  // 확장자 열이 없으면 이름 칸에 확장자를 붙인다
+    QVERIFY(!layout.find(ModifiedColumn));  // 1줄 · 2줄 모두 숨김 → 열 없음
+    const ListColumn *camera = layout.find(ColumnCount + 3);
+    QVERIFY(camera);
+    QVERIFY(!camera->oneLine);  // 1줄에 보이지 않음 · 2줄 행 1
+    QCOMPARE(camera->caption, u"카메라"_s);
+    QCOMPARE(layout.requiredColumns(), ColumnCount + 4);
+
+    // 추가 열 값 — 기본 필드 · 식 · 빈 값 규칙(— · 비움 · 다른 열로 대신)
+    FileEntry report = file(u"report"_s, u"pdf"_s);
+    report.modified = QDateTime(QDate(2026, 9, 25), QTime(16, 11));
+    ColumnDef expr;
+    expr.kind = ColumnDef::Kind::Expression;
+    expr.source = u"[이름] ([확장자]) · [크기]"_s;
+    QCOMPARE(extraColumnText(expr, {}, report, nullptr, {}), u"report (pdf) · 1000 B"_s);
+    const QList<ColumnDef> photoColumns = settings.sets.at(indexOf(u"photos"_s)).columns;
+    const ColumnDef taken = photoColumns.at(1);  // 촬영 날짜 — 없으면 수정한 날짜로
+    QCOMPARE(extraColumnText(taken, photoColumns, report, nullptr, {}), u"2026-09-25 16:11"_s);
+    QCOMPARE(extraColumnText(photoColumns.at(4), photoColumns, report, nullptr, {}), u"—"_s);     // 재생 시간: —
+    QCOMPARE(extraColumnText(photoColumns.at(3), photoColumns, report, nullptr, {}), QString());   // 해상도: 비움
+
+    // 모델의 추가 열 — 열 수 · 머리글 · 값, 바꾸면 reset
+    FileListModel model({report});
+    QSignalSpy reset(&model, &QAbstractItemModel::modelReset);
+    model.setExtraColumns({extras, photoColumns, nullptr});
+    QCOMPARE(reset.count(), 1);
+    QCOMPARE(model.columnCount(), ColumnCount + 4);
+    QCOMPARE(model.headerData(ColumnCount, Qt::Horizontal).toString(), u"촬영 날짜"_s);
+    QCOMPARE(model.index(0, ColumnCount).data().toString(), u"2026-09-25 16:11"_s);
+    QCOMPARE(model.index(0, ColumnCount + 2).data().toString(), u"—"_s);
+    QCOMPARE(model.index(0, ColumnCount + 2).data(FullNameRole).toString(), u"report.pdf"_s);  // 그 밖의 역할은 항목 값
+}
+
+void TestFileList::propertyReader()
+{
+    // Windows 속성 — 작업 스레드에서 읽어 캐시, 끝나면 ready(path)
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath(u"note.txt"_s);
+    QFile f(path);
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("hello");
+    f.close();
+    const QDateTime modified = QFileInfo(path).lastModified();
+    PropertyReader reader;
+    reader.setProperties({u"System.Size"_s, u"System.FileExtension"_s});
+    QSignalSpy ready(&reader, &PropertyReader::ready);
+    QCOMPARE(reader.value(path, modified, u"System.FileExtension"_s), QString());  // 처음에는 요청만
+    QVERIFY(reader.isPending(path, modified));
+    QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 10000);
+    QCOMPARE(reader.value(path, modified, u"System.FileExtension"_s), u".txt"_s);
+    QCOMPARE(reader.rawValue(path, modified, u"System.Size"_s), u"5"_s);  // 식에는 단위 없는 값
+    QVERIFY(!reader.value(path, modified, u"System.Size"_s).isEmpty());
+    QVERIFY(!reader.isPending(path, modified));
 }
 
 void TestFileList::localSource()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QCache>
+#include <QHash>
 #include <QDateTime>
 #include <QImage>
 #include <QObject>
@@ -34,6 +35,21 @@ public:
     int maxThreads() const;
     void setMaxThreads(int count);
 
+    /// 설정 › 섬네일 보기 › 대상 — ThumbSettings::Target과 같은 비트.
+    enum Target : int { Images = 1, Videos = 2, Pdf = 4, Fonts = 8, Documents = 16 };
+    /// 확장자가 속한 대상(없으면 0). 이미지는 Qt가 읽는 형식 + HEIC · RAW 등 셸 코덱 형식.
+    static int targetOf(const QString &ext);
+    int targets() const noexcept { return m_targets; }
+    void setTargets(int targets);
+    /// 지금 대상인지 — 아니면 종류 아이콘으로 그린다.
+    bool isTarget(const QString &ext) const { return (targetOf(ext) & m_targets) != 0; }
+
+    /// 네트워크 · 이동식 드라이브의 파일은 새로 만들지 않는다(캐시에 있으면 쓴다 — 설정 › 섬네일 보기).
+    bool skipsSlowVolumes() const noexcept { return m_skipSlow; }
+    void setSkipSlowVolumes(bool on);
+    /// 경로가 네트워크(UNC · 연결 드라이브) · 이동식 · CD 드라이브에 있는지.
+    static bool isSlowVolume(const QString &path);
+
     /// 앱 자체 캐시만 비운다(셸 섬네일 캐시는 그대로).
     void clearCache();
 
@@ -41,6 +57,8 @@ public:
 
 Q_SIGNALS:
     void ready(const QString &path);
+    /// 대상 · 방법 · 느린 드라이브 설정이 바뀌었다 — 모델이 섬네일 역할을 다시 알린다.
+    void settingsChanged();
 
 private:
     static QString keyOf(const QString &path, const QDateTime &modified, qint64 size);
@@ -51,6 +69,8 @@ private:
     QSet<QString> m_pending;
     QSet<QString> m_failed;
     Method m_method = Method::ShellThenBuiltin;
+    int m_targets = Images | Videos | Pdf | Fonts;
+    bool m_skipSlow = false;
 };
 
 } // namespace fm::filelist

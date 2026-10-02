@@ -108,10 +108,13 @@ private:
         bindSpin(ui->concurrencySpin, s, [](const AppSettings &p) { return p.thumbs.concurrency; },
                  [](AppSettings &p, int v) { p.thumbs.concurrency = v; });
         connect(ui->clearCacheButton, &QPushButton::clicked, this, [this] {
-            // 앱 자체 캐시만 지운다(Windows 섬네일 캐시는 그대로) — 데모에는 캐시가 없어 안내만 바꾼다
+            // 앱 자체 캐시만 지운다(Windows 섬네일 캐시는 그대로) — 설정 창을 연 쪽(메인 창)이 생성기 캐시를 비운다
             if (QMessageBox::question(this, tr("캐시 비우기"), tr("이 앱이 만든 섬네일 캐시를 지울까요?\nWindows 섬네일 캐시는 그대로 둡니다."))
-                == QMessageBox::Yes)
-                ui->concurrencyRow->setDescription(tr("캐시를 비웠습니다 · 보이는 항목부터 다시 만듭니다"));
+                != QMessageBox::Yes)
+                return;
+            if (auto *dialog = qobject_cast<SettingsDialog *>(window()))
+                Q_EMIT dialog->thumbnailCacheClearRequested();
+            ui->concurrencyRow->setDescription(tr("캐시를 비웠습니다 · 보이는 항목부터 다시 만듭니다"));
         });
 
         bindSpin(ui->autoPercentSpin, s, [](const AppSettings &p) { return p.thumbs.autoThumbnailPct; },
@@ -156,6 +159,7 @@ private:
     {
         if (!m_view)
             return;
+        m_model->setDisplayFormat(pending().panel.toDisplayFormat());
         fl::ThumbnailAppearance a = pending().thumbs.toThumbnailAppearance(pending().panel);
         a.invertCursor = ui->invCursorCheck->isChecked();
         a.invertSelection = ui->invSelCheck->isChecked();

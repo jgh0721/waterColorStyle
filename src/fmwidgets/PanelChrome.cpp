@@ -399,7 +399,6 @@ void BreadcrumbBar::startEditing()
 {
     if (!m_editor) {
         m_editor = new QLineEdit(this);
-        m_editor->setFont(fm::style::monoFont(12));
         auto *escape = new QShortcut(QKeySequence(Qt::Key_Escape), m_editor, [this] { m_editor->hide(); });
         escape->setContext(Qt::WidgetShortcut);
         connect(m_editor, &QLineEdit::returnPressed, this, [this] {
@@ -409,6 +408,7 @@ void BreadcrumbBar::startEditing()
         });
         connect(m_editor, &QLineEdit::editingFinished, m_editor, &QWidget::hide);
     }
+    m_editor->setFont(fm::style::monoFont(12));  // 고정폭 글꼴 설정을 바꿨을 수 있어 열 때마다
     m_editor->setGeometry(rect());
     m_editor->setText(m_fullPath);
     m_editor->selectAll();

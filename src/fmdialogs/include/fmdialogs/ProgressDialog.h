@@ -5,6 +5,7 @@
 #include <QDialog>
 #include <QStringList>
 
+#include <cstdint>
 #include <memory>
 
 namespace Ui {
@@ -31,6 +32,13 @@ public:
         QStringList fileNames;
         QList<qint64> fileSizes;
         QString policyText;             // "같은 이름이 있으면 매번 묻기"
+
+        // 설정의 값 — 기본값은 목업 기본값
+        enum class EscAction : std::uint8_t { ConfirmCancel, CancelImmediately, HideWindow };
+        bool detailed = true;           // 파일 작업 › 자세히 보기로 시작(복사만 두 모드)
+        bool closeWhenDone = true;      // 파일 작업 › "완료되면 창 닫기" 처음 값
+        bool adminTitle = true;         // 관리자 권한 › 관리자 작업이면 제목에 "(관리자)"
+        EscAction esc = EscAction::ConfirmCancel;  // 키보드 › 진행 창에서 Esc
     };
 
     explicit ProgressDialog(const Operation &operation, QWidget *parent = nullptr);
@@ -44,6 +52,11 @@ public:
     /// "완료되면 창 닫기"가 켜져 있으면 닫고, 아니면 완료 상태로 둔다.
     void setDemoLoop(bool on);
     bool isDone() const noexcept { return m_done; }
+    /// 대기열 — 앞선 작업이 끝날 때까지 시작하지 않는다(대기열에 추가 · 동시에 실행할 작업 수). 끄면 바로 시작.
+    /// "복사 · 3개 항목" — 완료 알림 글자.
+    QString summaryText() const;
+    bool isWaiting() const noexcept { return m_waiting; }
+    void setWaiting(bool waiting);
     ProgressSimulator *simulator() const noexcept { return m_sim; }
 
     static QStringList variants();
@@ -53,6 +66,11 @@ public:
 
 Q_SIGNALS:
     void backgroundRequested();
+    /// 작업이 끝났다(창이 닫히기 전 — 대기열의 다음 작업 · 완료 알림용).
+    void completed();
+
+protected:
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     void refresh();
@@ -70,6 +88,7 @@ private:
     Mode m_mode = Detail;
     bool m_demoLoop = false;
     bool m_done = false;
+    bool m_waiting = false;
     bool m_static = false;    // 간단히 보드 변형: 고정 값(시뮬레이터 없음)
     int m_staticPercent = 0;
 };

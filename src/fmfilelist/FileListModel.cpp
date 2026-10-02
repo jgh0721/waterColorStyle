@@ -17,7 +17,7 @@ QString fileColumnTitle(int column)
     }
 }
 
-QVariant fileEntryData(const FileEntry &e, int column, int role)
+QVariant fileEntryData(const FileEntry &e, int column, int role, const DisplayFormat &format)
 {
     switch (role) {
     case Qt::DisplayRole:
@@ -25,8 +25,8 @@ QVariant fileEntryData(const FileEntry &e, int column, int role)
         case NameColumn:     return e.fullName();
         case ExtColumn:      return e.ext;
         case TypeColumn:     return e.typeName;
-        case SizeColumn:     return e.isDir() ? QString() : formatSize(e.size);
-        case ModifiedColumn: return formatDate(e.modified);
+        case SizeColumn:     return e.isDir() ? QString() : formatSize(e.size, format.sizeUnit);
+        case ModifiedColumn: return formatDate(e.modified, format.dateFormat);
         case AttrColumn:     return e.isUp() ? QString() : attributeText(e.attributes);
         default:             return QVariant();
         }
@@ -52,6 +52,8 @@ QVariant fileEntryData(const FileEntry &e, int column, int role)
     case AspectRole:     return e.aspect;
     case BadgeRole:      return e.badge;
     case NoSortRole:     return QVariant();
+    case SizeTextRole:   return e.isDir() ? QString() : formatSize(e.size, format.sizeUnit);
+    case DateTextRole:   return formatDay(e.modified, format.dateFormat);
     default:             return QVariant();
     }
 }
@@ -84,6 +86,24 @@ void FileListModel::replaceEntries(int first, const QList<FileEntry> &entries)
     Q_EMIT dataChanged(index(first, 0), index(first + count - 1, columnCount() - 1));
 }
 
+void FileListModel::setDisplayFormat(const DisplayFormat &format)
+{
+    if (m_format == format)
+        return;
+    m_format = format;
+    if (!m_entries.isEmpty())
+        Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1), {Qt::DisplayRole, SizeTextRole, DateTextRole});
+}
+
+void FileListModel::setExtraColumns(const ExtraColumns &extra)
+{
+    if (m_extra == extra)
+        return;
+    beginResetModel();
+    m_extra = extra;
+    endResetModel();
+}
+
 int FileListModel::rowCount(const QModelIndex &parent) const
 {
     return parent.isValid() ? 0 : int(m_entries.size());
@@ -91,14 +111,18 @@ int FileListModel::rowCount(const QModelIndex &parent) const
 
 int FileListModel::columnCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : ColumnCount;
+    return parent.isValid() ? 0 : ColumnCount + m_extra.count();
 }
 
 QVariant FileListModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() >= m_entries.size())
         return QVariant();
-    return fileEntryData(m_entries.at(index.row()), index.column(), role);
+    if (index.column() >= ColumnCount) {
+        if (const std::optional<QVariant> v = m_extra.data(m_entries.at(index.row()), index.column(), role, m_format))
+            return *v;
+    }
+    return fileEntryData(m_entries.at(index.row()), index.column(), role, m_format);
 }
 
 bool FileListModel::setData(const QModelIndex &index, const QVariant &value, int role)
@@ -111,14 +135,14 @@ bool FileListModel::setData(const QModelIndex &index, const QVariant &value, int
         return true;
     e.marked = marked;
     // 레코드 전체(모든 열)를 다시 그리게 한다.
-    Q_EMIT dataChanged(this->index(index.row(), 0), this->index(index.row(), ColumnCount - 1), {MarkedRole});
+    Q_EMIT dataChanged(this->index(index.row(), 0), this->index(index.row(), columnCount() - 1), {MarkedRole});
     return true;
 }
 
 QVariant FileListModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
-        return fileColumnTitle(section);
+        return section >= ColumnCount ? m_extra.headerData(section, role) : QVariant(fileColumnTitle(section));
     return QAbstractTableModel::headerData(section, orientation, role);
 }
 

@@ -27,9 +27,12 @@ RecordGeometry RecordGeometry::make(bool watercolor, bool twoLine, const ListApp
     g.nameBelow = twoLine && a.nameBelow;
     g.separator = twoLine ? a.twoLineSeparator : a.oneLineSeparator;
     const bool space = g.separator == RecordSeparator::Space;
+    // 행 밀도(조밀 · 여유)와 목록 글꼴 크기(13 px 기준)만큼 줄 높이를 바꾼다 — 1줄 -2 · +4, 2줄 -4 · +8(04 §2.1.2)
+    const int density = a.density == RowDensity::Compact ? -1 : a.density == RowDensity::Relaxed ? 2 : 0;
+    const int font = std::max(-4, a.fontPx - 13);
     if (!twoLine) {
         // 1줄: 시안1 24 · 시안2 21, 여백 방식은 아래 틈 2 · 좌우 6 · 모서리 4
-        const int row = watercolor ? 21 : 24;
+        const int row = (watercolor ? 21 : 24) + 2 * density + font;
         g.headerHeight = watercolor ? 22 : 27;
         if (space) {
             g.gap = 2;
@@ -40,8 +43,8 @@ RecordGeometry RecordGeometry::make(bool watercolor, bool twoLine, const ListApp
         return g;
     }
     // 2줄: 시안1 이름 22 + 메타 18(레코드 44), 시안2 20 + 16(38). 여백 방식 48/42 + 틈 2, 틴트 46/40.
-    g.nameHeight = watercolor ? 20 : 22;
-    g.metaHeight = watercolor ? 16 : 18;
+    g.nameHeight = (watercolor ? 20 : 22) + 2 * density + font;
+    g.metaHeight = (watercolor ? 16 : 18) + 2 * density + font;
     g.headerHeight = watercolor ? 40 : 45;
     const int content = g.nameHeight + g.metaHeight;
     int block = 0;
@@ -64,6 +67,10 @@ RecordGeometry RecordGeometry::make(bool watercolor, bool twoLine, const ListApp
         g.padTop = (block - 1 - content) / 2.0;  // 아래 1 px 구분선 자리
         break;
     }
+    // 이름 · 메타 줄이 늘어난 만큼(content) 블록도 늘린다 — 위 padTop은 늘기 전 블록으로 계산해 그만큼 되돌린다
+    const int extra = 4 * density + 2 * font;
+    block += extra;
+    g.padTop += extra / 2.0;
     g.pitch = block + g.gap;
     return g;
 }

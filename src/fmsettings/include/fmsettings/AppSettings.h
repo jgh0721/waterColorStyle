@@ -5,6 +5,7 @@
 
 #include <fmfilelist/ColumnSets.h>
 #include <fmfilelist/FileGroups.h>
+#include <fmfilelist/FileRoles.h>
 #include <fmfilelist/ListAppearance.h>
 #include <fmstyle/ColorScheme.h>
 #include <fmstyle/ThemeManager.h>
@@ -26,7 +27,7 @@ using DarkTone = fm::style::ThemeManager::DarkTone;
 
 struct AppearanceSettings
 {
-    enum class Density : std::uint8_t { Compact, Normal, Relaxed };
+    using Density = fm::filelist::RowDensity;
 
     Scheme scheme = Scheme::System;                 // 시스템(Y) · 라이트(L) · 다크(K)
     fm::style::Design design = fm::style::Design::Standard;  // (제안) 디자인 — 시안1 · 시안2
@@ -82,7 +83,7 @@ struct ThemeSettings
 
 struct PanelSettings
 {
-    enum class SizeUnit : std::uint8_t { Auto, Bytes, KB, MB };
+    using SizeUnit = fm::filelist::SizeUnit;
 
     fm::filelist::ViewMode defaultViewMode = fm::filelist::ViewMode::Auto;
     int autoSwitchWidthPx = 640;
@@ -101,7 +102,9 @@ struct PanelSettings
     bool boldSelection = true;
     fm::filelist::InactiveCursor inactiveCursor = fm::filelist::InactiveCursor::Dashed;
 
-    fm::filelist::ListAppearance toListAppearance() const;
+    /// 목록 표시 설정 — 목록 글꼴 · 행 밀도는 일반 · 모양(look)에서.
+    fm::filelist::ListAppearance toListAppearance(const AppearanceSettings &look) const;
+    fm::filelist::DisplayFormat toDisplayFormat() const { return {sizeUnit, dateFormat}; }
     bool operator==(const PanelSettings &) const = default;
 };
 
@@ -200,6 +203,29 @@ struct DialogState
     bool operator==(const DialogState &) const = default;
 };
 
+/// 마지막 탭과 폴더(일반 › 시작할 때 = 마지막 탭과 폴더 복원) — 설정이 아니라 끝낼 때 저장하는 상태.
+struct SessionState
+{
+    struct Tab
+    {
+        bool local = false;  // false = 샘플 데이터(D:)
+        QString path;
+        fm::filelist::ViewMode mode = fm::filelist::ViewMode::Auto;
+        bool modeSet = false;
+
+        bool operator==(const Tab &) const = default;
+    };
+
+    QList<Tab> left;
+    QList<Tab> right;
+    int leftCurrent = 0;
+    int rightCurrent = 0;
+    bool rightActive = true;
+
+    bool isEmpty() const noexcept { return left.isEmpty() && right.isEmpty(); }
+    bool operator==(const SessionState &) const = default;
+};
+
 struct AppSettings
 {
     int version = 1;
@@ -215,6 +241,7 @@ struct AppSettings
     ElevationSettings elevation;
     KeyBindingSettings keys;
     DialogState dialog;
+    SessionState session;
 
     bool operator==(const AppSettings &) const = default;
 
@@ -226,7 +253,7 @@ struct AppSettings
 /// 설정 구역(적용 단추 · 변경 알림 · 페이지 범위).
 enum class Section : std::uint16_t {
     Appearance = 0x1, General = 0x2, Tabs = 0x4, Theme = 0x8, Panel = 0x10, Thumbs = 0x20, Groups = 0x40,
-    Columns = 0x80, FileOps = 0x100, Elevation = 0x200, Keys = 0x400, Dialog = 0x800,
+    Columns = 0x80, FileOps = 0x100, Elevation = 0x200, Keys = 0x400, Dialog = 0x800, Session = 0x1000,
 };
 Q_DECLARE_FLAGS(Sections, Section)
 Q_DECLARE_OPERATORS_FOR_FLAGS(Sections)

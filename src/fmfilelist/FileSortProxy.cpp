@@ -136,6 +136,8 @@ bool FileSortProxy::lessThan(const QModelIndex &left, const QModelIndex &right) 
         c = left.data(AttributesRole).toInt() - right.data(AttributesRole).toInt();
         break;
     default:
+        if (left.column() >= ColumnCount)  // 열 세트의 추가 열 — 표시 글자를 자연 정렬(숫자는 숫자 크기로)
+            c = m_collator.compare(left.data().toString(), right.data().toString());
         break;
     }
     if (c == 0)

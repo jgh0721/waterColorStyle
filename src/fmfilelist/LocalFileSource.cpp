@@ -73,8 +73,13 @@ void FileSystemListProxy::setThumbnailProvider(ThumbnailProvider *provider)
     if (m_thumbnails)
         disconnect(m_thumbnails, nullptr, this, nullptr);
     m_thumbnails = provider;
-    if (m_thumbnails)
+    if (m_thumbnails) {
         connect(m_thumbnails, &ThumbnailProvider::ready, this, &FileSystemListProxy::thumbnailReady);
+        connect(m_thumbnails, &ThumbnailProvider::settingsChanged, this, [this] {
+            if (rowCount() > 0)
+                Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1), {ArtRole, ThumbnailRole, AspectRole, BadgeRole});
+        });
+    }
 }
 
 void FileSystemListProxy::setRootPath(const QString &path)
@@ -125,7 +130,7 @@ void FileSystemListProxy::connectSource()
                 for (int r = topLeft.row(); r <= bottomRight.row(); ++r)
                     m_entries.remove(m_fs->fileName(m_fs->index(r, 0, topLeft.parent())));
                 Q_EMIT dataChanged(index(topLeft.row() + upOffset(), 0),
-                                   index(bottomRight.row() + upOffset(), ColumnCount - 1));
+                                   index(bottomRight.row() + upOffset(), columnCount() - 1));
             });
 
     // 정렬 · 이동은 배치 변경으로 전한다. 우리 프록시의 영구 인덱스를 원본 영구 인덱스로 옮겨 심는다.
@@ -186,7 +191,7 @@ void FileSystemListProxy::thumbnailReady(const QString &path)
     if (!source.isValid() || source.parent() != m_root)
         return;
     const int row = source.row() + upOffset();
-    Q_EMIT dataChanged(index(row, 0), index(row, ColumnCount - 1), {ArtRole, ThumbnailRole, AspectRole});
+    Q_EMIT dataChanged(index(row, 0), index(row, columnCount() - 1), {ArtRole, ThumbnailRole, AspectRole});
 }
 
 QModelIndex FileSystemListProxy::sourceIndex(int row) const
@@ -210,6 +215,9 @@ const FileEntry &FileSystemListProxy::entryAt(int row) const
         e.kind = dir ? Kind::Folder : kindForExtension(e.ext, (e.attributes & System) != 0);
         e.size = dir ? -1 : m_fs->size(src);
         e.modified = m_fs->lastModified(src);
+        const QFileInfo info = m_fs->fileInfo(src);
+        e.created = info.birthTime();
+        e.accessed = info.lastRead();
         e.typeName = dir ? u"파일 폴더"_s : m_fs->type(src);
         it = m_entries.insert(name, e);
     }
@@ -219,7 +227,7 @@ const FileEntry &FileSystemListProxy::entryAt(int row) const
 
 QVariant FileSystemListProxy::thumbnailData(const FileEntry &e, int role) const
 {
-    const bool target = !e.isDir() && m_thumbnails && (isImageExtension(e.ext) || isShellThumbnailExtension(e.ext));
+    const bool target = !e.isDir() && m_thumbnails && m_thumbnails->isTarget(e.ext);  // 설정 › 섬네일 보기 › 대상
     if (!target)
         return role == ArtRole ? QVariant(int(Art::None)) : QVariant();
     const QImage image = m_thumbnails->thumbnail(e.path, e.modified, e.size);
@@ -241,7 +249,7 @@ QVariant FileSystemListProxy::thumbnailData(const FileEntry &e, int role) const
 
 QModelIndex FileSystemListProxy::index(int row, int column, const QModelIndex &parent) const
 {
-    if (parent.isValid() || row < 0 || column < 0 || row >= rowCount() || column >= ColumnCount)
+    if (parent.isValid() || row < 0 || column < 0 || row >= rowCount() || column >= columnCount())
         return QModelIndex();
     return createIndex(row, column);
 }
@@ -260,7 +268,7 @@ int FileSystemListProxy::rowCount(const QModelIndex &parent) const
 
 int FileSystemListProxy::columnCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : ColumnCount;
+    return parent.isValid() ? 0 : ColumnCount + m_extra.count();
 }
 
 bool FileSystemListProxy::hasChildren(const QModelIndex &parent) const
@@ -287,6 +295,10 @@ QVariant FileSystemListProxy::data(const QModelIndex &index, int role) const
     if (!index.isValid())
         return QVariant();
     const FileEntry &e = entryAt(index.row());
+    if (index.column() >= ColumnCount) {
+        if (const std::optional<QVariant> v = m_extra.data(e, index.column(), role, m_format))
+            return *v;
+    }
     switch (role) {
     case ArtRole:
     case ThumbnailRole:
@@ -294,8 +306,38 @@ QVariant FileSystemListProxy::data(const QModelIndex &index, int role) const
     case BadgeRole:
         return thumbnailData(e, role);
     default:
-        return fileEntryData(e, index.column(), role);
+        return fileEntryData(e, index.column(), role, m_format);
     }
+}
+
+void FileSystemListProxy::setExtraColumns(const ExtraColumns &extra)
+{
+    if (m_extra == extra)
+        return;
+    if (m_extra.reader)
+        disconnect(m_extra.reader, nullptr, this, nullptr);
+    beginResetModel();
+    m_extra = extra;
+    endResetModel();
+    if (m_extra.reader) {
+        // Windows 속성을 다 읽은 파일의 추가 열만 다시 그린다
+        connect(m_extra.reader, &PropertyReader::ready, this, [this](const QString &path) {
+            const QModelIndex source = m_fs->index(path);
+            if (!source.isValid() || source.parent() != m_root || m_extra.count() == 0)
+                return;
+            const int row = source.row() + upOffset();
+            Q_EMIT dataChanged(index(row, ColumnCount), index(row, columnCount() - 1), {Qt::DisplayRole});
+        });
+    }
+}
+
+void FileSystemListProxy::setDisplayFormat(const DisplayFormat &format)
+{
+    if (m_format == format)
+        return;
+    m_format = format;
+    if (rowCount() > 0)
+        Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1), {Qt::DisplayRole, SizeTextRole, DateTextRole});
 }
 
 bool FileSystemListProxy::setData(const QModelIndex &index, const QVariant &value, int role)
@@ -310,14 +352,14 @@ bool FileSystemListProxy::setData(const QModelIndex &index, const QVariant &valu
         m_marked.insert(name);
     else
         m_marked.remove(name);
-    Q_EMIT dataChanged(this->index(index.row(), 0), this->index(index.row(), ColumnCount - 1), {MarkedRole});
+    Q_EMIT dataChanged(this->index(index.row(), 0), this->index(index.row(), columnCount() - 1), {MarkedRole});
     return true;
 }
 
 QVariant FileSystemListProxy::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
-        return fileColumnTitle(section);
+        return section >= ColumnCount ? m_extra.headerData(section, role) : QVariant(fileColumnTitle(section));
     return QVariant();
 }
 
@@ -344,6 +386,7 @@ LocalFileSource::LocalFileSource(QObject *parent)
     : QObject(parent)
     , m_fs(new QFileSystemModel(this))
     , m_thumbnails(new ThumbnailProvider(this))
+    , m_properties(new PropertyReader(this))
 {
     m_fs->setReadOnly(true);
     m_fs->setOption(QFileSystemModel::DontUseCustomDirectoryIcons, true);

@@ -7,11 +7,13 @@
 //   fmdemo --shot shots                             폴더면 메인 창 + 대화상자 변형 전부 × 테마 5 일괄(+ 목업식 틀 · index.html)
 //   fmdemo --catalog                                대화상자 카탈로그 창
 //   fmdemo --compare 100000 --measure               섬네일 비교 창(sample · 10000 · 100000 · <폴더>), 측정 결과 출력
-//   fmdemo --settings my.json                       설정 파일(없으면 %APPDATA%m toolssettings.json, 스냅숏 · --open은 메모리만)
+//   fmdemo --settings my.json                       설정 파일(없으면 %APPDATA%\FM Tools\settings.json, 스냅숏 · --open은 메모리만)
+//   fmdemo D:\Photos                                 그 폴더를 연다(창 하나만 실행이면 이미 뜬 창의 새 탭으로)
 
 #include "CatalogWindow.h"
 #include "FilePanel.h"
 #include "MainWindow.h"
+#include "SingleInstance.h"
 #include "Snapshots.h"
 #include "ThumbnailCompare.h"
 
@@ -23,11 +25,24 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDialog>
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLibraryInfo>
+#include <QLocale>
 #include <QScreen>
 #include <QTimer>
+#include <QTranslator>
 
 #include <cstdio>
+#include <memory>
+
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#include <shellscalingapi.h>
+#endif
 
 using namespace Qt::StringLiterals;
 namespace fl = fm::filelist;
@@ -55,10 +70,69 @@ fl::RecordSeparator separatorFrom(const QString &name, fl::RecordSeparator fallb
     return i < 0 ? fallback : fl::RecordSeparator(i);
 }
 
+/// 화면 배율(설정 › 일반 · 모양, 다시 시작하면 적용 — 04 §4.2). QApplication 전에 설정 파일을 직접 읽어
+/// QT_SCALE_FACTOR = 목표 배율 ÷ 시스템 배율을 넣는다(Qt 배율은 시스템 배율에 곱해진다).
+void applyDisplayScale(int argc, char *argv[])
+{
+    if (qEnvironmentVariableIsSet("QT_SCALE_FACTOR"))
+        return;  // 직접 준 값이 우선
+    QString path;
+    bool memoryOnly = false;
+    for (int i = 1; i < argc; ++i) {
+        const QByteArray arg(argv[i]);
+        if ((arg == "--settings" || arg == "-settings") && i + 1 < argc)
+            path = QString::fromLocal8Bit(argv[++i]);
+        else if (arg.startsWith("--settings="))
+            path = QString::fromLocal8Bit(arg.mid(11));
+        else if (arg == "--shot" || arg == "--open" || arg == "--list-dialogs")
+            memoryOnly = true;
+    }
+    if (path.isEmpty() && memoryOnly)
+        return;  // 스냅숏 · 대화상자 단독 실행은 기본 설정(배율 그대로)
+    if (path.isEmpty())
+        path = fm::settings::SettingsStore::defaultFilePath();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+    const int percent = QJsonDocument::fromJson(file.readAll()).object().value(u"appearance"_s).toObject().value(u"displayScale"_s).toInt();
+    if (percent <= 0)
+        return;  // 시스템 따름
+    double system = 1.0;
+#ifdef Q_OS_WIN
+    // Qt가 DPI 인식을 켜기 전이라 스레드만 잠시 모니터별 인식으로 바꿔 주 모니터의 지금 배율을 읽는다
+    // (GetDpiForSystem은 로그인할 때의 값이라 그 뒤 배율을 바꿨으면 Qt가 쓰는 값과 다르다)
+    const DPI_AWARENESS_CONTEXT previous = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    UINT dpiX = 96;
+    UINT dpiY = 96;
+    if (SUCCEEDED(GetDpiForMonitor(MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY), MDT_EFFECTIVE_DPI, &dpiX, &dpiY)))
+        system = dpiX / 96.0;
+    if (previous)
+        SetThreadDpiAwarenessContext(previous);
+#endif
+    qputenv("QT_SCALE_FACTOR", QByteArray::number(percent / 100.0 / system, 'f', 4));
+}
+
+/// 언어(설정 › 일반, 다시 시작하면 적용) — Qt 표준 문자열(표준 단추 · 기본 대화상자 · 입력 칸 메뉴)을 번역한다.
+/// 앱 자체 문자열은 아직 한국어뿐이다(번역 파일 없음).
+void installTranslations(QApplication &app, QString language)
+{
+    if (language.isEmpty())
+        language = QLocale::system().name().section(u'_', 0, 0);  // 시스템 언어 따름
+    QLocale::setDefault(QLocale(language));
+    auto *qt = new QTranslator(&app);
+    const QString name = u"qtbase_"_s + language;
+    if (qt->load(name, QLibraryInfo::path(QLibraryInfo::TranslationsPath))
+        || qt->load(name, QCoreApplication::applicationDirPath() + u"/translations"_s))
+        QCoreApplication::installTranslator(qt);
+    else
+        delete qt;
+}
+
 } // namespace
 
 int main(int argc, char *argv[])
 {
+    applyDisplayScale(argc, argv);
     QApplication app(argc, argv);
     QApplication::setApplicationName(u"fmdemo"_s);
     QApplication::setApplicationDisplayName(u"파일 관리자"_s);
@@ -91,6 +165,7 @@ int main(int argc, char *argv[])
                        nameBelowOption, invCursorOption, invSelOption, sizeOption, shotOption, delayOption, openOption,
                        listOption, flowOption, settingsOption, catalogOption, compareOption, measureOption, onlyOption,
                        themesOption});
+    parser.addPositionalArgument(u"folder"_s, u"열 실제 폴더(창 하나만 실행이면 이미 뜬 창의 새 탭으로)"_s, u"[folder]"_s);
     parser.process(app);
 
     auto &theme = fs::ThemeManager::instance();
@@ -117,6 +192,7 @@ int main(int argc, char *argv[])
         if (!error.isEmpty())
             std::fprintf(stderr, "settings: %s\n", qPrintable(error));
     }
+    installTranslations(app, store.settings().general.language);
 
     if (parser.isSet(listOption)) {
         for (const fm::dialogs::DialogVariant &v : fm::dialogs::dialogVariants())
@@ -199,6 +275,17 @@ int main(int argc, char *argv[])
         return app.exec();
     }
 
+    // 창 하나만 실행(설정 › 일반) — 이미 떠 있으면 그 창에 폴더(없으면 새 탭만)를 넘기고 끝낸다. 스냅숏은 따로 뜬다.
+    const QString folder = parser.positionalArguments().value(0);
+    const QString folderPath = folder.isEmpty() ? QString() : QDir::toNativeSeparators(QFileInfo(folder).absoluteFilePath());
+    std::unique_ptr<fm::app::SingleInstance> single;
+    if (!snapshot && store.settings().general.singleInstance) {
+        single = std::make_unique<fm::app::SingleInstance>();
+        if (single->forward(folderPath))
+            return 0;
+        single->listen();
+    }
+
     fm::app::MainWindow window;
     window.loadBoardState();
 
@@ -222,6 +309,7 @@ int main(int argc, char *argv[])
         if (!parser.isSet(designOption) && !parser.isSet(schemeOption))
             sections |= S::Appearance | S::Theme;
         window.applySettings(sections);
+        window.applyStartup();  // 시작할 때 — 마지막 탭과 폴더 · 홈 폴더 · 지정한 폴더
     } else {
         // 설정 파일이 없으면 지금 창 상태(보드)가 첫 설정 — 적용할 때까지 파일은 만들지 않는다
         const QString path = store.filePath();
@@ -233,7 +321,11 @@ int main(int argc, char *argv[])
     const QStringList wh = parser.value(sizeOption).split(u'x');
     window.resize(wh.value(0).toInt() > 0 ? wh.value(0).toInt() : 1440, wh.value(1).toInt() > 0 ? wh.value(1).toInt() : 900);
     window.show();
+    if (!folderPath.isEmpty())
+        window.openInNewTab(folderPath);
     window.activePanel()->focusView();
+    if (single)
+        QObject::connect(single.get(), &fm::app::SingleInstance::messageReceived, &window, &fm::app::MainWindow::openInNewTab);
     if (parser.isSet(flowOption))
         QTimer::singleShot(0, &window, [&window, name = parser.value(flowOption)] { window.startElevationFlow(name == u"delete"_s ? 1 : 0); });
 

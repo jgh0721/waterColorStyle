@@ -4,6 +4,7 @@
 #include "CatalogWindow.h"
 #include "FilePanel.h"
 #include "MainWindow.h"
+#include "SingleInstance.h"
 #include "Snapshots.h"
 #include "ThumbnailCompare.h"
 
@@ -15,10 +16,12 @@
 #include <fmfilelist/FileRoles.h>
 #include <fmfilelist/FileSortProxy.h>
 #include <fmdialogs/SettingsDialog.h>
+#include <fmfilelist/ThumbnailProvider.h>
 #include <fmfilelist/ThumbnailView.h>
 #include <fmsettings/SettingsStore.h>
 #include <fmstyle/ThemeManager.h>
 #include <fmwidgets/BreadcrumbBar.h>
+#include <fmstyle/StylePaint.h>
 #include <fmwidgets/CommandLine.h>
 #include <fmwidgets/FunctionKeyBar.h>
 #include <fmwidgets/SettingsWidgets.h>
@@ -26,6 +29,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QDialog>
+#include <QDir>
 #include <QFile>
 #include <QImage>
 #include <QPointer>
@@ -33,11 +37,15 @@
 #include <QSet>
 #include <QSignalSpy>
 #include <QStackedWidget>
+#include <QSystemTrayIcon>
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
 #include <QTreeView>
+
+#include <atomic>
+#include <thread>
 
 using namespace Qt::StringLiterals;
 using namespace fm::app;
@@ -61,6 +69,12 @@ private Q_SLOTS:
     void settingsWiring();
     void designSwitchFromSettings();
     void appPaletteKeptOnStyleWrap();
+    void panelAndTabSettings();
+    void listFontAndDensity();
+    void thumbnailSettings();
+    void jobAndKeySettings();
+    void generalSettings();
+    void columnSetsInPanels();
     void catalogWindow();
     void thumbnailCompare();
     void snapshots();
@@ -237,7 +251,8 @@ void TestMainWindow::fileOperations()
     QCOMPARE(run(u"delete"_s, true).className, u"fm::dialogs::DeleteDialog"_s);
     const auto progress = m_window->findChildren<fm::dialogs::ProgressDialog *>();
     QCOMPARE(progress.size(), 1);
-    QVERIFY(progress.first()->isVisible());
+    QVERIFY(!progress.first()->isVisible());  // 설정 기본값: 진행 창은 1초 뒤에 띄운다
+    QTRY_VERIFY_WITH_TIMEOUT(progress.first()->isVisible(), 3000);
     QCOMPARE(progress.first()->mode(), fm::dialogs::ProgressDialog::Compact);
     progress.first()->close();
     QTRY_VERIFY(m_window->findChildren<fm::dialogs::ProgressDialog *>().isEmpty());  // WA_DeleteOnClose
@@ -373,6 +388,351 @@ void TestMainWindow::appPaletteKeptOnStyleWrap()
     tm.setDesign(design);
     tm.setScheme(scheme);
     QTest::qWait(20);
+}
+
+void TestMainWindow::panelAndTabSettings()
+{
+    // 설정 › 파일 패널(보호된 OS 파일 · 크기 단위 · 날짜 형식 · 기본 표시 방식) · 일반 › 폴더 탭을 메인 창에 적용
+    namespace st = fm::settings;
+    m_window->loadBoardState();
+    m_window->captureSettings();
+    const st::AppSettings original = st::SettingsStore::instance().settings();
+    QVERIFY(original.panel.showProtectedOs);  // 보드는 desktop.ini(숨김 · 시스템)를 보인다
+    FilePanel *right = m_window->rightPanel();
+    QTabBar *tabs = right->findChild<QTabBar *>();
+    QVERIFY(tabs);
+    QCOMPARE(tabs->count(), 2);
+    QVERIFY(rowOf(right, u"desktop.ini"_s) >= 0);
+
+    st::AppSettings s = original;
+    s.panel.showProtectedOs = false;
+    s.panel.sizeUnit = st::PanelSettings::SizeUnit::KB;
+    s.panel.dateFormat = u"yy.MM.dd"_s;
+    s.panel.defaultViewMode = fl::ViewMode::OneLine;
+    s.tabs.title = st::TabSettings::TabTitle::DriveAndFolder;
+    s.tabs.newTabPosition = st::TabSettings::NewTabPosition::End;
+    st::SettingsStore::instance().setSettings(s);
+
+    QCOMPARE(rowOf(right, u"desktop.ini"_s), -1);  // 숨김은 보이되 보호된 OS 파일은 숨김
+    const int vc = rowOf(right, u"vc_redist.x64.exe"_s);
+    QVERIFY(vc >= 0);
+    const qint64 bytes = right->model()->index(vc, fl::NameColumn).data(fl::SizeBytesRole).toLongLong();
+    QCOMPARE(right->model()->index(vc, fl::SizeColumn).data().toString(), fl::formatSize(bytes, fl::SizeUnit::KB));
+    QVERIFY(right->model()->index(vc, fl::SizeColumn).data().toString().endsWith(u" KB"_s));
+    QCOMPARE(right->model()->index(vc, fl::ModifiedColumn).data().toString(), u"26.09.22"_s);
+    QCOMPARE(tabs->tabText(0), u"D:\\Downloads"_s);
+    QCOMPARE(right->viewMode(), fl::ViewMode::Auto);  // 탭이 정한 방식은 그대로
+    tabs->setCurrentIndex(1);
+    QCOMPARE(right->viewMode(), fl::ViewMode::OneLine);  // 정하지 않은 탭은 새 기본값
+    tabs->setCurrentIndex(0);
+    right->newTab();
+    QCOMPARE(tabs->count(), 3);
+    QCOMPARE(tabs->currentIndex(), 2);  // 맨 끝
+    QCOMPARE(right->viewMode(), fl::ViewMode::OneLine);
+    right->closeCurrentTab();
+    QCOMPARE(tabs->count(), 2);
+
+    // 탭마다 기억하지 않으면 모든 탭이 기본값을 쓰고, 바꾸면 패널 전체가 바뀐다
+    s.tabs.rememberViewPerTab = false;
+    st::SettingsStore::instance().setSettings(s);
+    tabs->setCurrentIndex(0);
+    QCOMPARE(right->viewMode(), fl::ViewMode::OneLine);
+    right->setViewMode(fl::ViewMode::TwoLine);
+    tabs->setCurrentIndex(1);
+    QCOMPARE(right->viewMode(), fl::ViewMode::TwoLine);
+
+    st::SettingsStore::instance().setSettings(original);
+    m_window->loadBoardState();
+    QVERIFY(rowOf(right, u"desktop.ini"_s) >= 0);
+    QCOMPARE(tabs->tabText(0), u"Downloads"_s);
+}
+
+void TestMainWindow::listFontAndDensity()
+{
+    // 설정 › 일반 · 모양 — 목록 글꼴 · 행 밀도는 파일 목록에, 고정폭 글꼴은 명령줄 · monoFont()에 바로 반영
+    namespace st = fm::settings;
+    namespace fs = fm::style;
+    m_window->captureSettings();
+    const st::AppSettings original = st::SettingsStore::instance().settings();
+    FilePanel *right = m_window->rightPanel();
+    auto *commandLine = m_window->findChild<fm::ui::CommandLine *>();
+    QVERIFY(commandLine);
+    const int normalHeight = right->listView()->preferredHeight(10);
+
+    st::AppSettings s = original;
+    s.appearance.listFontFamily = u"Malgun Gothic"_s;
+    s.appearance.listFontPx = 15;
+    s.appearance.density = st::AppearanceSettings::Density::Relaxed;
+    s.appearance.monoFontFamily = u"Consolas"_s;
+    s.appearance.monoFontPx = 14;
+    st::SettingsStore::instance().setSettings(s);
+    QTest::qWait(20);
+
+    const QFont listFont = right->listView()->font();
+    QCOMPARE(listFont.families().value(0), u"Malgun Gothic"_s);
+    QCOMPARE(listFont.pixelSize(), 15);
+    QCOMPARE(m_window->listAppearance().density, fl::RowDensity::Relaxed);
+    QVERIFY(right->listView()->preferredHeight(10) > normalHeight);  // 행이 높아졌다
+    QCOMPARE(right->thumbnailView()->font().families().value(0), u"Malgun Gothic"_s);
+    QCOMPARE(fs::ThemeManager::instance().monoFontFamily(), u"Consolas"_s);
+    QCOMPARE(fs::monoFont(12).families().value(0), u"Consolas"_s);
+    QCOMPARE(commandLine->lineEdit()->font().families().value(0), u"Consolas"_s);
+    QCOMPARE(commandLine->lineEdit()->font().pointSizeF(), 14 * 0.75);
+
+    st::SettingsStore::instance().setSettings(original);
+    QTest::qWait(20);
+    QCOMPARE(right->listView()->preferredHeight(10), normalHeight);
+    QCOMPARE(fs::monoFont(12).families().value(0), u"Cascadia Mono"_s);
+}
+
+void TestMainWindow::thumbnailSettings()
+{
+    // 설정 › 섬네일 보기 — 만들기 설정은 두 패널의 생성기로, 자동 섬네일은 폴더를 열 때 판정
+    namespace st = fm::settings;
+    m_window->loadBoardState();
+    m_window->captureSettings();
+    const st::AppSettings original = st::SettingsStore::instance().settings();
+    FilePanel *right = m_window->rightPanel();
+
+    st::AppSettings s = original;
+    s.thumbs.provider = st::ThumbSettings::Provider::Builtin;
+    s.thumbs.targets = st::ThumbSettings::Images;
+    s.thumbs.concurrency = 2;
+    s.thumbs.iconsOnlyOnNetworkRemovable = false;
+    s.thumbs.autoThumbnailFolders = true;
+    s.thumbs.autoThumbnailPct = 50;
+    st::SettingsStore::instance().setSettings(s);
+    for (FilePanel *panel : {m_window->leftPanel(), right}) {
+        fl::ThumbnailProvider *provider = panel->thumbnailProvider();
+        QCOMPARE(provider->method(), fl::ThumbnailProvider::Method::Builtin);
+        QCOMPARE(provider->targets(), int(fl::ThumbnailProvider::Images));
+        QCOMPARE(provider->maxThreads(), 2);
+        QVERIFY(!provider->skipsSlowVolumes());
+    }
+
+    // D:\Pictures — 파일 8개 중 이미지 · 동영상 4개(50 %)
+    QCOMPARE(right->viewMode(), fl::ViewMode::Auto);
+    right->openLocation(false, u"D:\\Pictures"_s);
+    QCOMPARE(right->viewMode(), fl::ViewMode::Thumbnails);
+    right->openLocation(false, u"D:\\Backup"_s);
+    QCOMPARE(right->viewMode(), fl::ViewMode::Auto);  // 탭의 방식으로 돌아간다
+    s.thumbs.autoThumbnailPct = 90;
+    st::SettingsStore::instance().setSettings(s);
+    right->openLocation(false, u"D:\\Pictures"_s);
+    QCOMPARE(right->viewMode(), fl::ViewMode::Auto);
+    s.thumbs.autoThumbnailPct = 50;
+    st::SettingsStore::instance().setSettings(s);  // 적용하면 지금 폴더도 다시 판정
+    QCOMPARE(right->viewMode(), fl::ViewMode::Thumbnails);
+    right->setViewMode(fl::ViewMode::OneLine);  // 직접 고르면 자동이 풀린다
+    QCOMPARE(right->viewMode(), fl::ViewMode::OneLine);
+
+    st::SettingsStore::instance().setSettings(original);
+    m_window->loadBoardState();
+}
+
+void TestMainWindow::jobAndKeySettings()
+{
+    // 설정 › 파일 작업(동시 작업 수 · 진행 창 표시 · 기본 삭제 방식 · 삭제 전 확인) · 키보드(기능 키 막대 글자)
+    namespace st = fm::settings;
+    namespace fd = fm::dialogs;
+    m_window->loadBoardState();
+    m_window->captureSettings();
+    const st::AppSettings original = st::SettingsStore::instance().settings();
+    st::AppSettings s = original;
+    s.fileOps.maxConcurrentJobs = 1;
+    s.fileOps.progressDelayMs = 0;
+    st::SettingsStore::instance().setSettings(s);
+
+    const qint64 big = qint64(8) << 30;
+    QPointer<fd::ProgressDialog> first = m_window->startJob(fd::ProgressDialog::Copy, u"D:\\a"_s, u"E:\\b"_s, {u"a.bin"_s}, {big});
+    QPointer<fd::ProgressDialog> second = m_window->startJob(fd::ProgressDialog::Copy, u"D:\\a"_s, u"E:\\b"_s, {u"b.bin"_s}, {big});
+    QCOMPARE(m_window->runningJobs(), 1);
+    QVERIFY(!first->isWaiting());
+    QVERIFY(second->isWaiting());
+    QVERIFY(second->isVisible());  // 대기 중인 작업도 보인다
+    first->close();                // 취소하면 다음 작업이 시작된다
+    QTRY_VERIFY(!second->isWaiting());
+    second->close();
+    QTRY_COMPARE(m_window->jobs().size(), 0);
+
+    // 진행 창 표시 안 함 — 띄우지 않고, 끝나면(완료되면 닫기를 꺼도) 창을 남기지 않는다
+    s.fileOps.progressDelayMs = -1;
+    s.fileOps.closeWhenDone = false;
+    st::SettingsStore::instance().setSettings(s);
+    QPointer<fd::ProgressDialog> hidden = m_window->startJob(fd::ProgressDialog::Copy, u"D:\\a"_s, u"E:\\b"_s, {u"c.bin"_s}, {2 * 1024 * 1024});
+    QVERIFY(!hidden->isVisible());
+    QTRY_VERIFY_WITH_TIMEOUT(hidden.isNull(), 5000);
+
+    // 기본 삭제 방식 = 영구 삭제, 삭제 전 확인 끔 — F8은 바로 영구 삭제, Shift+Del은 휴지통
+    s.fileOps.progressDelayMs = 0;
+    s.fileOps.confirmDelete = false;
+    s.fileOps.deleteMode = st::FileOpsSettings::DeleteMode::Permanent;
+    st::SettingsStore::instance().setSettings(s);
+    m_window->setActivePanel(m_window->rightPanel());  // 보드: 오른쪽에 표시 3개
+    m_window->findChild<QAction *>(u"delete"_s)->trigger();
+    QCOMPARE(m_window->jobs().size(), 1);
+    QVERIFY(m_window->jobs().first()->windowTitle().contains(u"영구 삭제 중"_s));
+    m_window->jobs().first()->close();
+    QTRY_COMPARE(m_window->jobs().size(), 0);
+    m_window->findChild<QAction *>(u"deletePermanent"_s)->trigger();
+    QCOMPARE(m_window->jobs().size(), 1);
+    const QString title = m_window->jobs().first()->windowTitle();
+    QVERIFY(title.contains(u"삭제 중"_s) && !title.contains(u"영구"_s));
+    m_window->jobs().first()->close();
+    QTRY_COMPARE(m_window->jobs().size(), 0);
+
+    // 기능 키 막대 — 복사를 F9로 바꾸면 F5 칸의 글자도 F9
+    auto *keys = m_window->findChild<fm::ui::FunctionKeyBar *>();
+    QVERIFY(keys);
+    auto copyButton = [keys] {
+        for (fm::ui::FunctionKeyButton *b : keys->buttons())
+            if (b->property("fmCommand").toString() == u"copy")
+                return b;
+        return static_cast<fm::ui::FunctionKeyButton *>(nullptr);
+    };
+    QVERIFY(copyButton());
+    QCOMPARE(copyButton()->keys(), u"F5"_s);
+    s.keys.overrides.insert(u"copy"_s, {QKeySequence(Qt::Key_F9)});
+    st::SettingsStore::instance().setSettings(s);
+    QCOMPARE(copyButton()->keys(), u"F9"_s);
+
+    st::SettingsStore::instance().setSettings(original);
+    QCOMPARE(copyButton()->keys(), u"F5"_s);
+    m_window->loadBoardState();
+}
+
+void TestMainWindow::generalSettings()
+{
+    // 설정 › 일반 — 창 하나만 실행(로컬 소켓) · 시작할 때(마지막 탭 복원 · 지정한 폴더) · 다른 인스턴스의 요청은 새 탭
+    namespace st = fm::settings;
+    {
+        const QString key = u"fmdemo-test-"_s + QString::number(QCoreApplication::applicationPid());
+        SingleInstance first(key);
+        QVERIFY(first.listen());
+        QSignalSpy received(&first, &SingleInstance::messageReceived);
+        // 두 번째 인스턴스는 다른 프로세스 — 여기서는 다른 스레드에서 보낸다(받는 쪽 이벤트 루프가 돌아야 쓰기가 끝난다)
+        auto forwardFromThread = [&key](const QString &message) {
+            std::atomic<bool> ok = false;
+            std::thread sender([&] { ok = SingleInstance(key).forward(message, 3000); });
+            [[maybe_unused]] const bool done = QTest::qWaitFor([&] { return ok.load(); }, 4000);
+            sender.join();
+            return ok.load();
+        };
+        QVERIFY(forwardFromThread(u"C:\\Work"_s));
+        QTRY_COMPARE(received.size(), 1);
+        QCOMPARE(received.first().first().toString(), u"C:\\Work"_s);
+        QVERIFY(forwardFromThread(QString()));  // 폴더 없이 다시 실행 → 새 탭만
+        QTRY_COMPARE(received.size(), 2);
+        QCOMPARE(received.last().first().toString(), QString());
+        QVERIFY(!SingleInstance(key + u"-none"_s).forward(u"x"_s, 200));  // 듣는 인스턴스가 없으면 직접 뜬다
+    }
+
+    m_window->loadBoardState();
+    m_window->captureSettings();
+    const st::AppSettings original = st::SettingsStore::instance().settings();
+
+    // 세션 — 두 패널의 탭 · 보기 방식 · 활성 패널, JSON으로 저장 · 복원
+    const st::SessionState board = m_window->sessionState();
+    QCOMPARE(board.left.size(), 3);
+    QCOMPARE(board.right.size(), 2);
+    QCOMPARE(board.left.first().path, u"D:\\Work\\fm-core"_s);
+    QCOMPARE(board.left.first().mode, fl::ViewMode::OneLine);
+    QVERIFY(board.left.first().modeSet);
+    QVERIFY(board.left.at(2).local);
+    QVERIFY(board.rightActive);
+    st::AppSettings saved = original;
+    saved.session = board;
+    QCOMPARE(st::AppSettings::fromJson(saved.toJson()).session, board);
+    QVERIFY(st::differingSections(original, saved) & st::Section::Session);
+
+    st::SessionState changed = board;
+    changed.left = {{false, u"D:\\Backup"_s, fl::ViewMode::TwoLine, true}};
+    changed.leftCurrent = 0;
+    changed.rightCurrent = 1;
+    changed.rightActive = false;
+    m_window->restoreSession(changed);
+    QCOMPARE(m_window->leftPanel()->tabs().size(), 1);
+    QCOMPARE(m_window->leftPanel()->currentPath(), u"D:\\Backup"_s);
+    QCOMPARE(m_window->leftPanel()->viewMode(), fl::ViewMode::TwoLine);
+    QCOMPARE(m_window->rightPanel()->currentPath(), u"D:\\Backup"_s);  // 오른쪽 두 번째 탭
+    QCOMPARE(m_window->activePanel(), m_window->leftPanel());
+
+    // 시작할 때 = 마지막 탭과 폴더 복원
+    st::AppSettings s = original;
+    s.session = board;
+    s.general.startup = st::GeneralSettings::Startup::RestoreLastTabs;
+    st::SettingsStore::instance().setSettings(s);
+    m_window->applyStartup();
+    QCOMPARE(m_window->sessionState(), board);
+
+    // 시작할 때 = 지정한 폴더(실제 폴더, 두 패널)
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString native = QDir::toNativeSeparators(dir.path());
+    s.general.startup = st::GeneralSettings::Startup::SpecificFolders;
+    s.general.startupFolders = {native};
+    st::SettingsStore::instance().setSettings(s);
+    m_window->applyStartup();
+    for (FilePanel *panel : {m_window->leftPanel(), m_window->rightPanel()}) {
+        QCOMPARE(panel->tabs().size(), 1);
+        QVERIFY(panel->isLocal());
+        QCOMPARE(panel->currentPath().compare(native, Qt::CaseInsensitive), 0);
+    }
+
+    // 다른 인스턴스의 요청 — 활성 패널에 새 탭으로 그 폴더
+    m_window->setActivePanel(m_window->rightPanel());
+    m_window->openInNewTab(u"D:\\Downloads"_s);
+    QCOMPARE(m_window->rightPanel()->tabs().size(), 2);
+    QCOMPARE(m_window->rightPanel()->currentTab(), 1);
+    QVERIFY(m_window->rightPanel()->isLocal());
+
+    // 알림 영역 아이콘 — 시스템 트레이가 없는 환경(offscreen)에서는 만들지 않는다
+    s.general.trayIcon = st::GeneralSettings::TrayIcon::Always;
+    st::SettingsStore::instance().setSettings(s);
+    QCOMPARE(m_window->trayIcon() != nullptr, QSystemTrayIcon::isSystemTrayAvailable());
+
+    st::SettingsStore::instance().setSettings(original);
+    m_window->loadBoardState();
+}
+
+void TestMainWindow::columnSetsInPanels()
+{
+    // 설정 › 열 · 사용자 정의 열 — 폴더마다 자동 적용, Ctrl+Shift+C로 탭의 세트 바꾸기(마지막 다음은 자동)
+    namespace st = fm::settings;
+    m_window->loadBoardState();
+    FilePanel *left = m_window->leftPanel();
+    FilePanel *right = m_window->rightPanel();
+    m_window->applySettings(st::Section::Columns);
+    QCOMPARE(left->columnSetName(), u"소스 코드"_s);  // D:\Work\* 규칙
+    QCOMPARE(right->columnSetName(), u"기본"_s);      // 샘플 D:\Downloads는 알려진 폴더가 아니다
+    QCOMPARE(right->model()->columnCount(), int(fl::ColumnCount));
+    QCOMPARE(left->listView()->columnLayout().find(fl::AttrColumn), nullptr);  // 소스 코드 세트: 속성 열 없음
+
+    m_window->setActivePanel(right);
+    QAction *cycle = m_window->findChild<QAction *>(u"columnSet"_s);
+    QVERIFY(cycle);
+    cycle->trigger();
+    QCOMPARE(right->columnSetName(), u"사진 · 영상"_s);
+    QCOMPARE(right->model()->columnCount(), int(fl::ColumnCount) + 4);  // 촬영 날짜 · 해상도 · 재생 시간 · 카메라
+    QCOMPARE(right->model()->index(1, fl::ColumnCount + 2).data().toString(), u"—"_s);  // 샘플 파일 — 재생 시간 없음
+    const QStringList expected = {u"소스 코드"_s, u"다운로드"_s, u"설치 패키지 검토"_s, u"기본"_s};
+    for (const QString &name : expected) {
+        cycle->trigger();
+        QCOMPARE(right->columnSetName(), name);
+    }
+    QVERIFY(right->tabs().first().columnSet.isEmpty());  // 마지막 다음은 자동
+
+    // 탭마다 기억 — 다운로드 세트를 고른 탭과 다른 탭(자동)
+    cycle->trigger();
+    cycle->trigger();
+    cycle->trigger();
+    QCOMPARE(right->columnSetName(), u"다운로드"_s);
+    QTabBar *tabs = right->findChild<QTabBar *>();
+    tabs->setCurrentIndex(1);
+    QCOMPARE(right->columnSetName(), u"기본"_s);
+    tabs->setCurrentIndex(0);
+    QCOMPARE(right->columnSetName(), u"다운로드"_s);
+    m_window->loadBoardState();
 }
 
 void TestMainWindow::catalogWindow()

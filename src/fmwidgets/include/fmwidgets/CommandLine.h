@@ -35,6 +35,7 @@ protected:
 
 private:
     void applyMetrics();
+    void applyFonts();
     void showHistory();
 
     QLabel *m_prompt = nullptr;

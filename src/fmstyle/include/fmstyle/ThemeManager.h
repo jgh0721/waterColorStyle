@@ -74,6 +74,12 @@ public:
     bool alwaysShowMnemonics() const noexcept { return m_alwaysMnemonics; }
     void setAlwaysShowMnemonics(bool on);
 
+    /// 고정폭 글꼴(설정 › 일반 · 모양) — monoFont()가 이 글꼴을 먼저 쓰고, 명령줄 · 식 입력은 이 크기(px)를 쓴다.
+    /// 바꾸면 fontsChanged — 이미 만든 입력 칸은 받는 쪽이 다시 넣는다(그리기 때 고르는 곳은 다시 그리면 된다).
+    QString monoFontFamily() const { return m_monoFamily; }
+    int monoFontPx() const noexcept { return m_monoPx; }
+    void setMonoFont(const QString &family, int px);
+
     /// 이름 있는 색 구성표(설정 › 테마 색상) — 기준 색과 모든 직접 지정을 한 번에 바꾼다(재계산 · 적용 1회).
     ColorScheme colorScheme() const;
     void setColorScheme(const ColorScheme &scheme);
@@ -95,6 +101,7 @@ public:
 
 Q_SIGNALS:
     void changed();
+    void fontsChanged();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -119,6 +126,8 @@ private:
     bool m_darkTitleBar = true;
     bool m_coloredTitleBar = true;
     bool m_alwaysMnemonics = false;
+    QString m_monoFamily = QStringLiteral("Cascadia Mono");
+    int m_monoPx = 12;
     bool m_installed = false;
     QString m_schemeId = QStringLiteral("builtin");
     QString m_schemeName;

@@ -291,12 +291,15 @@ PromptSpec ownershipDenied(Operation op, const ItemInfo &item, const QString &di
               textRow(tr("바뀌는 내용"), tr("소유자를 Administrators로 바꾸고 모든 권한 부여"))};
     // 위험한 동작은 왼쪽 · 보통 역할, Enter는 건너뛰기(설정 "대화상자 기본 버튼"으로 바꿀 수 있다 — 03 §2.7)
     const bool takeDefault = defaultChoice == Choice::TakeOwnership;
+    const bool cancelDefault = defaultChoice == Choice::Cancel;
     ButtonSpec take = button(Choice::TakeOwnership, tr("소유권 가져오고 %1(&T)").arg(verb(op)), takeDefault, true);
     take.placement = ButtonSpec::Leading;
-    ButtonSpec skip = button(Choice::Skip, tr("건너뛰기(&S)"), !takeDefault);
-    if (!takeDefault)
+    ButtonSpec skip = button(Choice::Skip, tr("건너뛰기(&S)"), !takeDefault && !cancelDefault);
+    if (!takeDefault && !cancelDefault)
         skip.toolTip = u"Enter"_s;
-    s.buttons = {take, skip, cancelButton()};
+    ButtonSpec cancel = cancelButton();
+    cancel.isDefault = cancelDefault;
+    s.buttons = {take, skip, cancel};
     s.designSize = {560, 440};
     return s;
 }

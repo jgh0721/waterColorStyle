@@ -12,6 +12,7 @@
 #include <QStyleHints>
 #include <QWidget>
 
+#include <algorithm>
 #include <memory>
 
 #ifdef Q_OS_WIN
@@ -131,6 +132,21 @@ void ThemeManager::setDarkTone(DarkTone tone)
         return;
     m_darkTone = tone;
     apply();
+}
+
+void ThemeManager::setMonoFont(const QString &family, int px)
+{
+    const QString name = family.trimmed().isEmpty() ? u"Cascadia Mono"_s : family.trimmed();
+    px = std::clamp(px, 8, 24);
+    if (m_monoFamily == name && m_monoPx == px)
+        return;
+    m_monoFamily = name;
+    m_monoPx = px;
+    if (m_installed) {
+        for (QWidget *w : QApplication::topLevelWidgets())
+            w->update();  // 그리기 때 monoFont()를 고르는 곳
+    }
+    Q_EMIT fontsChanged();
 }
 
 void ThemeManager::setAlwaysShowMnemonics(bool on)

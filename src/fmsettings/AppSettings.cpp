@@ -326,9 +326,12 @@ QList<QKeySequence> keysFromText(const QString &text)
 
 } // namespace
 
-fm::filelist::ListAppearance PanelSettings::toListAppearance() const
+fm::filelist::ListAppearance PanelSettings::toListAppearance(const AppearanceSettings &look) const
 {
     fl::ListAppearance a;
+    a.density = look.density;
+    a.fontFamily = look.listFontFamily;
+    a.fontPx = look.listFontPx;
     a.oneLineSeparator = separator1;
     a.twoLineSeparator = separator2;
     a.nameBelow = nameBelow;
@@ -419,6 +422,18 @@ QJsonObject AppSettings::toJson() const
                                   {u"progressEsc"_s, enumToJson(keys.progressEsc, kProgressEsc)}};
     root[u"dialog"_s] = QJsonObject{{u"lastPage"_s, dialog.lastPage}, {u"geometry"_s, QString::fromLatin1(dialog.geometry.toBase64())},
                                     {u"themeView"_s, dialog.themeView}};
+    auto tabsToJson = [](const QList<SessionState::Tab> &tabs) {
+        QJsonArray array;
+        for (const SessionState::Tab &t : tabs)
+            array.append(QJsonObject{{u"local"_s, t.local}, {u"path"_s, t.path}, {u"mode"_s, enumToJson(t.mode, kViewMode)},
+                                     {u"modeSet"_s, t.modeSet}});
+        return array;
+    };
+    if (!session.isEmpty()) {
+        root[u"session"_s] = QJsonObject{{u"left"_s, tabsToJson(session.left)}, {u"right"_s, tabsToJson(session.right)},
+                                         {u"leftCurrent"_s, session.leftCurrent}, {u"rightCurrent"_s, session.rightCurrent},
+                                         {u"rightActive"_s, session.rightActive}};
+    }
     return root;
 }
 
@@ -539,6 +554,27 @@ AppSettings AppSettings::fromJson(const QJsonObject &root)
     s.dialog.lastPage = stringOr(dl, "lastPage", d.dialog.lastPage);
     s.dialog.geometry = QByteArray::fromBase64(dl.value(u"geometry"_s).toString().toLatin1());
     s.dialog.themeView = stringOr(dl, "themeView", d.dialog.themeView);
+
+    const QJsonObject se = root.value(u"session"_s).toObject();
+    auto tabsFromJson = [](const QJsonValue &value) {
+        QList<SessionState::Tab> tabs;
+        for (const QJsonValue &v : value.toArray()) {
+            const QJsonObject o = v.toObject();
+            SessionState::Tab t;
+            t.local = boolOr(o, "local", false);
+            t.path = stringOr(o, "path", QString());
+            t.mode = enumFromJson(o.value(u"mode"_s), kViewMode, fl::ViewMode::Auto);
+            t.modeSet = boolOr(o, "modeSet", false);
+            if (!t.path.isEmpty())
+                tabs.append(t);
+        }
+        return tabs;
+    };
+    s.session.left = tabsFromJson(se.value(u"left"_s));
+    s.session.right = tabsFromJson(se.value(u"right"_s));
+    s.session.leftCurrent = intOr(se, "leftCurrent", 0);
+    s.session.rightCurrent = intOr(se, "rightCurrent", 0);
+    s.session.rightActive = boolOr(se, "rightActive", true);
     return s;
 }
 
@@ -569,6 +605,8 @@ Sections differingSections(const AppSettings &a, const AppSettings &b)
         s |= Section::Keys;
     if (!(a.dialog == b.dialog))
         s |= Section::Dialog;
+    if (!(a.session == b.session))
+        s |= Section::Session;
     return s;
 }
 

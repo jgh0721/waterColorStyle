@@ -1,5 +1,6 @@
 #pragma once
 
+#include "fmfilelist/ColumnValues.h"
 #include "fmfilelist/FileListModel.h"
 
 #include <QAbstractProxyModel>
@@ -29,6 +30,13 @@ public:
     bool hasUpRow() const noexcept { return m_hasUp; }
 
     void setThumbnailProvider(ThumbnailProvider *provider);
+
+    /// 크기 · 날짜 표시 형식. 바꾸면 모든 행의 dataChanged를 낸다.
+    const DisplayFormat &displayFormat() const noexcept { return m_format; }
+    void setDisplayFormat(const DisplayFormat &format);
+    /// 열 세트의 추가 열(모델 열 ColumnCount부터). Windows 속성은 reader가 읽는 대로 그 행을 다시 알린다.
+    const ExtraColumns &extraColumns() const noexcept { return m_extra; }
+    void setExtraColumns(const ExtraColumns &extra);
 
     QModelIndex index(int row, int column, const QModelIndex &parent = {}) const override;
     QModelIndex parent(const QModelIndex &child) const override;
@@ -64,6 +72,8 @@ private:
     QString m_rootPath;
     bool m_hasUp = false;
     bool m_resetting = false;
+    DisplayFormat m_format;
+    ExtraColumns m_extra;
     QSet<QString> m_marked;                         // 파일 이름
     mutable QHash<QString, FileEntry> m_entries;    // 파일 이름 → 계산한 항목
     FileEntry m_up;
@@ -82,6 +92,8 @@ public:
 
     FileSystemListProxy *model() const noexcept { return m_proxy; }
     ThumbnailProvider *thumbnails() const noexcept { return m_thumbnails; }
+    /// 열 세트의 Windows 속성(작업 스레드 + 캐시).
+    PropertyReader *properties() const noexcept { return m_properties; }
 
     QString path() const;
     void setPath(const QString &path);
@@ -109,6 +121,7 @@ private:
     QFileSystemModel *m_fs = nullptr;
     FileSystemListProxy *m_proxy = nullptr;
     ThumbnailProvider *m_thumbnails = nullptr;
+    PropertyReader *m_properties = nullptr;
     bool m_showHidden = false;
 };
 

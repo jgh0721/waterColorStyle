@@ -23,9 +23,10 @@ if(TARGET Fm::filelist)
     qt_add_executable(tst_mainwindow tst_mainwindow.cpp
         ${_demo}/FilePanel.cpp ${_demo}/FilePanel.h ${_demo}/MainWindow.cpp ${_demo}/MainWindow.h
         ${_demo}/CatalogWindow.cpp ${_demo}/CatalogWindow.h ${_demo}/ThumbnailCompare.cpp ${_demo}/ThumbnailCompare.h
-        ${_demo}/Snapshots.cpp ${_demo}/Snapshots.h)
+        ${_demo}/Snapshots.cpp ${_demo}/Snapshots.h ${_demo}/SingleInstance.cpp ${_demo}/SingleInstance.h)
     target_include_directories(tst_mainwindow PRIVATE ${_demo})
-    target_link_libraries(tst_mainwindow PRIVATE Fm::dialogs Fm::filelist Fm::widgets Qt6::Test)
+    find_package(Qt6 REQUIRED COMPONENTS Network)
+    target_link_libraries(tst_mainwindow PRIVATE Fm::dialogs Fm::filelist Fm::widgets Qt6::Network Qt6::Test)
     if(WIN32)
         target_link_libraries(tst_mainwindow PRIVATE psapi)
     endif()

@@ -56,7 +56,7 @@ QImage makeThumbnail(const QString &path, ThumbnailProvider::Method method)
     const QString ext = QFileInfo(path).suffix();
     QImage image;
 #ifdef Q_OS_WIN
-    if (method != ThumbnailProvider::Method::Builtin && (isImageExtension(ext) || isShellThumbnailExtension(ext)))
+    if (method != ThumbnailProvider::Method::Builtin && ThumbnailProvider::targetOf(ext) != 0)
         image = shellThumbnail(path, px);
 #endif
     if (image.isNull() && method != ThumbnailProvider::Method::Shell && isImageExtension(ext))
@@ -91,6 +91,8 @@ QImage ThumbnailProvider::thumbnail(const QString &path, const QDateTime &modifi
     const QString key = keyOf(path, modified, size);
     if (const QImage *image = m_cache.object(key))
         return *image;
+    if (m_skipSlow && isSlowVolume(path))
+        return QImage();  // 네트워크 · 이동식 — 캐시에 없으면 종류 아이콘
     if (m_pending.contains(key) || m_failed.contains(key))
         return QImage();
     m_pending.insert(key);
@@ -134,6 +136,7 @@ void ThumbnailProvider::setMethod(Method method)
         return;
     m_method = method;
     m_failed.clear();  // 방법을 바꾸면 실패한 파일도 다시 시도한다
+    Q_EMIT settingsChanged();
 }
 
 int ThumbnailProvider::maxThreads() const
@@ -144,6 +147,59 @@ int ThumbnailProvider::maxThreads() const
 void ThumbnailProvider::setMaxThreads(int count)
 {
     m_pool.setMaxThreadCount(std::clamp(count, 1, 16));
+}
+
+int ThumbnailProvider::targetOf(const QString &ext)
+{
+    static const QHash<QString, int> shellTypes = {
+        {u"mp4"_s, Videos}, {u"mkv"_s, Videos}, {u"mov"_s, Videos}, {u"avi"_s, Videos}, {u"wmv"_s, Videos},
+        {u"webm"_s, Videos}, {u"m4v"_s, Videos}, {u"pdf"_s, Pdf}, {u"ttf"_s, Fonts}, {u"otf"_s, Fonts},
+        {u"heic"_s, Images}, {u"heif"_s, Images}, {u"psd"_s, Images}, {u"arw"_s, Images}, {u"cr2"_s, Images},
+        {u"nef"_s, Images}, {u"dng"_s, Images}, {u"docx"_s, Documents}, {u"xlsx"_s, Documents},
+        {u"pptx"_s, Documents}, {u"doc"_s, Documents}, {u"xls"_s, Documents}, {u"ppt"_s, Documents},
+        {u"odt"_s, Documents}, {u"ods"_s, Documents}, {u"odp"_s, Documents},
+    };
+    const QString lower = ext.toLower();
+    if (const auto it = shellTypes.constFind(lower); it != shellTypes.constEnd())
+        return it.value();
+    return isImageExtension(lower) ? Images : 0;
+}
+
+void ThumbnailProvider::setTargets(int targets)
+{
+    if (m_targets == targets)
+        return;
+    m_targets = targets;
+    Q_EMIT settingsChanged();
+}
+
+void ThumbnailProvider::setSkipSlowVolumes(bool on)
+{
+    if (m_skipSlow == on)
+        return;
+    m_skipSlow = on;
+    Q_EMIT settingsChanged();
+}
+
+bool ThumbnailProvider::isSlowVolume(const QString &path)
+{
+    const QString native = QDir::toNativeSeparators(path);
+    if (native.startsWith(u"\\\\"_s))
+        return true;  // UNC
+#ifdef Q_OS_WIN
+    if (native.size() < 2 || native.at(1) != u':')
+        return false;
+    static QHash<QString, bool> roots;  // GUI 스레드에서만 부른다 — 드라이브 종류는 실행 중 거의 바뀌지 않는다
+    const QString root = native.left(2).toUpper() + u'\\';
+    if (const auto it = roots.constFind(root); it != roots.constEnd())
+        return it.value();
+    const UINT type = GetDriveTypeW(reinterpret_cast<const wchar_t *>(root.utf16()));
+    const bool slow = type == DRIVE_REMOTE || type == DRIVE_REMOVABLE || type == DRIVE_CDROM;
+    roots.insert(root, slow);
+    return slow;
+#else
+    return false;
+#endif
 }
 
 void ThumbnailProvider::clearCache()

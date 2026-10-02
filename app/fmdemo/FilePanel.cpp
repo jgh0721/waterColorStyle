@@ -5,7 +5,10 @@
 #include <fmfilelist/FileListView.h>
 #include <fmfilelist/FileRoles.h>
 #include <fmfilelist/FileSortProxy.h>
+#include <fmfilelist/ColumnValues.h>
+#include <fmfilelist/FileGroups.h>
 #include <fmfilelist/LocalFileSource.h>
+#include <fmfilelist/ThumbnailProvider.h>
 #include <fmfilelist/MockFileSource.h>
 #include <fmstyle/StylePaint.h>
 #include <fmstyle/StyleProps.h>
@@ -19,6 +22,7 @@
 #include <QDir>
 #include <QEvent>
 #include <QHBoxLayout>
+#include <QRegularExpression>
 #include <QLabel>
 #include <QMenu>
 #include <QPainter>
@@ -86,6 +90,7 @@ FilePanel::FilePanel(QWidget *parent)
     layout->addWidget(m_status);
 
     m_proxy = new fl::FileSortProxy(this);
+    m_proxy->setShowSystem(m_showProtected);
     m_mock = new fl::FileListModel(this);
     m_local = new fl::LocalFileSource(this);
     m_local->setShowHidden(true);
@@ -156,8 +161,11 @@ FilePanel::FilePanel(QWidget *parent)
     connect(m_proxy, &QAbstractItemModel::rowsRemoved, this, &FilePanel::updateStatus);
     connect(m_proxy, &QAbstractItemModel::dataChanged, this, &FilePanel::updateStatus);
     connect(m_local->model(), &fl::FileSystemListProxy::loaded, this, [this] {
-        if (isLocal())
+        if (isLocal()) {
+            evaluateColumnSet();  // 그룹 비율 규칙은 목록을 다 읽어야 판정된다 — 세트를 먼저 바꾸고 커서를 둔다
             placeCursor(m_pendingChild, m_current >= 0 ? m_tabs[m_current].cursor : 0);
+            evaluateAutoThumbnails();
+        }
         updateStatus();
     });
 
@@ -274,7 +282,18 @@ bool FilePanel::isLocal() const
 QString FilePanel::tabTitle(const TabState &tab) const
 {
     const QStringList parts = fl::MockFileSource::pathSegments(tab.path);
-    return parts.isEmpty() ? tab.path.left(2) + u'\\' : parts.last();
+    const QString root = tab.path.left(2) + u'\\';
+    if (parts.isEmpty())
+        return root;
+    switch (m_tabOptions.title) {
+    case TabOptions::Title::FolderName:
+        break;
+    case TabOptions::Title::DriveAndFolder:  // "D:\fm-core", 더 깊으면 "D:\…\fm-core"
+        return parts.size() == 1 ? root + parts.last() : root + u"…\\"_s + parts.last();
+    case TabOptions::Title::FullPath:
+        return tab.path;
+    }
+    return parts.last();
 }
 
 void FilePanel::setActive(bool active)
@@ -287,14 +306,171 @@ void FilePanel::setActive(bool active)
 
 fl::ViewMode FilePanel::viewMode() const
 {
-    return m_current >= 0 ? m_tabs.at(m_current).mode : fl::ViewMode::Auto;
+    if (m_current < 0)
+        return fl::ViewMode::Auto;
+    const TabState &tab = m_tabs.at(m_current);
+    return tab.autoThumbs ? fl::ViewMode::Thumbnails : tab.mode;
 }
 
 void FilePanel::setViewMode(fl::ViewMode mode)
 {
     if (m_current < 0)
         return;
-    m_tabs[m_current].mode = mode;
+    if (m_tabOptions.rememberView) {
+        m_tabs[m_current].mode = mode;
+        m_tabs[m_current].modeSet = true;
+        m_tabs[m_current].autoThumbs = false;  // 직접 고르면 자동 섬네일보다 우선
+    } else {
+        for (TabState &tab : m_tabs) {  // 탭마다 기억하지 않으면 패널 전체에
+            tab.mode = mode;
+            tab.autoThumbs = false;
+        }
+    }
+    applyViewMode();
+}
+
+fl::ThumbnailProvider *FilePanel::thumbnailProvider() const
+{
+    return m_local->thumbnails();
+}
+
+void FilePanel::setAutoThumbnails(bool on, int percent)
+{
+    m_autoThumbs = on;
+    m_autoThumbsPercent = std::clamp(percent, 1, 100);
+    evaluateAutoThumbnails();
+}
+
+void FilePanel::evaluateAutoThumbnails()
+{
+    if (m_current < 0)
+        return;
+    TabState &tab = m_tabs[m_current];
+    bool on = false;
+    if (m_autoThumbs && tab.mode != fl::ViewMode::Thumbnails) {
+        // 파일(폴더 제외) 중 이미지 · 동영상(종류 Img)의 비율
+        int files = 0;
+        int media = 0;
+        for (int r = 0; r < m_proxy->rowCount(); ++r) {
+            const QModelIndex i = m_proxy->index(r, fl::NameColumn);
+            if (i.data(fl::IsDirRole).toBool())
+                continue;
+            ++files;
+            if (fl::Kind(i.data(fl::KindRole).toInt()) == fl::Kind::Img)
+                ++media;
+        }
+        on = files > 0 && media * 100 >= m_autoThumbsPercent * files;
+    }
+    if (tab.autoThumbs == on)
+        return;
+    tab.autoThumbs = on;
+    applyViewMode();
+}
+
+void FilePanel::setColumnSettings(const fl::ColumnSettings &settings, std::shared_ptr<const fl::FileGroupMatcher> groups)
+{
+    m_columnSettings = settings;
+    m_groupMatcher = std::move(groups);
+    m_columnSetsEnabled = !settings.sets.isEmpty();
+    m_appliedSet = -1;  // 세트 내용이 바뀌었을 수 있다 — 다시 적용
+    evaluateColumnSet();
+}
+
+void FilePanel::cycleColumnSet()
+{
+    if (!m_columnSetsEnabled || m_current < 0)
+        return;
+    // 자동이면 지금 보이는 세트의 다음, 고른 세트면 그 다음 — 마지막 세트 다음은 자동(탭 값 비움)
+    const QList<fl::ColumnSet> &sets = m_columnSettings.sets;
+    const QString current = m_tabs[m_current].columnSet;
+    QString id;
+    if (current.isEmpty()) {
+        id = sets.at((m_appliedSet + 1) % int(sets.size())).id;
+    } else {
+        int i = 0;
+        while (i < sets.size() && sets.at(i).id != current)
+            ++i;
+        id = i + 1 < sets.size() ? sets.at(i + 1).id : QString();
+    }
+    if (m_tabOptions.rememberView) {
+        m_tabs[m_current].columnSet = id;
+    } else {
+        for (TabState &tab : m_tabs)  // 탭마다 기억하지 않으면 패널 전체에
+            tab.columnSet = id;
+    }
+    evaluateColumnSet();
+}
+
+QString FilePanel::columnSetName() const
+{
+    return m_appliedSet >= 0 && m_appliedSet < m_columnSettings.sets.size() ? m_columnSettings.sets.at(m_appliedSet).name : QString();
+}
+
+void FilePanel::evaluateColumnSet()
+{
+    if (!m_columnSetsEnabled || m_current < 0)
+        return;
+    int index = -1;
+    const QString chosen = m_tabs[m_current].columnSet;
+    for (int i = 0; i < m_columnSettings.sets.size() && !chosen.isEmpty(); ++i) {
+        if (m_columnSettings.sets.at(i).id == chosen)
+            index = i;
+    }
+    if (index < 0)
+        index = fl::resolveColumnSet(m_columnSettings, currentPath(), isLocal(), m_groupMatcher.get(), m_proxy);
+    if (index == m_appliedSet)
+        return;
+    m_appliedSet = index;
+    const fl::ColumnSet &set = m_columnSettings.sets.at(index);
+    QList<fl::ColumnDef> extras;
+    const fl::ListColumnLayout layout = fl::mainLayoutForSet(set, &extras);
+    // 읽을 Windows 속성 — 속성 열과 식 안의 [System.…]
+    QStringList properties;
+    static const QRegularExpression token(u"\\[([^\\]]+)\\]"_s);
+    for (const fl::ColumnDef &d : std::as_const(extras)) {
+        if (d.kind == fl::ColumnDef::Kind::WindowsProperty)
+            properties.append(d.source);
+        else if (d.kind == fl::ColumnDef::Kind::Expression)
+            for (QRegularExpressionMatchIterator it = token.globalMatch(d.source); it.hasNext();) {
+                const QString name = it.next().captured(1).trimmed();
+                if (name.contains(u'.'))
+                    properties.append(name);
+            }
+    }
+    properties.removeDuplicates();
+    m_local->properties()->setProperties(properties);
+    const int cursor = cursorRow();
+    m_mock->setExtraColumns({extras, set.columns, nullptr});  // 샘플 파일에는 Windows 속성이 없다(빈 값 규칙)
+    m_local->model()->setExtraColumns({extras, set.columns, m_local->properties()});
+    m_list->setColumnLayout(layout);
+    if (cursor >= 0) {
+        m_list->setCursorRow(cursor);
+        m_thumbs->setCursorRow(cursor);
+    }
+}
+
+void FilePanel::setShowProtected(bool on)
+{
+    m_showProtected = on;
+    m_proxy->setShowSystem(on);
+}
+
+void FilePanel::setDisplayFormat(const fl::DisplayFormat &format)
+{
+    m_mock->setDisplayFormat(format);
+    m_local->model()->setDisplayFormat(format);
+}
+
+void FilePanel::setTabOptions(const TabOptions &options)
+{
+    m_tabOptions = options;
+    for (TabState &tab : m_tabs) {
+        if (!options.rememberView || !tab.modeSet) {
+            tab.mode = options.defaultMode;
+            tab.modeSet = false;
+        }
+    }
+    updateTabTitles();
     applyViewMode();
 }
 
@@ -337,11 +513,18 @@ void FilePanel::applyViewMode()
     }
     if (hadFocus)
         focusView();
+    Q_EMIT viewModeChanged();
 }
 
 void FilePanel::setListAppearance(const fl::ListAppearance &appearance)
 {
     m_list->setAppearance(appearance);
+    // 섬네일 캡션도 목록 글꼴(글꼴만 — 크기는 타일 치수에 묶여 있다)
+    if (!appearance.fontFamily.isEmpty() && m_thumbs->font().families().value(0) != appearance.fontFamily) {
+        QFont f = m_thumbs->font();
+        f.setFamilies({appearance.fontFamily, u"Segoe UI"_s, u"Malgun Gothic"_s});
+        m_thumbs->setFont(f);
+    }
 }
 
 void FilePanel::setThumbnailAppearance(const fl::ThumbnailAppearance &appearance)
@@ -418,7 +601,6 @@ void FilePanel::navigate(bool local, const QString &path, const QString &child, 
     if (local) {
         if (m_proxy->sourceModel() != m_local->model())
             m_proxy->setSourceModel(m_local->model());
-        m_proxy->setShowSystem(true);
         if (tab.sortColumn < 0)
             tab.sortColumn = fl::NameColumn;  // 실제 폴더는 이름순
         m_local->setPath(path);
@@ -437,8 +619,12 @@ void FilePanel::navigate(bool local, const QString &path, const QString &child, 
         }
     }
     m_loading = false;
+    evaluateColumnSet();  // 열 세트(경로 · 알려진 폴더 규칙은 바로, 그룹 비율은 실제 폴더면 loaded에서 다시)
     // 샘플은 바로, 실제 폴더는 읽은 뒤(loaded)에 커서를 둔다. 이미 읽어 둔 폴더는 바로 둔다.
     placeCursor(child, tab.cursor);
+    // 자동 섬네일 — 샘플은 바로, 실제 폴더는 이미 읽어 둔 경우에만(아니면 loaded에서)
+    if (!local || m_proxy->rowCount() > (m_local->model()->hasUpRow() ? 1 : 0))
+        evaluateAutoThumbnails();
     updateAddress();
     updateStatus();
     updateTabTitles();
@@ -531,14 +717,17 @@ void FilePanel::newTab()
 {
     saveCurrent();
     TabState tab;
+    tab.mode = m_tabOptions.defaultMode;
     if (m_current >= 0) {
         tab.local = m_tabs[m_current].local;
         tab.path = m_tabs[m_current].path;
+        if (!m_tabOptions.rememberView)
+            tab.mode = m_tabs[m_current].mode;  // 패널 전체가 같은 방식
     } else {
         tab.path = u"D:\\"_s;
     }
     m_loading = true;
-    const int index = m_current + 1;
+    const int index = m_tabOptions.position == TabOptions::Position::End ? int(m_tabs.size()) : m_current + 1;
     m_tabs.insert(index, tab);
     m_tabStrip->tabBar()->insertTab(index, tabTitle(tab));
     m_tabStrip->tabBar()->setCurrentIndex(index);

@@ -7,7 +7,9 @@
 
 #include <fmwidgets/DialogChrome.h>
 
+#include <QKeyEvent>
 #include <QLocale>
+#include <QMessageBox>
 
 using namespace Qt::StringLiterals;
 
@@ -85,7 +87,8 @@ ProgressDialog::ProgressDialog(const Operation &operation, QWidget *parent)
     m_sim->setFiles(m_op.fileSizes);
     ui->transferGraph->start(m_sim->total());
     m_sim->start();
-    setMode(m_op.kind == Copy && !m_op.elevated ? Detail : Compact);
+    ui->closeWhenDoneCheck->setChecked(m_op.closeWhenDone);
+    setMode(m_op.kind == Copy && !m_op.elevated && m_op.detailed ? Detail : Compact);
     refresh();
 }
 
@@ -115,6 +118,7 @@ void ProgressDialog::finish()
     refresh();
     if (ui->closeWhenDoneCheck->isChecked() || m_mode == Compact) {
         accept();
+        Q_EMIT completed();
         return;
     }
     // 완료 상태 — 일시 정지 · 백그라운드는 숨기고 취소를 닫기로
@@ -129,6 +133,57 @@ void ProgressDialog::finish()
     ui->cancelButton->setText(tr("닫기"));
     disconnect(ui->cancelButton, &QPushButton::clicked, this, &QDialog::reject);
     connect(ui->cancelButton, &QPushButton::clicked, this, &QDialog::accept);
+    Q_EMIT completed();
+}
+
+QString ProgressDialog::summaryText() const
+{
+    return tr("%1 · %2개 항목").arg(kindText(m_op.kind)).arg(m_op.fileNames.size());
+}
+
+void ProgressDialog::setWaiting(bool waiting)
+{
+    if (m_waiting == waiting || m_static)
+        return;
+    m_waiting = waiting;
+    m_sim->setPaused(waiting);
+    ui->transferGraph->setPaused(waiting);
+    ui->pauseButton->setEnabled(!waiting);  // 대기 중에는 일시 정지 · 재개가 없다
+    refresh();
+    updateButtons();
+}
+
+void ProgressDialog::keyPressEvent(QKeyEvent *event)
+{
+    // Esc — 설정 › 키보드 › 진행 창에서 Esc(확인 후 취소 · 바로 취소 · 창 숨기기). 끝난 창은 닫기.
+    if (event->key() != Qt::Key_Escape || event->modifiers() != Qt::NoModifier) {
+        QDialog::keyPressEvent(event);
+        return;
+    }
+    event->accept();
+    if (m_done) {
+        accept();
+        return;
+    }
+    using Esc = Operation::EscAction;
+    Esc action = m_op.esc;
+    if (action == Esc::HideWindow && m_op.elevated)
+        action = Esc::ConfirmCancel;  // 관리자 작업은 백그라운드로 보내지 않는다(03 §4)
+    switch (action) {
+    case Esc::CancelImmediately:
+        reject();
+        break;
+    case Esc::HideWindow:
+        hide();
+        Q_EMIT backgroundRequested();
+        break;
+    case Esc::ConfirmCancel:
+        if (QMessageBox::question(this, tr("작업 취소"), tr("%1 작업을 취소할까요?").arg(kindText(m_op.kind)),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+            == QMessageBox::Yes)
+            reject();
+        break;
+    }
 }
 
 bool ProgressDialog::isPaused() const
@@ -279,9 +334,11 @@ void ProgressDialog::updateTitle()
     const bool paused = isPaused();
     const int pct = m_static ? m_staticPercent : m_sim->percent();
     const QString kind = kindText(m_op.kind);
-    if (paused)
+    if (m_waiting)
+        setWindowTitle(tr("대기 중 — %1").arg(kind));
+    else if (paused)
         setWindowTitle(tr("%1% · 일시 정지됨 — %2").arg(pct).arg(kind));
-    else if (m_op.elevated)
+    else if (m_op.elevated && m_op.adminTitle)
         setWindowTitle(tr("%1% · %2 중 (관리자)").arg(pct).arg(kind));
     else
         setWindowTitle(tr("%1% · %2 중").arg(pct).arg(kind));
@@ -289,7 +346,7 @@ void ProgressDialog::updateTitle()
 
 void ProgressDialog::updateButtons()
 {
-    const bool paused = isPaused();
+    const bool paused = isPaused() && !m_waiting;  // 대기 중은 일시 정지가 아니다
     const bool deleting = m_op.kind == Delete || m_op.kind == DeletePermanent;
     ui->pauseButton->setVisible(!deleting);
     // 일시 정지 중 "재개"는 기본 단추(PLAN §11)

@@ -137,6 +137,7 @@ void applyTheme(const AppSettings &s)
     tm.setDarkTitleBar(s.appearance.darkTitleBar);
     tm.setColoredTitleBar(s.appearance.coloredTitleBar);
     tm.setAlwaysShowMnemonics(s.keys.alwaysShowMnemonics);
+    tm.setMonoFont(s.appearance.monoFontFamily, s.appearance.monoFontPx);  // 고정폭 글꼴 — 명령줄 · 경로 · 식
 }
 
 void captureTheme(AppSettings &s)

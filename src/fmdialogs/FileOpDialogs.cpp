@@ -69,6 +69,14 @@ CopyDialog::CopyDialog(const FileOpContext &context, QWidget *parent)
 
     ui->destEdit->setPath(m_context.targetDir);
     ui->destEdit->setHistory(m_context.recentTargets);
+    // 설정 › 파일 작업의 기본값(목업 기본값과 같으면 .ui 그대로)
+    const fm::settings::FileOpsSettings &ops = m_context.fileOps;
+    ui->overwriteCombo->setCurrentIndex(int(ops.onConflict));  // 매번 묻기 · 덮어쓰기 · 더 새로우면 · 건너뛰기 · 번호 붙이기
+    ui->verifyCheck->setChecked(ops.verifyHash);
+    ui->keepAttrCheck->setChecked(ops.keepAttributes);
+    ui->aclCheck->setChecked(ops.copyAcl);
+    ui->adsCheck->setChecked(ops.copyAds);
+    ui->symlinkCheck->setChecked(ops.links == fm::settings::FileOpsSettings::Links::CopyAsLink);
     connect(ui->destEdit, &fm::ui::PathEdit::pathChanged, this, &CopyDialog::updateDestination);
     connect(ui->copyButton, &QPushButton::clicked, this, &QDialog::accept);
     connect(ui->queueButton, &QPushButton::clicked, this, [this] { done(Queued); });
@@ -320,6 +328,8 @@ DeleteDialog::DeleteDialog(const FileOpContext &context, bool permanent, QWidget
     auto *shiftDel = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Delete), this);
     connect(shiftDel, &QShortcut::activated, this, [this] { ui->permRadio->setChecked(true); });
 
+    // 설정 › 파일 작업 › 읽기 전용 파일: "묻지 않고 삭제"일 때만 처음부터 켠다
+    ui->readOnlyCheck->setChecked(m_context.fileOps.readOnly == fm::settings::FileOpsSettings::ReadOnly::Delete);
     const VolumeInfo volume = probeOf(m_context).volume(m_context.sourceDir);
     if (volume.valid && !volume.hasRecycleBin) {
         ui->trashRadio->setEnabled(false);

@@ -1,6 +1,7 @@
 #include "fmfilelist/FileRoles.h"
 
 #include <QImageReader>
+#include <QLocale>
 #include <QSet>
 
 using namespace Qt::StringLiterals;
@@ -98,6 +99,65 @@ QString formatSize(qint64 bytes)
 QString formatDate(const QDateTime &time)
 {
     return time.isValid() ? time.toString(u"yyyy-MM-dd HH:mm"_s) : QString();
+}
+
+QString formatSize(qint64 bytes, SizeUnit unit)
+{
+    if (bytes < 0)
+        return QString();
+    const QLocale grouped(QLocale::Korean, QLocale::SouthKorea);  // 세 자리마다 쉼표
+    switch (unit) {
+    case SizeUnit::Auto:
+        return formatSize(bytes);
+    case SizeUnit::Bytes:
+        return grouped.toString(bytes) + u" B"_s;
+    case SizeUnit::KB:
+        return grouped.toString((bytes + 1023) / 1024) + u" KB"_s;  // 탐색기처럼 올림(1 B → 1 KB)
+    case SizeUnit::MB: {
+        const qint64 tenths = (bytes * 10 + (qint64(1) << 20) - 1) >> 20;  // 0.1 MB 단위 올림
+        return grouped.toString(double(tenths) / 10.0, 'f', 1) + u" MB"_s;
+    }
+    }
+    return formatSize(bytes);
+}
+
+QString formatDate(const QDateTime &time, const QString &format)
+{
+    if (!time.isValid())
+        return QString();
+    if (format == QStringView(DisplayFormat::kSystemShort))
+        return QLocale::system().toString(time, QLocale::ShortFormat);
+    if (format == QStringView(DisplayFormat::kSystemLong))
+        return QLocale::system().toString(time, QLocale::LongFormat);
+    return time.toString(format.isEmpty() ? u"yyyy-MM-dd HH:mm"_s : format);
+}
+
+QString formatDay(const QDateTime &time, const QString &format)
+{
+    if (!time.isValid())
+        return QString();
+    if (format == QStringView(DisplayFormat::kSystemShort) || format == QStringView(DisplayFormat::kSystemLong))
+        return QLocale::system().toString(time.date(), QLocale::ShortFormat);
+    // 따옴표 밖에서 처음 나오는 시각 기호(h H m s z a A t) 앞까지 — 끝의 공백 · 구두점은 지운다.
+    // 남은 부분에 날짜 기호(d M y)가 없으면 기본 형식.
+    qsizetype end = format.size();
+    bool quoted = false;
+    bool hasDate = false;
+    for (qsizetype i = 0; i < format.size(); ++i) {
+        const QChar c = format.at(i);
+        if (c == u'\'') {
+            quoted = !quoted;
+        } else if (!quoted && QStringView(u"hHmszaAt").contains(c)) {
+            end = i;
+            break;
+        } else if (!quoted && QStringView(u"dMy").contains(c)) {
+            hasDate = true;
+        }
+    }
+    QString day = format.left(end);
+    while (!day.isEmpty() && !day.back().isLetter() && day.back() != u'\'')
+        day.chop(1);
+    return time.date().toString(hasDate ? day : u"yyyy-MM-dd"_s);
 }
 
 QString attributeText(int attributes)

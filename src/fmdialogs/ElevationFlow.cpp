@@ -35,7 +35,7 @@ const QString kDeleteSource = u"D:\\Work\\fm-core\\build"_s;
 UacSimulationDialog::UacSimulationDialog(const QString &program, int timeoutSeconds, QWidget *parent)
     : QDialog(parent)
     , m_timer(new QTimer(this))
-    , m_left(std::max(1, timeoutSeconds))
+    , m_left(std::max(0, timeoutSeconds))  // 0 = 계속 기다림
 {
     fm::ui::DialogChromeOptions chrome;
     chrome.icon = fm::ui::glyph::Shield;
@@ -86,7 +86,8 @@ UacSimulationDialog::UacSimulationDialog(const QString &program, int timeoutSeco
 
     m_timer->setInterval(1000);
     connect(m_timer, &QTimer::timeout, this, &UacSimulationDialog::tick);
-    m_timer->start();
+    if (m_left > 0)
+        m_timer->start();
     m_countdown->setText(countdownText(m_left));
     root->activate();
     setFixedSize(460, std::max(260, root->totalHeightForWidth(460)));
@@ -94,6 +95,8 @@ UacSimulationDialog::UacSimulationDialog(const QString &program, int timeoutSeco
 
 QString UacSimulationDialog::countdownText(int seconds)
 {
+    if (seconds <= 0)
+        return tr("응답할 때까지 기다립니다(설정 › 관리자 권한 › UAC 응답 기다리기 — 계속 기다림).");
     return tr("응답이 없으면 %1초 뒤 시간 초과로 처리합니다(설정 › 관리자 권한 › UAC 응답 기다리기).").arg(seconds);
 }
 
@@ -151,7 +154,7 @@ void ElevationFlow::start()
         note(tr("시작: %1개 항목을 %2로 복사").arg(m_items.size()).arg(kCopyTarget));
         askCopy(0);
     } else {
-        note(tr("시작: %1의 42개 항목 삭제(작업 전 사전 확인 켬)").arg(kDeleteSource));
+        note(tr("시작: %1의 42개 항목 삭제(작업 전 사전 확인 %2)").arg(kDeleteSource, m_options.preflight ? tr("켬") : tr("끔")));
         startDeleteFlow();
     }
 }
@@ -187,7 +190,7 @@ void ElevationFlow::askCopy(int index)
     const Item &item = m_items.at(index);
     const int remaining = int(m_items.size()) - 1 - index;
     note(tr("거부: %1 — 대상 폴더에 쓸 권한 없음").arg(item.info.name));
-    m_current = ElevationDialog::ask(m_window, elev::prompts::copyDenied(item.info, kCopyTarget, remaining, true),
+    m_current = ElevationDialog::ask(m_window, elev::prompts::copyDenied(item.info, kCopyTarget, remaining, m_options.applyToRemaining),
                                      [this, index, remaining](const elev::Result &r) {
         note(tr("선택: %1%2").arg(elev::choiceName(r.choice), r.checked ? tr(" · 남은 항목에도 적용") : QString()));
         switch (r.choice) {
@@ -254,15 +257,25 @@ void ElevationFlow::copyElevated(int index)
 
 void ElevationFlow::requestUac(std::function<void()> approved, std::function<void()> denied)
 {
+    if (m_options.helperRunning) {
+        // 설정 › 관리자 권한 › 도우미 유지 — 이미 승인한 도우미가 살아 있으면 다시 묻지 않는다
+        note(tr("권한 상승 도우미 실행 중 — UAC 확인 생략"));
+        later(std::move(approved));
+        return;
+    }
     later([this, approved = std::move(approved), denied = std::move(denied)] {
         note(tr("UAC 확인 창(시뮬레이션)"));
-        auto *dialog = new UacSimulationDialog(tr("FM Tools 권한 상승 도우미 — 확인된 게시자: FM Tools"), m_uacTimeout, m_window);
+        auto *dialog = new UacSimulationDialog(tr("FM Tools 권한 상승 도우미 — 확인된 게시자: FM Tools"), m_options.uacTimeout, m_window);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->setWindowModality(m_window ? Qt::WindowModal : Qt::ApplicationModal);
         connect(dialog, &UacSimulationDialog::answered, this, [this, approved, denied](UacSimulationDialog::Answer a) {
             note(a == UacSimulationDialog::Yes  ? tr("UAC: 예")
                  : a == UacSimulationDialog::No ? tr("UAC: 아니요")
                                                 : tr("UAC: 시간 초과"));
+            if (a == UacSimulationDialog::Yes) {
+                m_options.helperRunning = true;  // 이 작업 안에서는 도우미가 계속 처리한다
+                Q_EMIT helperApproved();
+            }
             later(a == UacSimulationDialog::Yes ? approved : denied);
         });
         m_current = dialog;
@@ -272,7 +285,7 @@ void ElevationFlow::requestUac(std::function<void()> approved, std::function<voi
 
 void ElevationFlow::showProgress(bool elevated, int kind, const QStringList &names, const QList<qint64> &sizes)
 {
-    ProgressDialog::Operation op;
+    ProgressDialog::Operation op = m_options.progress;  // 자세히 · 완료되면 닫기 · 관리자 제목 · Esc
     op.kind = ProgressDialog::Kind(kind);
     op.elevated = elevated;
     op.source = kind == ProgressDialog::Copy ? kCopySource : kDeleteSource;
@@ -289,41 +302,32 @@ void ElevationFlow::showProgress(bool elevated, int kind, const QStringList &nam
 
 void ElevationFlow::startDeleteFlow()
 {
+    if (!m_options.preflight) {
+        // 설정 › 관리자 권한 › 작업 전 사전 확인 끔 — 처리하다가 권한이 필요한 첫 항목에서 묻는다
+        note(tr("사전 확인 끔 — 처리 중 거부: fm.exe"));
+        const elev::ItemInfo item{u"fm.exe"_s, false, qint64(8.2 * MB), fm::style::Token::KExe};
+        m_current = ElevationDialog::ask(
+            m_window, elev::prompts::deleteDenied(item, kDeleteSource + u"\\msi-staging\\FM Tools\\"_s, true, 2, m_options.applyToRemaining),
+            [this](const elev::Result &r) {
+                note(tr("선택: %1%2").arg(elev::choiceName(r.choice), r.checked ? tr(" · 남은 항목에도 적용") : QString()));
+                if (r.choice == Choice::Elevate)
+                    requestUac([this] { deleteElevated(); }, [this] { deleteUacDenied(); });
+                else if (r.choice == Choice::Skip)
+                    later([this] { deleteSkipNeedingAdmin(); });
+                else
+                    later([this] { finish(tr("작업 취소")); });
+            });
+        return;
+    }
     note(tr("사전 확인: 42개 중 3개는 관리자 권한 필요"));
     m_current = ElevationDialog::ask(m_window, elev::prompts::board(u"preflight"_s), [this](const elev::Result &r) {
         note(tr("선택: %1").arg(elev::choiceName(r.choice)));
-        auto skipNeedingAdmin = [this] {
-            QStringList names;
-            QList<qint64> sizes;
-            for (int i = 1; i <= 39; ++i) {
-                names.append(u"obj\\unit_%1.obj"_s.arg(i, 2, 10, QChar(u'0')));
-                sizes.append(6 * MB);
-            }
-            showProgress(false, ProgressDialog::Delete, names, sizes);
-            finish(tr("권한이 필요한 3개를 건너뛰고 39개 삭제"));
-        };
         switch (r.choice) {
         case Choice::Elevate:
-            requestUac([this] { deleteElevated(); },
-                       [this, skipNeedingAdmin] {
-                           const elev::ItemInfo item{u"fm.exe"_s, false, qint64(8.2 * MB), fm::style::Token::KExe};
-                           m_current = ElevationDialog::ask(
-                               m_window,
-                               elev::prompts::elevationFailed(Operation::Delete, item,
-                                                              kDeleteSource + u"\\msi-staging\\FM Tools\\"_s),
-                               [this, skipNeedingAdmin](const elev::Result &f) {
-                                   note(tr("선택: %1").arg(elev::choiceName(f.choice)));
-                                   if (f.choice == Choice::Retry)
-                                       requestUac([this] { deleteElevated(); }, [this] { finish(tr("UAC 거부 — 작업 중단")); });
-                                   else if (f.choice == Choice::Skip)
-                                       later(skipNeedingAdmin);
-                                   else
-                                       later([this] { finish(tr("작업 취소")); });
-                               });
-                       });
+            requestUac([this] { deleteElevated(); }, [this] { deleteUacDenied(); });
             break;
         case Choice::SkipNeedingAdmin:
-            later(skipNeedingAdmin);
+            later([this] { deleteSkipNeedingAdmin(); });
             break;
         default:
             later([this] { finish(tr("작업 취소")); });
@@ -332,19 +336,40 @@ void ElevationFlow::startDeleteFlow()
     });
 }
 
-// 도우미가 처리하던 중 TrustedInstaller 소유 폴더에서 다시 거부된다 → 소유권 창(기본 단추 = 건너뛰기)
+void ElevationFlow::deleteSkipNeedingAdmin()
+{
+    QStringList names;
+    QList<qint64> sizes;
+    for (int i = 1; i <= 39; ++i) {
+        names.append(u"obj\\unit_%1.obj"_s.arg(i, 2, 10, QChar(u'0')));
+        sizes.append(6 * MB);
+    }
+    showProgress(false, ProgressDialog::Delete, names, sizes);
+    finish(tr("권한이 필요한 3개를 건너뛰고 39개 삭제"));
+}
+
+// UAC 거부 · 시간 초과 → 실패 창(다시 시도 · 건너뛰기 · 취소)
+void ElevationFlow::deleteUacDenied()
+{
+    const elev::ItemInfo item{u"fm.exe"_s, false, qint64(8.2 * MB), fm::style::Token::KExe};
+    m_current = ElevationDialog::ask(
+        m_window, elev::prompts::elevationFailed(Operation::Delete, item, kDeleteSource + u"\\msi-staging\\FM Tools\\"_s),
+        [this](const elev::Result &f) {
+            note(tr("선택: %1").arg(elev::choiceName(f.choice)));
+            if (f.choice == Choice::Retry)
+                requestUac([this] { deleteElevated(); }, [this] { finish(tr("UAC 거부 — 작업 중단")); });
+            else if (f.choice == Choice::Skip)
+                later([this] { deleteSkipNeedingAdmin(); });
+            else
+                later([this] { finish(tr("작업 취소")); });
+        });
+}
+
+// 도우미가 처리하던 중 TrustedInstaller 소유 폴더에서 다시 거부된다 → 소유권 창(기본 단추 = 설정, 목업은 건너뛰기)
 void ElevationFlow::deleteElevated()
 {
     note(tr("관리자 권한으로 삭제 중 — WindowsApps 폴더에서 관리자도 거부"));
-    m_current = ElevationDialog::ask(m_window, elev::prompts::board(u"ownership"_s), [this](const elev::Result &r) {
-        note(tr("선택: %1").arg(elev::choiceName(r.choice)));
-        if (r.choice == Choice::Cancel) {
-            later([this] { finish(tr("작업 취소")); });
-            return;
-        }
-        const bool take = r.choice == Choice::TakeOwnership;
-        if (take)
-            note(tr("소유권 가져옴 — 바꾸기 전 원래 권한 저장"));
+    auto proceed = [this](bool take) {
         later([this, take] {
             QStringList names;
             QList<qint64> sizes;
@@ -356,6 +381,25 @@ void ElevationFlow::deleteElevated()
             showProgress(true, ProgressDialog::Delete, names, sizes);
             finish(take ? tr("관리자 권한으로 42개 삭제 · 소유권 1개 변경") : tr("관리자 권한으로 41개 삭제 · 1개 건너뜀"));
         });
+    };
+    if (!m_options.askOwnership) {
+        note(tr("소유권 창 끔 — 조용히 건너뜀"));  // 설정 › 관리자 권한 › 소유권 가져오기
+        proceed(false);
+        return;
+    }
+    const elev::ItemInfo item{u"Fabrikam.PhotoTools_3.2.14.0_x64__8h2k1d9x7q3aa"_s, true, -1, fm::style::Token::KDoc};
+    const elev::PromptSpec spec = elev::prompts::ownershipDenied(Operation::Delete, item, u"C:\\Program Files\\WindowsApps\\"_s,
+                                                                 u"NT SERVICE\\TrustedInstaller"_s, true, m_options.ownershipDefault);
+    m_current = ElevationDialog::ask(m_window, spec, [this, proceed](const elev::Result &r) {
+        note(tr("선택: %1").arg(elev::choiceName(r.choice)));
+        if (r.choice == Choice::Cancel) {
+            later([this] { finish(tr("작업 취소")); });
+            return;
+        }
+        const bool take = r.choice == Choice::TakeOwnership;
+        if (take)
+            note(m_options.backupAcl ? tr("소유권 가져옴 — 바꾸기 전 원래 권한 저장") : tr("소유권 가져옴"));
+        proceed(take);
     });
 }
 

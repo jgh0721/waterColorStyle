@@ -38,9 +38,8 @@ CommandLine::CommandLine(QWidget *parent)
     layout->setSpacing(8);
     layout->addWidget(m_prompt);
     layout->addWidget(m_edit, 1);
-    m_prompt->setFont(fm::style::monoFont(12));
     m_prompt->setTextInteractionFlags(Qt::NoTextInteraction);
-    m_edit->setFont(fm::style::monoFont(12));
+    applyFonts();
     m_edit->setPlaceholderText(u"명령 입력 — Ctrl+↓ 기록"_s);
     m_edit->setAccessibleName(u"명령줄"_s);
     m_edit->installEventFilter(this);
@@ -58,6 +57,7 @@ CommandLine::CommandLine(QWidget *parent)
         Q_EMIT commandEntered(command);
     });
     connect(&fm::style::ThemeManager::instance(), &fm::style::ThemeManager::changed, this, &CommandLine::applyMetrics);
+    connect(&fm::style::ThemeManager::instance(), &fm::style::ThemeManager::fontsChanged, this, &CommandLine::applyFonts);
     applyMetrics();
 }
 
@@ -69,6 +69,14 @@ QString CommandLine::prompt() const
 void CommandLine::setPrompt(const QString &path)
 {
     m_prompt->setText(path.endsWith(u'>') ? path : path + u'>');
+}
+
+void CommandLine::applyFonts()
+{
+    // 설정 › 일반 · 모양의 고정폭 글꼴 · 크기(기본 Cascadia Mono 12)
+    const QFont mono = fm::style::monoFont(fm::style::ThemeManager::instance().monoFontPx());
+    m_prompt->setFont(mono);
+    m_edit->setFont(mono);
 }
 
 void CommandLine::applyMetrics()

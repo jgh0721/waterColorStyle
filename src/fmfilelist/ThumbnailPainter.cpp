@@ -66,8 +66,8 @@ QString infoText(const QModelIndex &index, ThumbnailAppearance::Info info)
     if (index.data(IsUpRole).toBool())
         return QString();
     const bool dir = index.data(IsDirRole).toBool();
-    const QString size = dir ? u"파일 폴더"_s : formatSize(index.data(SizeBytesRole).toLongLong());
-    const QString date = index.data(ModifiedRole).toDateTime().toString(u"yyyy-MM-dd"_s);
+    const QString size = dir ? u"파일 폴더"_s : index.data(SizeTextRole).toString();  // 모델의 표시 형식
+    const QString date = index.data(DateTextRole).toString();
     switch (info) {
     case ThumbnailAppearance::Info::None:     return QString();
     case ThumbnailAppearance::Info::Size:     return size;

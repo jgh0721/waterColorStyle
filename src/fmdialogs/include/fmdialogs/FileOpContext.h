@@ -2,6 +2,7 @@
 
 // 파일 작업 대화상자에 넘기는 값 — 선택 항목, 원본 · 대상 폴더, 파일 시스템 조회(실제 폴더 또는 샘플).
 
+#include <fmsettings/AppSettings.h>
 #include <fmwidgets/DialogWidgets.h>
 
 #include <QDateTime>
@@ -76,6 +77,8 @@ struct FileOpContext
     QStringList recentTargets;     // 최근 대상(복사 · 이동)
     QString suggestedName;         // 새 파일 · 새 폴더 처음 값(비면 "새 파일" · "새 폴더")
     const FileSystemProbe *probe = nullptr;
+    /// 설정 › 파일 작업의 기본값(덮어쓰기 · 복사 옵션 · 읽기 전용 · 다중 이름 변경). 기본값 = 목업 기본값(카탈로그 · 스냅숏).
+    fm::settings::FileOpsSettings fileOps;
 
     qint64 totalSize() const;
     /// 항목 수 문구의 이름 — 1개면 그 이름, 여러 개면 "{첫 이름} 외 {n−1}개".

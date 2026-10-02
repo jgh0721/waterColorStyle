@@ -251,10 +251,21 @@ MockFolder folder(const QString &path)
     f.volumeLabel = u"새 볼륨"_s;
     f.freeText = u"여유 312 GB / 1.82 TB"_s;
     const QString key = p.toLower();
+    if (key == u"d:\\pictures") {
+        // 설정 › 섬네일 보기 미리보기와 같은 사진 폴더(자동 섬네일 · 섬네일 보기를 메인 창에서 볼 수 있게)
+        MockFolder pictures = thumbnailPreview();
+        pictures.entries.prepend(up());
+        pictures.cursor = 0;
+        pictures.volumeLabel = f.volumeLabel;
+        pictures.freeText = f.freeText;
+        setPaths(pictures);
+        return pictures;
+    }
     if (key == u"d:\\") {
         f.entries = {
             folder(u"Backup"_s, u"2026-09-27 23:50"_s),
             folder(u"Downloads"_s, u"2026-09-27 23:14"_s),
+            folder(u"Pictures"_s, u"2026-09-27 21:40"_s),
             folder(u"Work"_s, u"2026-09-28 09:12"_s),
             file(u"desktop"_s, u"ini"_s, u"구성 설정"_s, 174, u"2026-08-01 09:00"_s, u"-ahs"_s, Kind::Sys),
         };

@@ -12,6 +12,7 @@
 #include <QtnGrid.h>
 #include <QtnGridBandedTableView.h>
 
+#include <QApplication>
 #include <QEvent>
 #include <QKeyEvent>
 #include <QPainter>
@@ -197,7 +198,7 @@ void FileCellDelegate::paint(QPainter *p, const QStyleOptionViewItem &option, co
     }
 
     const QFont base = m_d->q->font();
-    const QFont metaFont = fm::style::pixelFont(base, 12);
+    const QFont metaFont = fm::style::pixelFont(base, m_d->appearance.fontPx - 1);  // 목록 글꼴보다 1 px 작게(13 → 12)
     p->save();
 
     if (spec->role == ListColumn::Role::Icon) {
@@ -286,7 +287,7 @@ void FileCellDelegate::paint(QPainter *p, const QStyleOptionViewItem &option, co
     }
 
     // 메타 칸: 12 px, 숫자 폭 고정(크기 · 날짜) · 고정폭(속성)은 열 배치가 정한다
-    QFont font = spec->mono ? fm::style::monoFont(12) : metaFont;
+    QFont font = spec->mono ? fm::style::monoFont(m_d->appearance.fontPx - 1) : metaFont;
     if (spec->tabular)
         font = fm::style::withTabularNumbers(font);
     p->setFont(font);
@@ -505,7 +506,7 @@ void FileListViewPrivate::applyTheme()
     const fm::style::ThemeColors &tc = colors();
     Qtitan::GridViewOptions &o = view->options();
     o.setColumnPen(QPen(tc.isWatercolor() ? tc[Token::Fg] : tc[Token::Fg2]));
-    o.setColumnFont(fm::style::pixelFont(q->font(), 12));
+    o.setColumnFont(fm::style::pixelFont(q->font(), appearance.fontPx - 1));
     o.setCellFont(q->font());
     o.setBackgroundColor(tc[Token::Surface]);
     applyLayout();
@@ -703,7 +704,16 @@ void FileListView::setAppearance(const ListAppearance &appearance)
 {
     if (d->appearance == appearance)
         return;
+    const bool fontChanged = d->appearance.fontFamily != appearance.fontFamily || d->appearance.fontPx != appearance.fontPx;
     d->appearance = appearance;
+    if (fontChanged) {
+        // 목록 글꼴 — 셀 글꼴은 위젯 글꼴이다(FontChange → 머리글 · 셀 글꼴 다시 넣기)
+        QFont f = font();
+        f.setFamilies(appearance.fontFamily.isEmpty() ? QApplication::font().families()
+                                                      : QStringList{appearance.fontFamily, u"Segoe UI"_s, u"Malgun Gothic"_s});
+        f.setPixelSize(appearance.fontPx);
+        setFont(f);
+    }
     d->applyLayout();
     d->scheduleAuto();
 }
