@@ -43,6 +43,9 @@ public:
     explicit FileListModel(const QList<FileEntry> &entries, QObject *parent = nullptr);
 
     void setEntries(const QList<FileEntry> &entries);
+    /// first부터 entries.size()행을 바꾼다(행 수는 그대로 — 모델을 다시 만들지 않고 dataChanged만 낸다).
+    /// 섬네일이 늦게 도착하는 흉내(비교 창) 등.
+    void replaceEntries(int first, const QList<FileEntry> &entries);
     const QList<FileEntry> &entries() const noexcept { return m_entries; }
     const FileEntry &entry(int row) const { return m_entries.at(row); }
 

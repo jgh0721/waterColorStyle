@@ -1,8 +1,13 @@
-// 메인 창(fmdemo) 동작 테스트 — 보드 기본 상태, 패널 전환, 샘플 폴더 이동 · 위로(커서 복원), 방문 기록, 탭, 보기 방식.
+// 메인 창(fmdemo) 동작 테스트 — 보드 기본 상태, 패널 전환, 샘플 폴더 이동 · 위로(커서 복원), 방문 기록, 탭, 보기 방식,
+// 설정 연결 · 디자인 전환, 도구 창(대화상자 카탈로그 · 섬네일 비교) · 일괄 스냅숏.
 
+#include "CatalogWindow.h"
 #include "FilePanel.h"
 #include "MainWindow.h"
+#include "Snapshots.h"
+#include "ThumbnailCompare.h"
 
+#include <fmdialogs/DialogCatalog.h>
 #include <fmdialogs/ElevationDialog.h>
 #include <fmdialogs/ElevationFlow.h>
 #include <fmdialogs/ProgressDialog.h>
@@ -16,15 +21,23 @@
 #include <fmwidgets/BreadcrumbBar.h>
 #include <fmwidgets/CommandLine.h>
 #include <fmwidgets/FunctionKeyBar.h>
+#include <fmwidgets/SettingsWidgets.h>
 
 #include <QAction>
 #include <QApplication>
 #include <QDialog>
+#include <QFile>
+#include <QImage>
 #include <QPointer>
+#include <QScrollBar>
+#include <QSet>
+#include <QSignalSpy>
 #include <QStackedWidget>
 #include <QTabBar>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTreeView>
 
 using namespace Qt::StringLiterals;
 using namespace fm::app;
@@ -47,6 +60,10 @@ private Q_SLOTS:
     void elevationFlowMenu();
     void settingsWiring();
     void designSwitchFromSettings();
+    void appPaletteKeptOnStyleWrap();
+    void catalogWindow();
+    void thumbnailCompare();
+    void snapshots();
 
 private:
     QString nameAt(FilePanel *panel, int row) const
@@ -323,6 +340,202 @@ void TestMainWindow::designSwitchFromSettings()
     }
     st::SettingsStore::instance().setSettings(original);
     QCOMPARE(fs::ThemeManager::instance().design(), original.appearance.design);
+}
+
+void TestMainWindow::appPaletteKeptOnStyleWrap()
+{
+    // Qtitan 그리드가 앱 스타일을 CommonStyle로 감쌀 때 앱 팔레트를 빈 팔레트로 지웠다(Q11) — 다크 구성표에서
+    // Qt 목록(섬네일 · 카탈로그 트리)의 바탕이 시스템 색(#2d2d2d)이 되었다. 디자인 전환 뒤의 감싸기(Q9, 한 차례 늦음)까지 본다.
+    namespace fs = fm::style;
+    auto &tm = fs::ThemeManager::instance();
+    const fs::Design design = tm.design();
+    const fs::ThemeManager::Scheme scheme = tm.scheme();
+    tm.setScheme(fs::ThemeManager::Scheme::Dark);
+    for (const fs::Design d : {fs::Design::Watercolor, fs::Design::Standard}) {
+        tm.setDesign(d);
+        QTest::qWait(20);
+        { fl::FileListView grid; }  // 새 그리드도 감싸기를 확인한다
+        QTest::qWait(20);
+        const QColor surface = tm.colors()[fs::Token::Surface];
+        QCOMPARE(QApplication::palette().color(QPalette::Base), surface);
+        QCOMPARE(QApplication::palette("QAbstractItemView").color(QPalette::Base), surface);
+    }
+    // 감싸면서 넣은 위젯 종류별 팔레트(그 순간의 머리글 팔레트)는 다음 색 구성표 전환에서 지워진다
+    tm.setScheme(fs::ThemeManager::Scheme::Light);
+    QTest::qWait(20);
+    {
+        fl::FileListView view;
+        const QList<QWidget *> children = view.findChildren<QWidget *>();
+        const auto grid = std::find_if(children.begin(), children.end(), [](const QWidget *w) { return w->inherits("Qtitan::GridBase"); });
+        QVERIFY(grid != children.end());
+        QCOMPARE(QApplication::palette(*grid).color(QPalette::Base), tm.colors()[fs::Token::Surface]);
+    }
+    tm.setDesign(design);
+    tm.setScheme(scheme);
+    QTest::qWait(20);
+}
+
+void TestMainWindow::catalogWindow()
+{
+    // 도구 › 대화상자 카탈로그 — 변형 전부가 묶음 아래에 있고, 찾기 · 열기 · 모두 닫기가 된다
+    namespace fd = fm::dialogs;
+    m_window->openCatalog();
+    QPointer<CatalogWindow> catalog = m_window->findChild<CatalogWindow *>();
+    QVERIFY(catalog);
+    QVERIFY(catalog->isWindow());
+    auto *tree = catalog->findChild<QTreeView *>(u"catalogTree"_s);
+    QVERIFY(tree);
+    const QAbstractItemModel *model = tree->model();
+    const QList<fd::DialogVariant> variants = fd::dialogVariants();
+    QSet<QString> ids, groups;
+    for (const fd::DialogVariant &v : variants)
+        groups.insert(v.dialog);
+    QCOMPARE(model->rowCount(), groups.size());
+    for (int g = 0; g < model->rowCount(); ++g) {
+        const QModelIndex group = model->index(g, 0);
+        for (int r = 0; r < model->rowCount(group); ++r)
+            ids.insert(model->index(r, 1, group).data().toString());
+    }
+    QCOMPARE(ids.size(), variants.size());
+    for (const fd::DialogVariant &v : variants)
+        QVERIFY2(ids.contains(v.id), qPrintable(v.id));
+
+    // 찾기 — ID로 거르면 그 변형과 묶음만 남는다
+    auto *search = catalog->findChild<fm::ui::SearchField *>();
+    QVERIFY(search);
+    search->setText(u"elev.uac"_s);
+    QCOMPARE(model->rowCount(), 1);
+    QCOMPARE(model->rowCount(model->index(0, 0)), 1);
+    search->clear();
+    QCOMPARE(model->rowCount(), groups.size());
+
+    // 열기 · 모두 닫기(닫으면 지워진다)
+    QVERIFY(catalog->openVariant(u"copy.default"_s));
+    QVERIFY(catalog->openVariant(u"elev.uac"_s));
+    QVERIFY(!catalog->openVariant(u"no.such"_s));
+    QCOMPARE(catalog->openCount(), 2);
+    catalog->closeAll();
+    QTRY_COMPARE(catalog->openCount(), 0);
+
+    // 대화상자가 열린 채로 창을 지워도 안전하고, 메뉴로 다시 열면 새로 만든다
+    QVERIFY(catalog->openVariant(u"copy.default"_s));
+    delete catalog.data();
+    QVERIFY(catalog.isNull());
+    m_window->openCatalog();
+    catalog = m_window->findChild<CatalogWindow *>();
+    QVERIFY(catalog);
+    catalog->close();
+}
+
+void TestMainWindow::thumbnailCompare()
+{
+    // 도구 › 섬네일 비교 — 같은 모델을 두 구현에 물리고 연결 시간 · 스크롤을 잰다
+    ThumbnailCompare compare;
+    compare.resize(1200, 800);
+    compare.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&compare));
+    QSignalSpy loaded(&compare, &ThumbnailCompare::loaded);
+
+    compare.setArrivalSimulation(false);
+    compare.load(ThumbnailCompare::Source::Mock10k);
+    QCOMPARE(loaded.count(), 1);
+    auto *list = compare.findChild<fl::ThumbnailListView *>();
+    auto *cards = compare.findChild<fl::ThumbnailCardView *>();
+    QVERIFY(list && cards);
+    QCOMPARE(list->model()->rowCount(), 10000);
+    for (int b = 0; b < 2; ++b)
+        QVERIFY(compare.result(b).attachMs >= 0);
+    compare.measureScroll();
+    for (int b = 0; b < 2; ++b) {
+        const ThumbnailCompare::Result &r = compare.result(b);
+        QCOMPARE(r.scrollSteps, 40);
+        QVERIFY(r.scrollAvgMs > 0);
+        QVERIFY(r.scrollMaxMs >= r.scrollAvgMs);
+    }
+    QCOMPARE(list->verticalScrollBar()->value(), 0);  // 측정 뒤 맨 위로
+    QCOMPARE(cards->scrollArea()->verticalScrollBar()->value(), 0);
+    QVERIFY(compare.lastReport().contains(u"40단계"_s));
+
+    // 도착 흉내 — 처음엔 "만드는 중", 배치가 다 오면 실제 그림 종류
+    compare.setArrivalSimulation(true);
+    compare.load(ThumbnailCompare::Source::Mock10k);
+    QCOMPARE(loaded.count(), 2);
+    list = compare.findChild<fl::ThumbnailListView *>();
+    QVERIFY(list);
+    const QModelIndex last = list->model()->index(9996, fl::NameColumn);  // DSC009996.arw
+    QCOMPARE(last.data(fl::ArtRole).toInt(), int(fl::Art::Loading));
+    QTRY_COMPARE_WITH_TIMEOUT(list->model()->index(9996, fl::NameColumn).data(fl::ArtRole).toInt(), int(fl::Art::Photo), 10000);
+
+    // 실제 폴더(읽기 전용) — 목록을 다 읽은 뒤 두 구현을 만든다
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    for (const QString &name : {u"a.txt"_s, u"b.png"_s, u"c.pdf"_s}) {
+        QFile f(dir.filePath(name));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("x");
+    }
+    compare.load(ThumbnailCompare::Source::Folder, dir.path());
+    QTRY_COMPARE_WITH_TIMEOUT(loaded.count(), 3, 10000);
+    list = compare.findChild<fl::ThumbnailListView *>();
+    QVERIFY(list);
+    QSet<QString> names;
+    for (int r = 0; r < list->model()->rowCount(); ++r)
+        names.insert(list->model()->index(r, fl::NameColumn).data(fl::FullNameRole).toString());
+    QVERIFY(names.contains(u"a.txt"_s) && names.contains(u"b.png"_s) && names.contains(u"c.pdf"_s));
+}
+
+void TestMainWindow::snapshots()
+{
+    // fmdemo --shot <폴더> — 화면 × 테마마다 1배율 PNG, 틀을 입힌 PNG, index.html
+    namespace fd = fm::dialogs;
+    namespace fs = fm::style;
+    auto &tm = fs::ThemeManager::instance();
+    const fs::Design design = tm.design();
+    const fs::ThemeManager::Scheme scheme = tm.scheme();
+    const fs::ThemeManager::DarkTone tone = tm.darkTone();
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    SnapshotOptions options;
+    options.dir = dir.path();
+    options.only = {u"copy.default"_s, u"elev.uac"_s};
+    options.themes = {u"std-light"_s, u"wc-navy"_s};
+    options.settleMs = 50;
+    const int code = runSnapshots(options);
+    tm.setDesign(design);
+    tm.setDarkTone(tone);
+    tm.setScheme(scheme);
+    QTest::qWait(50);
+    QCOMPARE(code, 0);
+
+    int checked = 0;
+    for (const fd::DialogVariant &v : fd::dialogVariants()) {
+        if (!options.only.contains(v.id))
+            continue;
+        for (const QString &theme : std::as_const(options.themes)) {
+            const QImage plain(dir.filePath(theme + u'/' + v.id + u".png"_s));
+            const QImage framed(dir.filePath(theme + u"/framed/"_s + v.id + u".png"_s));
+            QVERIFY2(!plain.isNull() && !framed.isNull(), qPrintable(theme + u' ' + v.id));
+            QCOMPARE(plain.width(), v.client.width());  // 1배율 = 목업 CSS 픽셀
+            if (v.client.height() > 0)
+                QCOMPARE(plain.height(), v.client.height());
+            // 시안1: 1 px 테두리 + 36 px 제목 · 시안2: 3 px 틀 + 27 px 제목
+            const QSize frame = theme.startsWith(u"wc"_s) ? QSize(6, 27 + 3) : QSize(2, 36 + 2);
+            QCOMPARE(framed.size(), plain.size() + frame);
+            ++checked;
+        }
+    }
+    QCOMPARE(checked, 4);
+    QFile index(dir.filePath(u"index.html"_s));
+    QVERIFY(index.open(QIODevice::ReadOnly));
+    const QString html = QString::fromUtf8(index.readAll());
+    QVERIFY(html.contains(u"std-light/framed/copy.default.png"_s));
+    QVERIFY(html.contains(u"wc-navy/elev.uac.png"_s));
+    QVERIFY(!html.contains(u"/main.png"_s));
+
+    // 고를 화면이 없으면 실패 코드
+    options.only = {u"no.such"_s};
+    QCOMPARE(runSnapshots(options), 2);
 }
 
 QTEST_MAIN(TestMainWindow)

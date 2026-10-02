@@ -1,6 +1,8 @@
 #include "MainWindow.h"
 
+#include "CatalogWindow.h"
 #include "FilePanel.h"
+#include "ThumbnailCompare.h"
 
 #include <fmdialogs/ElevationFlow.h>
 #include <fmdialogs/FileOpContext.h>
@@ -292,6 +294,11 @@ void MainWindow::createMenus()
                 menu->addAction(action(id));
         }
         if (def.title == u"도구") {
+            menu->addSeparator();
+            QAction *catalog = menu->addAction(u"대화상자 카탈로그(&G)…"_s);
+            catalog->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_G));
+            connect(catalog, &QAction::triggered, this, &MainWindow::openCatalog);
+            connect(menu->addAction(u"섬네일 비교 — Qt 목록 · Qtitan 카드(&T)…"_s), &QAction::triggered, this, &MainWindow::openThumbnailCompare);
             // 권한 흐름 시뮬레이션(PLAN §7.3 · 03 §0)
             menu->addSeparator();
             QMenu *flows = menu->addMenu(u"권한 흐름 시뮬레이션"_s);
@@ -570,6 +577,27 @@ void MainWindow::refreshIcons()
         if (glyph != fs::Glyph::None)
             a->setIcon(fs::glyphIcon(glyph, colors, 16));
     }
+}
+
+void MainWindow::openCatalog()
+{
+    if (!m_catalog)
+        m_catalog = new CatalogWindow(this);
+    m_catalog->show();
+    m_catalog->raise();
+    m_catalog->activateWindow();
+}
+
+void MainWindow::openThumbnailCompare()
+{
+    if (!m_compare) {
+        auto *compare = new ThumbnailCompare(this);
+        compare->load(ThumbnailCompare::Source::Sample);
+        m_compare = compare;
+    }
+    m_compare->show();
+    m_compare->raise();
+    m_compare->activateWindow();
 }
 
 void MainWindow::openSettings()

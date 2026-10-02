@@ -9,6 +9,7 @@
 #include <memory>
 
 class QAbstractItemModel;
+class QAbstractScrollArea;
 class QStackedWidget;
 
 namespace Qtitan {
@@ -29,6 +30,8 @@ public:
     virtual int cursorRow() const = 0;
     virtual void setCursorRow(int row) = 0;
     virtual void setPreviewMode(bool preview) = 0;
+    /// 스크롤 영역(목록은 자기 자신, 카드는 Qtitan 그리드) — 스크롤 측정(비교 창)에 쓴다.
+    virtual QAbstractScrollArea *scrollArea() = 0;
 };
 
 /// Qt 목록 구현 — QListView IconMode + 타일 델리게이트. 남는 폭은 열 사이에 고르게 나눈다(space-between).
@@ -45,6 +48,7 @@ public:
     int cursorRow() const override;
     void setCursorRow(int row) override;
     void setPreviewMode(bool preview) override;
+    QAbstractScrollArea *scrollArea() override { return this; }
 
     /// QListView가 줄바꿈에 쓰는 폭 — 스크롤 막대가 필요할 때 나타나는 방식이면 그 폭을 미리 뺀다.
     int layoutWidth() const;
@@ -86,6 +90,7 @@ public:
     int cursorRow() const override;
     void setCursorRow(int row) override;
     void setPreviewMode(bool preview) override;
+    QAbstractScrollArea *scrollArea() override;
 
 Q_SIGNALS:
     void cursorRowChanged(int row);
@@ -172,6 +177,8 @@ public:
 
     ThumbnailListView *listView() const noexcept { return m_list; }
     ThumbnailCardView *cardView() const noexcept { return m_cards; }
+    /// 지금 구현의 스크롤 영역.
+    QAbstractScrollArea *scrollArea() const;
 
 Q_SIGNALS:
     void backendChanged(Backend backend);

@@ -5,12 +5,9 @@ setlocal
 set "QTROOT=D:\Qt\Qt-6.11.1-VC2026-x64-D-MD-OCI-2026-05-27"
 set "PATH=%QTROOT%\bin;%PATH%"
 set "EXE=%~1"
-rem %* ignores shift and %1..%9 stop at nine, so collect every remaining argument.
-set "ARGS="
-:collect
-shift
-if "%~1"=="" goto run
-set ARGS=%ARGS% %1
-goto collect
-:run
-"%EXE%"%ARGS%
+rem shift/%%1 split arguments on commas, semicolons and '=' (--only main,copy would lose ",copy"),
+rem so take %%* as typed and drop the first token (the executable).
+set "ALL=%*"
+setlocal EnableDelayedExpansion
+set "ARGS=!ALL:*%1=!"
+"%EXE%"!ARGS!

@@ -74,6 +74,16 @@ void FileListModel::setEntries(const QList<FileEntry> &entries)
     endResetModel();
 }
 
+void FileListModel::replaceEntries(int first, const QList<FileEntry> &entries)
+{
+    const int count = std::min<int>(int(entries.size()), int(m_entries.size()) - first);
+    if (first < 0 || count <= 0)
+        return;
+    for (int i = 0; i < count; ++i)
+        m_entries[first + i] = entries.at(i);
+    Q_EMIT dataChanged(index(first, 0), index(first + count - 1, columnCount() - 1));
+}
+
 int FileListModel::rowCount(const QModelIndex &parent) const
 {
     return parent.isValid() ? 0 : int(m_entries.size());

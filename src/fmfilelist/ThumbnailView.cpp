@@ -385,6 +385,11 @@ void ThumbnailCardView::setCursorRow(int row)
     m_view->setFocusedRowIndex(row);
 }
 
+QAbstractScrollArea *ThumbnailCardView::scrollArea()
+{
+    return m_grid;
+}
+
 void ThumbnailCardView::setPreviewMode(bool preview)
 {
     m_grid->setFocusPolicy(preview ? Qt::NoFocus : Qt::StrongFocus);
@@ -625,6 +630,12 @@ void ThumbnailView::setInfoBarVisible(bool visible)
 void ThumbnailView::setSortText(const QString &text)
 {
     m_info->setSortText(text);
+}
+
+QAbstractScrollArea *ThumbnailView::scrollArea() const
+{
+    return m_backend == QtitanCards ? static_cast<ThumbnailBackend *>(m_cards)->scrollArea()
+                                    : static_cast<ThumbnailBackend *>(m_list)->scrollArea();
 }
 
 void ThumbnailView::setPreviewMode(bool preview)

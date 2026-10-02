@@ -64,6 +64,9 @@ public:
     void applySettings(fm::settings::Sections sections);
     /// 지금 창 상태(도구 모음의 테마, 보드의 목록 표시)를 설정 보관소에 옮긴다 — 설정 파일이 없을 때 첫 상태.
     void captureSettings();
+    /// 도구 › 대화상자 카탈로그 · 섬네일 비교(PLAN §9) — 창 하나씩.
+    void openCatalog();
+    void openThumbnailCompare();
 
 private:
     void createActions();
@@ -103,6 +106,8 @@ private:
     fm::filelist::ListAppearance m_listAppearance;
     bool m_syncing = false;
     QPointer<QDialog> m_settingsDialog;
+    QPointer<QWidget> m_catalog;
+    QPointer<QWidget> m_compare;
 };
 
 } // namespace fm::app

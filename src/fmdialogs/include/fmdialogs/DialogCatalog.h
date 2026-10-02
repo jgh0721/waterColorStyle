@@ -22,6 +22,9 @@ struct DialogVariant
 
 QList<DialogVariant> dialogVariants();
 
+/// 묶음 표시 이름 — "copy" → "복사", "elev" → "관리자 권한"(카탈로그 창 · 스냅숏 목록).
+QString dialogGroupLabel(const QString &group);
+
 /// 변형 ID로 대화상자를 만든다(부모 · 모덜리스). 모르는 ID면 nullptr.
 /// "copy"처럼 묶음 이름만 주면 그 묶음의 첫 변형(목업 기본 상태).
 QDialog *createDialog(const QString &id, QWidget *parent = nullptr);

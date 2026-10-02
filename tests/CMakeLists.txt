@@ -21,9 +21,14 @@ if(TARGET Fm::filelist)
     # 메인 창 — 데모 앱의 창 · 패널 소스를 그대로 넣어 검사한다.
     set(_demo ${PROJECT_SOURCE_DIR}/app/fmdemo)
     qt_add_executable(tst_mainwindow tst_mainwindow.cpp
-        ${_demo}/FilePanel.cpp ${_demo}/FilePanel.h ${_demo}/MainWindow.cpp ${_demo}/MainWindow.h)
+        ${_demo}/FilePanel.cpp ${_demo}/FilePanel.h ${_demo}/MainWindow.cpp ${_demo}/MainWindow.h
+        ${_demo}/CatalogWindow.cpp ${_demo}/CatalogWindow.h ${_demo}/ThumbnailCompare.cpp ${_demo}/ThumbnailCompare.h
+        ${_demo}/Snapshots.cpp ${_demo}/Snapshots.h)
     target_include_directories(tst_mainwindow PRIVATE ${_demo})
     target_link_libraries(tst_mainwindow PRIVATE Fm::dialogs Fm::filelist Fm::widgets Qt6::Test)
+    if(WIN32)
+        target_link_libraries(tst_mainwindow PRIVATE psapi)
+    endif()
     fm_set_compile_options(tst_mainwindow)
     add_test(NAME tst_mainwindow COMMAND tst_mainwindow)
     set_tests_properties(tst_mainwindow PROPERTIES ENVIRONMENT "${_testEnv}")

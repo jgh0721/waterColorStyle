@@ -7,9 +7,27 @@
 #include "fmdialogs/ProgressDialog.h"
 #include "fmdialogs/SettingsDialog.h"
 
+#include <QHash>
+
 using namespace Qt::StringLiterals;
 
 namespace fm::dialogs {
+
+QString dialogGroupLabel(const QString &group)
+{
+    static const QHash<QString, QString> labels = {
+        {u"copy"_s, u"복사"_s},
+        {u"move"_s, u"이동 · 이름 변경"_s},
+        {u"delete"_s, u"삭제"_s},
+        {u"newfile"_s, u"새 파일"_s},
+        {u"newfolder"_s, u"새 폴더"_s},
+        {u"progress"_s, u"진행 창"_s},
+        {u"multirename"_s, u"다중 이름 변경"_s},
+        {u"elev"_s, u"관리자 권한"_s},
+        {u"settings"_s, u"설정"_s},
+    };
+    return labels.value(group, group);
+}
 
 QList<DialogVariant> dialogVariants()
 {
