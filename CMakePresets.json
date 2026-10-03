@@ -25,6 +25,14 @@
             }
         },
         {
+            "name": "debug-noqtitan",
+            "displayName": "Debug, QtitanDataGrid 없이 (공개 저장소와 같은 구성)",
+            "inherits": "debug",
+            "cacheVariables": {
+                "FMSTYLE_WITH_QTITAN": "OFF"
+            }
+        },
+        {
             "name": "release",
             "displayName": "Release (MSVC 2026 x64, Qt 6.11.1) — Designer 플러그인은 이 구성으로만 쓴다",
             "inherits": "base",
@@ -35,6 +43,7 @@
     ],
     "buildPresets": [
         { "name": "debug", "configurePreset": "debug" },
+        { "name": "debug-noqtitan", "configurePreset": "debug-noqtitan" },
         { "name": "release", "configurePreset": "release" }
     ]
 }

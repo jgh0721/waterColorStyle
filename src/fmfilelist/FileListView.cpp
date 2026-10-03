@@ -9,8 +9,12 @@
 #include <fmstyle/StyleProps.h>
 #include <fmstyle/ThemeManager.h>
 
+#if FM_WITH_QTITAN
 #include <QtnGrid.h>
 #include <QtnGridBandedTableView.h>
+#else
+#include <QLabel>
+#endif
 
 #include <QApplication>
 #include <QEvent>
@@ -27,6 +31,8 @@ namespace fm::filelist {
 
 using namespace detail;
 using fm::style::Token;
+
+#if FM_WITH_QTITAN
 
 // ---------------------------------------------------------------- 레코드 그리기 (패치 Q3)
 class FileRecordPainter final : public Qtitan::GridRecordPainter
@@ -923,5 +929,241 @@ void FileListView::changeEvent(QEvent *event)
         break;
     }
 }
+
+#else // FM_WITH_QTITAN
+
+// ---------------------------------------------------------------- QtitanDataGrid 없는 빌드 — 자리 표시
+// 목록은 그리지 않고 안내만 보인다. 모델 · 열 배치 · 보기 방식 · 커서 · 정렬 · 표시는 그대로 들고 있어
+// 패널 · 설정 창 · 대화상자 코드가 같은 API로 빌드되고 동작한다.
+
+class FileListViewPrivate
+{
+public:
+    explicit FileListViewPrivate(FileListView *q) : q(q) {}
+
+    int nameColumn() const { return layout.nameColumn(); }
+    void updateGeometry() { geometry = RecordGeometry::make(fm::style::themeColorsFor(q).isWatercolor(), twoLine, appearance); }
+
+    FileListView *q;
+    QLabel *placeholder = nullptr;
+    QAbstractItemModel *model = nullptr;
+    ViewMode mode = ViewMode::Auto;
+    bool twoLine = false;
+    bool preview = false;
+    ListAppearance appearance;
+    ListColumnLayout layout = ListColumnLayout::standard();
+    RecordGeometry geometry;
+    int cursor = -1;
+    int sortColumn = -1;
+    Qt::SortOrder sortOrder = Qt::AscendingOrder;
+};
+
+FileListView::FileListView(QWidget *parent)
+    : QWidget(parent)
+    , d(std::make_unique<FileListViewPrivate>(this))
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    d->placeholder = new QLabel(u"파일 목록은 QtitanDataGrid가 있어야 보입니다.\n(FMSTYLE_WITH_QTITAN=OFF로 빌드함)"_s, this);
+    d->placeholder->setAlignment(Qt::AlignCenter);
+    d->placeholder->setWordWrap(true);
+    d->placeholder->setFocusPolicy(Qt::StrongFocus);
+    d->placeholder->installEventFilter(this);
+    layout->addWidget(d->placeholder);
+    setFocusProxy(d->placeholder);
+    d->updateGeometry();
+}
+
+FileListView::~FileListView() = default;
+
+void FileListView::setModel(QAbstractItemModel *model)
+{
+    if (d->model == model)
+        return;
+    if (d->model)
+        disconnect(d->model, nullptr, this, nullptr);
+    d->model = model;
+    d->cursor = model && model->rowCount() > 0 ? 0 : -1;
+    if (model) {
+        connect(model, &QAbstractItemModel::dataChanged, this,
+                [this](const QModelIndex &, const QModelIndex &, const QList<int> &roles) {
+                    if (roles.contains(MarkedRole))
+                        Q_EMIT marksChanged();
+                });
+    }
+}
+
+QAbstractItemModel *FileListView::model() const
+{
+    return d->model;
+}
+
+const ListColumnLayout &FileListView::columnLayout() const noexcept
+{
+    return d->layout;
+}
+
+void FileListView::setColumnLayout(const ListColumnLayout &layout)
+{
+    d->layout = layout;
+}
+
+ViewMode FileListView::viewMode() const noexcept
+{
+    return d->mode;
+}
+
+void FileListView::setViewMode(ViewMode mode)
+{
+    if (d->mode == mode)
+        return;
+    d->mode = mode;
+    const bool twoLine = mode == ViewMode::TwoLine;  // 자동 판정은 하지 않는다(그린 목록이 없다)
+    if (twoLine != d->twoLine) {
+        d->twoLine = twoLine;
+        d->updateGeometry();
+        Q_EMIT twoLineChanged(twoLine);
+    }
+    Q_EMIT viewModeChanged(mode);
+}
+
+bool FileListView::isTwoLine() const noexcept
+{
+    return d->twoLine;
+}
+
+const ListAppearance &FileListView::appearance() const noexcept
+{
+    return d->appearance;
+}
+
+void FileListView::setAppearance(const ListAppearance &appearance)
+{
+    if (d->appearance.fontFamily != appearance.fontFamily || d->appearance.fontPx != appearance.fontPx) {
+        QFont f = font();  // 목록 글꼴은 위젯 글꼴이다(Qtitan 구현과 같음)
+        f.setFamilies(appearance.fontFamily.isEmpty() ? QApplication::font().families()
+                                                      : QStringList{appearance.fontFamily, u"Segoe UI"_s, u"Malgun Gothic"_s});
+        f.setPixelSize(appearance.fontPx);
+        setFont(f);
+    }
+    d->appearance = appearance;
+    d->updateGeometry();
+}
+
+bool FileListView::isPaneActive() const
+{
+    return paneActive(this);
+}
+
+void FileListView::setPaneActive(bool active)
+{
+    fm::style::setPaneActive(this, active);
+}
+
+bool FileListView::isPreviewMode() const noexcept
+{
+    return d->preview;
+}
+
+void FileListView::setPreviewMode(bool preview)
+{
+    d->preview = preview;
+    d->placeholder->setFocusPolicy(preview ? Qt::NoFocus : Qt::StrongFocus);
+    updateGeometry();
+}
+
+int FileListView::cursorRow() const
+{
+    return d->model && d->cursor < d->model->rowCount() ? d->cursor : -1;
+}
+
+void FileListView::setCursorRow(int row)
+{
+    const int rows = d->model ? d->model->rowCount() : 0;
+    row = rows > 0 ? std::clamp(row, 0, rows - 1) : -1;
+    if (row == d->cursor)
+        return;
+    d->cursor = row;
+    Q_EMIT cursorRowChanged(row);
+}
+
+QModelIndex FileListView::cursorIndex() const
+{
+    const int row = cursorRow();
+    return d->model && row >= 0 ? d->model->index(row, d->nameColumn()) : QModelIndex();
+}
+
+void FileListView::setSortIndicator(int column, Qt::SortOrder order, bool apply)
+{
+    d->sortColumn = column;
+    d->sortOrder = order;
+    if (!apply)
+        return;
+    if (auto *proxy = qobject_cast<QSortFilterProxyModel *>(d->model))
+        proxy->sort(column, order);
+    Q_EMIT sortChanged(column, order);
+}
+
+int FileListView::sortColumn() const
+{
+    return d->sortColumn;
+}
+
+Qt::SortOrder FileListView::sortOrder() const
+{
+    return d->sortOrder;
+}
+
+void FileListView::toggleMark(int row)
+{
+    if (!d->model || row < 0 || row >= d->model->rowCount())
+        return;
+    const QModelIndex i = d->model->index(row, d->nameColumn());
+    if (!i.data(IsUpRole).toBool())
+        d->model->setData(i, !i.data(MarkedRole).toBool(), MarkedRole);
+}
+
+double FileListView::truncatedNameRatio(int) const
+{
+    return 0.0;
+}
+
+int FileListView::preferredHeight(int rows) const
+{
+    return d->geometry.headerHeight + rows * d->geometry.pitch + 2;
+}
+
+QSize FileListView::sizeHint() const
+{
+    if (d->preview && d->model)
+        return QSize(480, preferredHeight(d->model->rowCount()));
+    return QSize(720, 480);
+}
+
+QSize FileListView::minimumSizeHint() const
+{
+    return QSize(160, d->geometry.headerHeight + d->geometry.pitch * 2);
+}
+
+bool FileListView::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == d->placeholder && (event->type() == QEvent::FocusIn || event->type() == QEvent::MouseButtonPress))
+        Q_EMIT paneActivated();
+    return QWidget::eventFilter(watched, event);
+}
+
+void FileListView::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+}
+
+void FileListView::changeEvent(QEvent *event)
+{
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::StyleChange)
+        d->updateGeometry();  // 디자인(시안1 · 시안2)마다 레코드 치수가 다르다
+}
+
+#endif // FM_WITH_QTITAN
 
 } // namespace fm::filelist

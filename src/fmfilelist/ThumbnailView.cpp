@@ -9,8 +9,10 @@
 #include <fmstyle/ThemeManager.h>
 #include <fmstyle/WatercolorChrome.h>
 
+#if FM_WITH_QTITAN
 #include <QtnCardGrid.h>
 #include <QtnGridCardView.h>
+#endif
 
 #include <QKeyEvent>
 #include <QPainter>
@@ -223,6 +225,8 @@ void ThumbnailListView::currentChanged(const QModelIndex &current, const QModelI
     QListView::currentChanged(current, previous);
     Q_EMIT cursorRowChanged(current.row());
 }
+
+#if FM_WITH_QTITAN
 
 // ---------------------------------------------------------------- ThumbnailCardView (Qtitan)
 
@@ -465,6 +469,8 @@ bool ThumbnailCardView::eventFilter(QObject *watched, QEvent *event)
     return QWidget::eventFilter(watched, event);
 }
 
+#endif // FM_WITH_QTITAN
+
 // ---------------------------------------------------------------- ThumbnailInfoBar
 
 ThumbnailInfoBar::ThumbnailInfoBar(QWidget *parent)
@@ -526,7 +532,9 @@ ThumbnailView::ThumbnailView(QWidget *parent)
     , m_info(new ThumbnailInfoBar(this))
     , m_stack(new QStackedWidget(this))
     , m_list(new ThumbnailListView(this))
+#if FM_WITH_QTITAN
     , m_cards(new ThumbnailCardView(this))
+#endif
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -534,7 +542,6 @@ ThumbnailView::ThumbnailView(QWidget *parent)
     layout->addWidget(m_info);
     layout->addWidget(m_stack, 1);
     m_stack->addWidget(m_list);
-    m_stack->addWidget(m_cards);
     m_info->setSortText(u"이름 ↑ · 폴더 먼저"_s);
     setFocusProxy(m_list);
 
@@ -542,25 +549,30 @@ ThumbnailView::ThumbnailView(QWidget *parent)
         if (m_backend == QtList)
             Q_EMIT cursorRowChanged(row);
     });
+    connect(m_list, &ThumbnailListView::rowActivated, this, &ThumbnailView::activated);
+    connect(m_list, &ThumbnailListView::upRequested, this, &ThumbnailView::upRequested);
+    connect(m_list, &ThumbnailListView::paneActivated, this, &ThumbnailView::paneActivated);
+    connect(m_list, &ThumbnailListView::sizeStepRequested, this, &ThumbnailView::stepSize);
+#if FM_WITH_QTITAN
+    m_stack->addWidget(m_cards);
     connect(m_cards, &ThumbnailCardView::cursorRowChanged, this, [this](int row) {
         if (m_backend == QtitanCards)
             Q_EMIT cursorRowChanged(row);
     });
-    connect(m_list, &ThumbnailListView::rowActivated, this, &ThumbnailView::activated);
     connect(m_cards, &ThumbnailCardView::rowActivated, this, &ThumbnailView::activated);
-    connect(m_list, &ThumbnailListView::upRequested, this, &ThumbnailView::upRequested);
     connect(m_cards, &ThumbnailCardView::upRequested, this, &ThumbnailView::upRequested);
-    connect(m_list, &ThumbnailListView::paneActivated, this, &ThumbnailView::paneActivated);
     connect(m_cards, &ThumbnailCardView::paneActivated, this, &ThumbnailView::paneActivated);
-    connect(m_list, &ThumbnailListView::sizeStepRequested, this, &ThumbnailView::stepSize);
     connect(m_cards, &ThumbnailCardView::sizeStepRequested, this, &ThumbnailView::stepSize);
+    m_cards->setAppearance(m_appearance);
+#endif
     connect(&fm::style::ThemeManager::instance(), &fm::style::ThemeManager::changed, this, [this] {
         m_list->viewport()->update();
+#if FM_WITH_QTITAN
         m_cards->setAppearance(m_appearance);
+#endif
         update();
     });
     m_list->setAppearance(m_appearance);
-    m_cards->setAppearance(m_appearance);
     updateInfo();
 }
 
@@ -568,18 +580,27 @@ ThumbnailView::~ThumbnailView() = default;
 
 ThumbnailBackend *ThumbnailView::current() const
 {
-    return m_backend == QtList ? static_cast<ThumbnailBackend *>(m_list) : static_cast<ThumbnailBackend *>(m_cards);
+#if FM_WITH_QTITAN
+    if (m_backend == QtitanCards)
+        return m_cards;
+#endif
+    return m_list;
 }
 
 void ThumbnailView::setModel(QAbstractItemModel *model)
 {
     m_model = model;
     m_list->setModel(model);
+#if FM_WITH_QTITAN
     m_cards->setModel(model);
+#endif
 }
 
 void ThumbnailView::setBackend(Backend backend)
 {
+#if !FM_WITH_QTITAN
+    backend = QtList;  // 카드 구현이 없다
+#endif
     if (m_backend == backend)
         return;
     const int row = cursorRow();
@@ -599,7 +620,9 @@ void ThumbnailView::setAppearance(const ThumbnailAppearance &appearance)
         return;
     m_appearance = appearance;
     m_list->setAppearance(appearance);
+#if FM_WITH_QTITAN
     m_cards->setAppearance(appearance);
+#endif
     updateInfo();
 }
 
@@ -612,9 +635,11 @@ void ThumbnailView::setPaneActive(bool active)
 {
     fm::style::setPaneActive(this, active);
     m_list->viewport()->update();
+#if FM_WITH_QTITAN
     const auto children = m_cards->findChildren<QWidget *>();
     for (QWidget *w : children)
         w->update();
+#endif
 }
 
 bool ThumbnailView::isInfoBarVisible() const
@@ -634,14 +659,15 @@ void ThumbnailView::setSortText(const QString &text)
 
 QAbstractScrollArea *ThumbnailView::scrollArea() const
 {
-    return m_backend == QtitanCards ? static_cast<ThumbnailBackend *>(m_cards)->scrollArea()
-                                    : static_cast<ThumbnailBackend *>(m_list)->scrollArea();
+    return current()->scrollArea();
 }
 
 void ThumbnailView::setPreviewMode(bool preview)
 {
     m_list->setPreviewMode(preview);
+#if FM_WITH_QTITAN
     m_cards->setPreviewMode(preview);
+#endif
 }
 
 int ThumbnailView::cursorRow() const

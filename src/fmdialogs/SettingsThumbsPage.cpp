@@ -142,6 +142,7 @@ private:
         m_view->setCursorRow(folder.cursor);
         m_view->setMinimumHeight(320);
         ui->previewLayout->addWidget(m_view);
+#if FM_WITH_QTITAN
         // 미리보기 전용 — 두 섬네일 구현 비교(PLAN §7.4, 저장하지 않음)
         auto *backend = new fm::ui::SegmentedControl(this);
         backend->setObjectName(u"backendSegment"_s);
@@ -153,6 +154,7 @@ private:
         connect(backend, &fm::ui::SegmentedControl::currentIndexChanged, this, [this](int i) {
             m_view->setBackend(i == 1 ? fl::ThumbnailView::QtitanCards : fl::ThumbnailView::QtList);
         });
+#endif
     }
 
     void refreshPreview()

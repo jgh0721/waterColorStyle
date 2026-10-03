@@ -174,6 +174,12 @@ ThumbnailCompare::ThumbnailCompare(QWidget *parent)
         col->addWidget(card, 1);
         views->addLayout(col, 1);
     }
+#if !FM_WITH_QTITAN
+    auto *noCards = new QLabel(u"QtitanDataGrid 없이 빌드해 카드 구현이 없습니다(FMSTYLE_WITH_QTITAN=OFF)."_s, this);
+    noCards->setAlignment(Qt::AlignCenter);
+    noCards->setWordWrap(true);
+    m_columns[1]->addWidget(noCards);
+#endif
     root->addLayout(views, 1);
 
     // 결과 표
@@ -297,9 +303,15 @@ void ThumbnailCompare::load(Source source, const QString &path)
 void ThumbnailCompare::rebuildViews()
 {
     auto *list = new fl::ThumbnailListView(this);
+#if FM_WITH_QTITAN
     auto *cards = new fl::ThumbnailCardView(this);
     m_views = {list, cards};
+#else
+    m_views = {list, nullptr};  // 카드 칸은 안내 문구(생성자)
+#endif
     for (int b = 0; b < 2; ++b) {
+        if (!m_views[std::size_t(b)])
+            continue;
         QWidget *w = m_views[std::size_t(b)]->widget();
         fs::setPaneActive(w, true);
         m_columns[std::size_t(b)]->addWidget(w);
@@ -312,6 +324,8 @@ void ThumbnailCompare::attachMeasured()
     // 같은 모델을 한쪽씩 물려 연결(배치 + 첫 그리기) 시간과 메모리 증가를 잰다
     for (int b = 0; b < 2; ++b) {
         fl::ThumbnailBackend *v = m_views[std::size_t(b)];
+        if (!v)
+            continue;
         layout()->activate();
         const qint64 before = processMemory().first;
         QElapsedTimer t;

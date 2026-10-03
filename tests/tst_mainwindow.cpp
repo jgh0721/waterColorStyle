@@ -115,8 +115,12 @@ void TestMainWindow::boardState()
     QCOMPARE(nameAt(left, 7), u"src"_s);
     FilePanel *right = m_window->rightPanel();
     QCOMPARE(right->listView()->cursorRow(), 3);
+#if FM_WITH_QTITAN
     QTRY_VERIFY(right->listView()->isTwoLine());  // 자동 → 긴 이름이 많아 2줄
     QCOMPARE(right->thumbnailBackend(), fl::ThumbnailView::QtitanCards);
+#else
+    QCOMPARE(right->thumbnailBackend(), fl::ThumbnailView::QtList);  // 카드 구현이 없다
+#endif
     QCOMPARE(left->thumbnailBackend(), fl::ThumbnailView::QtList);
 }
 
@@ -361,6 +365,9 @@ void TestMainWindow::appPaletteKeptOnStyleWrap()
 {
     // Qtitan 그리드가 앱 스타일을 CommonStyle로 감쌀 때 앱 팔레트를 빈 팔레트로 지웠다(Q11) — 다크 구성표에서
     // Qt 목록(섬네일 · 카탈로그 트리)의 바탕이 시스템 색(#2d2d2d)이 되었다. 디자인 전환 뒤의 감싸기(Q9, 한 차례 늦음)까지 본다.
+#if !FM_WITH_QTITAN
+    QSKIP("QtitanDataGrid 없는 빌드 — 앱 스타일을 감싸는 Qtitan 그리드가 없다");
+#else
     namespace fs = fm::style;
     auto &tm = fs::ThemeManager::instance();
     const fs::Design design = tm.design();
@@ -388,6 +395,7 @@ void TestMainWindow::appPaletteKeptOnStyleWrap()
     tm.setDesign(design);
     tm.setScheme(scheme);
     QTest::qWait(20);
+#endif
 }
 
 void TestMainWindow::panelAndTabSettings()
@@ -800,20 +808,28 @@ void TestMainWindow::thumbnailCompare()
     compare.load(ThumbnailCompare::Source::Mock10k);
     QCOMPARE(loaded.count(), 1);
     auto *list = compare.findChild<fl::ThumbnailListView *>();
+    QVERIFY(list);
+#if FM_WITH_QTITAN
     auto *cards = compare.findChild<fl::ThumbnailCardView *>();
-    QVERIFY(list && cards);
+    QVERIFY(cards);
+    constexpr int backends = 2;
+#else
+    constexpr int backends = 1;  // 카드 구현이 없으면 Qt 목록만 잰다
+#endif
     QCOMPARE(list->model()->rowCount(), 10000);
-    for (int b = 0; b < 2; ++b)
+    for (int b = 0; b < backends; ++b)
         QVERIFY(compare.result(b).attachMs >= 0);
     compare.measureScroll();
-    for (int b = 0; b < 2; ++b) {
+    for (int b = 0; b < backends; ++b) {
         const ThumbnailCompare::Result &r = compare.result(b);
         QCOMPARE(r.scrollSteps, 40);
         QVERIFY(r.scrollAvgMs > 0);
         QVERIFY(r.scrollMaxMs >= r.scrollAvgMs);
     }
     QCOMPARE(list->verticalScrollBar()->value(), 0);  // 측정 뒤 맨 위로
+#if FM_WITH_QTITAN
     QCOMPARE(cards->scrollArea()->verticalScrollBar()->value(), 0);
+#endif
     QVERIFY(compare.lastReport().contains(u"40단계"_s));
 
     // 도착 흉내 — 처음엔 "만드는 중", 배치가 다 오면 실제 그림 종류

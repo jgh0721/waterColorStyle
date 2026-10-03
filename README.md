@@ -11,16 +11,15 @@
 |---|---|
 | `src/fmstyle` | `Fm::style` — FmStyle, WatercolorStyle, 테마 토큰, ThemeManager, ThemeScope |
 | `src/fmwidgets` | `Fm::widgets` — 버튼 · 스위치 · 카드 등 기본 부품, 대화상자 · 설정 · 메인 창 부품 |
-| `src/fmfilelist` | `Fm::filelist` — 파일 목록(Qtitan 1줄 · 2줄 밴드 보기), 섬네일(Qt 목록 · Qtitan 카드 두 구현), 모델 · 원본 |
+| `src/fmfilelist` | `Fm::filelist` — 파일 목록(Qtitan 1줄 · 2줄 밴드 보기), 섬네일(Qt 목록 · Qtitan 카드 두 구현), 모델 · 원본. Qtitan 없이 빌드하면 파일 목록은 자리 표시, 섬네일은 Qt 목록만 |
 | `src/fmdialogs` | `Fm::dialogs` — 파일 작업 · 관리자 권한 대화상자, 설정 창, 대화상자 변형 카탈로그 |
 | `src/fmsettings` | `Fm::settings` — 설정 모델 · 보관소(JSON) |
 | `src/designer` | Qt Widgets Designer 플러그인 (`fmdesignerplugin`) |
 | `app/fmdemo` | 데모 앱 — 메인 창 · 대화상자 · 설정 · 도구 창(카탈로그 · 섬네일 비교) · 일괄 스냅숏 |
-| `third_party/QtitanDataGrid` | QtitanDataGrid 원본 + 패치 묶음(`PATCHES.md`) |
+| `third_party/QtitanDataGrid` | 저장소에 없음 — QtitanDataGrid 비공개 저장소를 두는 자리(아래 [QtitanDataGrid](#qtitandatagrid--상용-컴포넌트-선택)) |
 | `examples/designer` | Designer로 만든 `CopyDetails.ui`를 uic로 불러 쓰는 예제 |
 | `gallery` | 목업과 비교하는 위젯 갤러리 |
 | `tests` | Qt Test — 파일 목록 · 메인 창 · 대화상자 · 설정 · Designer 플러그인 |
-| `docs` | 계획(`PLAN.md`) · 명세(`specs`) · 디자인 캔버스 사본 |
 
 ## 빌드
 
@@ -29,12 +28,27 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=<Qt 
 cmake --build build
 ```
 
-옵션: `FMSTYLE_WITH_QTITAN`, `FMSTYLE_BUILD_GALLERY`, `FMSTYLE_BUILD_EXAMPLES`, `FMSTYLE_BUILD_DESIGNER_PLUGIN`,
-`FMSTYLE_BUILD_TESTS` (모두 기본 ON). 플러그인은 Qt6::Designer · Qt6::UiPlugin이 있어야 빌드된다.
+옵션: `FMSTYLE_BUILD_GALLERY`, `FMSTYLE_BUILD_EXAMPLES`, `FMSTYLE_BUILD_DESIGNER_PLUGIN`, `FMSTYLE_BUILD_TESTS`(모두 기본 ON),
+`FMSTYLE_WITH_QTITAN`(QtitanDataGrid가 있으면 ON — 아래 절). 플러그인은 Qt6::Designer · Qt6::UiPlugin이 있어야 빌드된다.
 
-Windows에서는 `tools\build.cmd debug|release`가 VS 2026 개발자 환경을 불러 프리셋(`CMakePresets.json`)으로 빌드하고,
-`tools\run.cmd <exe> [인수…]`가 Qt 키트의 `bin`을 PATH 앞에 두고 실행한다(개발용 — 배포는 windeployqt).
+Windows에서는 `tools\build.cmd debug|debug-noqtitan|release`가 VS 2026 개발자 환경을 불러 프리셋(`CMakePresets.json`)으로
+빌드하고, `tools\run.cmd <exe> [인수…]`가 Qt 키트의 `bin`을 PATH 앞에 두고 실행한다(개발용 — 배포는 windeployqt).
 테스트는 `ctest --test-dir build\debug`로 돌린다(offscreen 플랫폼 · 글꼴 폴더는 CMake가 넣는다).
+
+### QtitanDataGrid — 상용 컴포넌트, 선택
+
+파일 목록(`FileListView`) · 다중 이름 변경 미리보기(`RenamePreviewView`) · 섬네일 카드 구현(`ThumbnailCardView`)은
+Developer Machines의 상용 컴포넌트 QtitanDataGrid(9.2.0, 패치 적용)를 쓴다. 라이선스 조건 때문에 원본과 패치는 이 저장소에 없다.
+
+- **없을 때(기본)** — `FMSTYLE_WITH_QTITAN=OFF`. 위 세 보기는 안내 문구만 보이는 자리 표시로 빌드되고, 섬네일은 Qt 목록 구현만 쓴다.
+  나머지(스타일 · 위젯 · 대화상자 · 설정 · 데모 앱 · Designer 플러그인 · 테스트)는 그대로 빌드되고 돈다.
+  Qtitan에 기대는 테스트 몇 개는 건너뛴다(`QSKIP`).
+- **있을 때** — 원본(`upstream/<버전>`) · 패치(`patches/`) · `CMakeLists.txt`를 담은 비공개 저장소를 `third_party/QtitanDataGrid`에
+  두면 CMake가 찾아 `FMSTYLE_WITH_QTITAN=ON`으로 빌드한다. 다른 곳에 두었으면 `-DFMSTYLE_QTITAN_DIR=<경로>`로 알려 준다.
+  그 폴더는 `.gitignore`에 있어 이 저장소에 올라가지 않는다.
+
+코드는 `FM_WITH_QTITAN`(0 · 1)으로 나눈다. CMake가 `Fm::filelist`의 공개 정의로 넣으므로 이 라이브러리를 쓰는 대상은 모두 같은 값을 본다.
+Qtitan 쪽 코드는 `#if FM_WITH_QTITAN … #else(자리 표시) … #endif` 안에 있다.
 
 ## 데모 앱 — fmdemo
 
@@ -50,7 +64,7 @@ tools\run.cmd build\release\fmdemo.exe --design watercolor --scheme navy
 | 메뉴 | 내용 |
 |---|---|
 | 대화상자 카탈로그 (Ctrl+Shift+G) | 대화상자 변형 76개를 묶음별 트리로 보이고, 고른 변형을 목업 보드의 상태로 연다(모덜리스, 여러 개 동시). 오른쪽의 디자인 · 색 구성표 · 다크 색조를 바꾸면 열린 대화상자에도 바로 반영된다. 출처 "제안"은 목업에 없는 상태를 보이려고 더한 변형이다 |
-| 섬네일 비교 — Qt 목록 · Qtitan 카드 | 같은 모델을 두 섬네일 구현(QListView IconMode + 델리게이트, Qtitan CardGrid + 카드 그리기 훅)에 물려 좌우에 보인다. 원본은 샘플 · 모의 부하 1만 · 10만 개 · 실제 폴더. 모의 부하는 섬네일이 16 ms마다 400개씩 도착하는 상황을 흉내 낸다. 모델 연결 시간(배치 + 첫 그리기) · 메모리 증가 · 스크롤 40단계의 다시 그리기 시간을 잰다 |
+| 섬네일 비교 — Qt 목록 · Qtitan 카드 | 같은 모델을 두 섬네일 구현(QListView IconMode + 델리게이트, Qtitan CardGrid + 카드 그리기 훅)에 물려 좌우에 보인다. 원본은 샘플 · 모의 부하 1만 · 10만 개 · 실제 폴더. 모의 부하는 섬네일이 16 ms마다 400개씩 도착하는 상황을 흉내 낸다. 모델 연결 시간(배치 + 첫 그리기) · 메모리 증가 · 스크롤 40단계의 다시 그리기 시간을 잰다. Qtitan 없이 빌드하면 오른쪽(카드)은 안내 문구 |
 
 명령줄:
 
@@ -107,7 +121,7 @@ tools\run.cmd build\release\fmdemo.exe --shot shots --only main,copy,settings.ke
 | 대화상자 | `DialogHeader`, `DialogFooter`(컨테이너), `PathEdit`, `RecentTargetsBar`, `ChoiceCard`, `TokenButton`, `FileSummaryList`, `FolderPlanView`, `KeyValueCard`, `ItemListCard`, `ActionCard`, `OptionRadio` |
 | 설정 | `SettingRow`(컨테이너 — 넣은 위젯은 오른쪽 컨트롤 칸으로 옮겨진다), `SearchField`, `ThemeModeCard`, `ColorSwatchButton`, `AccentPicker`, `HexColorEdit`, `ToggleChip`, `ColorPickButton`, `CheckListCombo`, `KeyCaptureEdit` |
 | 메인 창 | `CommandLine`, `FunctionKeyBar`, `FindBox`, `BreadcrumbBar`, `DriveButton`, `PanelStatusBar`, `PanelTabStrip` |
-| 파일 목록 | `fm::filelist::FileListView`, `fm::filelist::ThumbnailView`, `fm::dialogs::RenamePreviewView` — Qtitan을 정적 링크하므로 DLL을 더 배포하지 않는다 |
+| 파일 목록 | `fm::filelist::FileListView`, `fm::filelist::ThumbnailView`, `fm::dialogs::RenamePreviewView` — Qtitan을 정적 링크하므로 DLL을 더 배포하지 않는다(Qtitan 없는 빌드는 자리 표시) |
 
 표에서는 클래스 이름 앞의 `fm::ui::`를 줄였다. Designer 안에서는 목록 · 그래프 · 기능 키 막대 등에 예시 데이터를 넣어
 모양을 볼 수 있게 한다(앱이 QUiLoader로 .ui를 읽을 때는 넣지 않는다).

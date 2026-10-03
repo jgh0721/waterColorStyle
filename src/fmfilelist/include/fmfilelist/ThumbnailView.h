@@ -12,10 +12,12 @@ class QAbstractItemModel;
 class QAbstractScrollArea;
 class QStackedWidget;
 
+#if FM_WITH_QTITAN
 namespace Qtitan {
 class CardGrid;
 class GridCardView;
 }
+#endif
 
 namespace fm::filelist {
 
@@ -74,6 +76,7 @@ private:
     ThumbnailAppearance m_appearance;
 };
 
+#if FM_WITH_QTITAN
 /// Qtitan 카드 구현 — CardGrid::CardView(가로 우선) + 패치 Q7(캡션 · 제목 숨김) + 레코드 그리기(Q3).
 /// 카드 폭은 타일 폭, 카드 사이 간격은 고정 4 px(Qtitan 배치 — 남는 폭을 나누지 않는다).
 class ThumbnailCardView : public QWidget, public ThumbnailBackend
@@ -116,6 +119,7 @@ private:
     TileDelegate *m_delegate = nullptr;
     ThumbnailAppearance m_appearance;
 };
+#endif // FM_WITH_QTITAN
 
 /// 섬네일 정보 줄(27 px): "정렬  이름 ↑ · 폴더 먼저 …  보통 · 96 px · Ctrl+휠".
 class ThumbnailInfoBar : public QWidget
@@ -138,6 +142,7 @@ private:
 };
 
 /// 섬네일 보기 — 두 구현(Qt 목록 · Qtitan 카드)을 감싸고 backend 속성으로 바꾼다. 바꿔도 선택 · 커서가 유지된다.
+/// QtitanDataGrid 없이 빌드하면(FM_WITH_QTITAN 0) Qt 목록만 있고 QtitanCards로 바꾸는 요청은 무시한다.
 class ThumbnailView : public QWidget
 {
     Q_OBJECT
@@ -176,7 +181,9 @@ public:
     void setCursorRow(int row);
 
     ThumbnailListView *listView() const noexcept { return m_list; }
+#if FM_WITH_QTITAN
     ThumbnailCardView *cardView() const noexcept { return m_cards; }
+#endif
     /// 지금 구현의 스크롤 영역.
     QAbstractScrollArea *scrollArea() const;
 
@@ -198,7 +205,9 @@ private:
     ThumbnailInfoBar *m_info = nullptr;
     QStackedWidget *m_stack = nullptr;
     ThumbnailListView *m_list = nullptr;
+#if FM_WITH_QTITAN
     ThumbnailCardView *m_cards = nullptr;
+#endif
     Backend m_backend = QtList;
     ThumbnailAppearance m_appearance;
 };

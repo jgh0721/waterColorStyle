@@ -47,9 +47,14 @@ target_link_libraries(fmfilelist
         Qt6::Widgets
         Fm::style
         Fm::widgets
-    PRIVATE
-        Qtitan::Grid
 )
+
+# FM_WITH_QTITAN — 0이면 FileListView · RenamePreviewView는 자리 표시, 섬네일은 Qt 목록 구현만 쓴다.
+# 공개 정의라 이 라이브러리를 쓰는 대상(대화상자 · 앱 · 테스트 · Designer 플러그인)도 같은 값을 본다.
+target_compile_definitions(fmfilelist PUBLIC FM_WITH_QTITAN=$<BOOL:${FMSTYLE_WITH_QTITAN}>)
+if(FMSTYLE_WITH_QTITAN)
+    target_link_libraries(fmfilelist PRIVATE Qtitan::Grid)
+endif()
 
 if(WIN32)
     # 셸 섬네일(IShellItemImageFactory) · 열 세트의 Windows 속성(IPropertyStore)

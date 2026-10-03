@@ -23,6 +23,7 @@ class FileListViewPrivate;
 ///   Insert · Space = 표시 후 아래로, Shift+↑↓ = 표시하며 이동, Ctrl+A = 모두 표시, 숫자 패드 * = 반전.
 /// - 레코드 바탕 · 선택 · 커서 틀은 레코드 단위(패치 Q3), 글자는 셀 델리게이트가 그린다.
 /// - 색은 themeColorsFor(this)에서 읽으므로 ThemeScope(설정창의 적용 전 색)가 미리보기에 적용된다.
+/// - QtitanDataGrid 없이 빌드하면(FM_WITH_QTITAN 0) 안내 문구만 보인다. API와 상태(모델 · 커서 · 정렬 · 표시)는 같다.
 class FileListView : public QWidget
 {
     Q_OBJECT

@@ -73,9 +73,12 @@ target_link_libraries(fmdialogs
         Fm::filelist
         Fm::settings
     PRIVATE
-        Qtitan::Grid
         Qt6::Svg
 )
+
+if(FMSTYLE_WITH_QTITAN)
+    target_link_libraries(fmdialogs PRIVATE Qtitan::Grid)  # RenamePreviewView
+endif()
 
 fm_set_compile_options(fmdialogs)
 set_target_properties(fmdialogs PROPERTIES POSITION_INDEPENDENT_CODE ON)

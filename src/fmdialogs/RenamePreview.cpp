@@ -7,8 +7,12 @@
 #include <fmstyle/ThemeColors.h>
 #include <fmstyle/ThemeManager.h>
 
+#if FM_WITH_QTITAN
 #include <QtnGrid.h>
 #include <QtnGridBandedTableView.h>
+#else
+#include <QLabel>
+#endif
 
 #include <QEvent>
 #include <QPainter>
@@ -36,6 +40,7 @@ constexpr int kDateWidth = 140;
 constexpr int kStatusWidth = 132;
 constexpr qreal kLine2 = 21.0;
 
+#if FM_WITH_QTITAN
 fm::style::Tone toneFor(RenamePreviewRow::State state)
 {
     switch (state) {
@@ -44,6 +49,7 @@ fm::style::Tone toneFor(RenamePreviewRow::State state)
     default:                     return fm::style::Tone::Bad;
     }
 }
+#endif
 
 } // namespace
 
@@ -122,6 +128,8 @@ QVariant RenamePreviewModel::headerData(int section, Qt::Orientation orientation
 
 // ---------------------------------------------------------------------------------------------
 // RenamePreviewView
+
+#if FM_WITH_QTITAN
 
 class PreviewRecordPainter final : public Qtitan::GridRecordPainter
 {
@@ -563,5 +571,102 @@ void RenamePreviewView::changeEvent(QEvent *event)
         break;
     }
 }
+
+#else // FM_WITH_QTITAN
+
+// QtitanDataGrid 없는 빌드 — 표는 그리지 않고 안내만 보인다. 보기 방식 · 2줄 판정 · 높이 계산은 그대로라
+// 대화상자 배치는 Qtitan 빌드와 같다.
+
+class RenamePreviewViewPrivate
+{
+public:
+    int pitch() const { return twoLine ? kPitch2 : kPitch1; }
+    int headerHeight() const { return twoLine ? kHeader2 : kHeader1; }
+
+    void evaluate(RenamePreviewView *q)
+    {
+        bool want = mode == fm::filelist::ViewMode::TwoLine;
+        if (mode != fm::filelist::ViewMode::OneLine && mode != fm::filelist::ViewMode::TwoLine)
+            want = model && summarizeRename(model->rows()).longCount > 0;
+        if (want == twoLine)
+            return;
+        twoLine = want;
+        Q_EMIT q->twoLineChanged(twoLine);
+    }
+
+    RenamePreviewModel *model = nullptr;
+    fm::filelist::ViewMode mode = fm::filelist::ViewMode::Auto;
+    bool twoLine = false;
+};
+
+RenamePreviewView::RenamePreviewView(QWidget *parent)
+    : QWidget(parent)
+    , d(std::make_unique<RenamePreviewViewPrivate>())
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto *placeholder = new QLabel(tr("이름 변경 미리보기는 QtitanDataGrid가 있어야 보입니다.\n(FMSTYLE_WITH_QTITAN=OFF로 빌드함)"), this);
+    placeholder->setAlignment(Qt::AlignCenter);
+    placeholder->setWordWrap(true);
+    layout->addWidget(placeholder);
+}
+
+RenamePreviewView::~RenamePreviewView() = default;
+
+void RenamePreviewView::setModel(RenamePreviewModel *model)
+{
+    if (d->model == model)
+        return;
+    if (d->model)
+        disconnect(d->model, nullptr, this, nullptr);
+    d->model = model;
+    d->evaluate(this);
+    if (model) {
+        auto changed = [this] { d->evaluate(this); };
+        connect(model, &QAbstractItemModel::modelReset, this, changed);
+        connect(model, &QAbstractItemModel::dataChanged, this, changed);
+    }
+}
+
+RenamePreviewModel *RenamePreviewView::model() const
+{
+    return d->model;
+}
+
+fm::filelist::ViewMode RenamePreviewView::viewMode() const noexcept
+{
+    return d->mode;
+}
+
+void RenamePreviewView::setViewMode(fm::filelist::ViewMode mode)
+{
+    if (d->mode == mode)
+        return;
+    d->mode = mode;
+    d->evaluate(this);
+    Q_EMIT viewModeChanged(mode);
+}
+
+bool RenamePreviewView::isTwoLine() const noexcept
+{
+    return d->twoLine;
+}
+
+int RenamePreviewView::preferredHeight(int rows) const
+{
+    return d->headerHeight() + rows * d->pitch();
+}
+
+QSize RenamePreviewView::sizeHint() const
+{
+    return QSize(1000, preferredHeight(8));
+}
+
+void RenamePreviewView::changeEvent(QEvent *event)
+{
+    QWidget::changeEvent(event);
+}
+
+#endif // FM_WITH_QTITAN
 
 } // namespace fm::dialogs

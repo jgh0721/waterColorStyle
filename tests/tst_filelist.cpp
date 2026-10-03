@@ -336,6 +336,9 @@ void TestFileList::tileGeometry()
 
 void TestFileList::keyboardMarks()
 {
+#if !FM_WITH_QTITAN
+    QSKIP("QtitanDataGrid 없는 빌드 — FileListView는 자리 표시라 키 조작이 없다");
+#else
     FileListModel model(MockFileSource::left().entries);
     FileSortProxy proxy;
     proxy.setSourceModel(&model);
@@ -378,10 +381,14 @@ void TestFileList::keyboardMarks()
     QCOMPARE(activated.at(0).at(0).value<QModelIndex>().data(FullNameRole).toString(), u"src"_s);
     QTest::keyClick(target, Qt::Key_Backspace);
     QCOMPARE(up.size(), 1);
+#endif
 }
 
 void TestFileList::autoTwoLine()
 {
+#if !FM_WITH_QTITAN
+    QSKIP("QtitanDataGrid 없는 빌드 — FileListView는 자리 표시라 자동 2줄 판정을 하지 않는다");
+#else
     // 모델은 뷰보다 오래 살아야 한다(Qtitan 편집기가 파괴 중에 인덱스를 읽는다).
     FileListModel model(MockFileSource::left().entries);
     FileListModel longNames(MockFileSource::right().entries);
@@ -406,6 +413,7 @@ void TestFileList::autoTwoLine()
     proxy.setSourceModel(&longNames);
     QTRY_VERIFY(view.isTwoLine());
     QVERIFY(view.truncatedNameRatio(760) >= 0.25);
+#endif
 }
 
 void TestFileList::thumbnailBackendKeepsCursor()

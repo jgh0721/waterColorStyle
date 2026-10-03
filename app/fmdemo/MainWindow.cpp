@@ -235,8 +235,13 @@ void MainWindow::createActions()
     connect(action(u"sampleData"_s), &QAction::triggered, this, [this] { m_active->openLocation(false, u"D:\\"_s); });
     connect(action(u"localHome"_s), &QAction::triggered, this, [this] { m_active->openLocation(true, QDir::homePath()); });
     connect(action(u"about"_s), &QAction::triggered, this, [this] {
+#if FM_WITH_QTITAN
+        const QString grid = u"QtitanDataGrid 9.2.0(패치)"_s;
+#else
+        const QString grid = u"QtitanDataGrid 없음(목록은 자리 표시)"_s;
+#endif
         QMessageBox::about(this, u"정보"_s,
-                           u"파일 관리자 UI 데모 — 시안1(기본) · 시안2(워터컬러)\nQt %1 · QtitanDataGrid 9.2.0(패치)"_s.arg(QString::fromLatin1(qVersion())));
+                           u"파일 관리자 UI 데모 — 시안1(기본) · 시안2(워터컬러)\nQt %1 · %2"_s.arg(QString::fromLatin1(qVersion()), grid));
     });
     connect(action(u"exit"_s), &QAction::triggered, this, &QWidget::close);
 
@@ -259,7 +264,10 @@ void MainWindow::createActions()
     // 섬네일 구현(활성 패널)
     m_backends = new QActionGroup(this);
     for (const auto &[text, backend] : {std::pair{u"Qt 목록 (QListView)"_s, fl::ThumbnailView::QtList},
-                                        std::pair{u"Qtitan 카드 (CardView)"_s, fl::ThumbnailView::QtitanCards}}) {
+#if FM_WITH_QTITAN
+                                        std::pair{u"Qtitan 카드 (CardView)"_s, fl::ThumbnailView::QtitanCards},
+#endif
+                                       }) {
         QAction *a = m_backends->addAction(text);
         a->setCheckable(true);
         a->setData(int(backend));

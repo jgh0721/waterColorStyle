@@ -27,6 +27,7 @@ target_link_libraries(fmdesignerplugin
 )
 
 # 파일 목록(Qtitan) · 다중 이름 변경 미리보기도 등록한다 — Qtitan을 정적 링크하므로 DLL을 더 배포하지 않는다.
+# QtitanDataGrid 없이 빌드하면(FMSTYLE_WITH_QTITAN=OFF) 두 위젯은 자리 표시로 등록된다.
 if(TARGET Fm::filelist AND TARGET Fm::dialogs)
     target_link_libraries(fmdesignerplugin PRIVATE Fm::filelist Fm::dialogs)
     target_compile_definitions(fmdesignerplugin PRIVATE FM_DESIGNER_WITH_FILELIST)
