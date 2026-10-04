@@ -26,11 +26,19 @@ class TransferGraph : public QWidget
     Q_PROPERTY(bool framed READ isFramed WRITE setFramed)
     Q_PROPERTY(bool headerVisible READ isHeaderVisible WRITE setHeaderVisible)
     Q_PROPERTY(double speedLimit READ speedLimit WRITE setSpeedLimit)
+    Q_PROPERTY(Unit unit READ unit WRITE setUnit)
+    Q_PROPERTY(QString countSuffix READ countSuffix WRITE setCountSuffix)
 
 public:
     // Qt Designer · uic가 .ui에 'fm::ui::TransferGraph::Time'처럼 쓰므로 범위 없는 enum을 쓴다.
     enum Axis { Progress, Time };
     Q_ENUM(Axis)
+
+    /// 값의 단위. Bytes(기본)는 1024 단위 "39.4 MB/s", Count는 파일 · 항목처럼 개수를 세는 작업용으로
+    /// 1000 단위 묶음 숫자에 countSuffix를 붙인다("1,184" · "1,184 files/s"). Count에서는 start() · addSample()의
+    /// 바이트 인자를 개수로 읽는다.
+    enum Unit { Bytes, Count };
+    Q_ENUM(Unit)
 
     explicit TransferGraph(QWidget *parent = nullptr);
     ~TransferGraph() override;
@@ -52,6 +60,16 @@ public:
 
     void setTitle(const QString &title);
     QString title() const { return m_title; }
+
+    void setUnit(Unit unit);
+    Unit unit() const noexcept { return m_unit; }
+
+    /// Count 단위 값 뒤에 붙일 글자(기본 없음 — 제목이 단위를 말할 때).
+    void setCountSuffix(const QString &suffix);
+    QString countSuffix() const { return m_countSuffix; }
+
+    /// 지금 단위로 쓴 속도 — Bytes면 formatRate(), Count면 "1,184"(+ countSuffix).
+    QString formatValue(double perSecond) const;
 
     void setShowAverage(bool on);
     bool showAverage() const noexcept { return m_showAverage; }
@@ -116,7 +134,9 @@ private:
     bool m_framed = true;
     bool m_headerVisible = true;
     Axis m_axis = Axis::Progress;
+    Unit m_unit = Unit::Bytes;
     QString m_title;
+    QString m_countSuffix;
     QString m_autoDescription;  // addSample()이 마지막으로 넣은 접근성 설명
 
     // 화면에 그리는 값 (애니메이션)

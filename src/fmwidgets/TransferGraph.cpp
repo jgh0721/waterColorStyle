@@ -66,12 +66,21 @@ double niceStep(double raw)
     return n * e;
 }
 
-/// 눈금 간격 (바이트/초). 한 화면에 2 ~ 3줄.
-double gridStep(double scale)
+/// 눈금 간격 (바이트/초 · 개수/초). 한 화면에 2 ~ 3줄. 개수는 1024 단위로 나누지 않는다.
+double gridStep(double scale, bool count)
 {
+    if (count)
+        return niceStep(scale / 2.6);
     const int unit = unitIndexFor(scale);
     const double unitSize = std::pow(1024.0, unit);
     return niceStep(scale / unitSize / 2.6) * unitSize;
+}
+
+/// "1,184" · "1,184 files/s" — 1000 단위 묶음은 로캘을 따른다.
+QString formatCount(double perSecond, int decimals, const QString &suffix)
+{
+    const QString v = QLocale().toString(perSecond, 'f', decimals);
+    return suffix.isEmpty() ? v : v + u" "_s + suffix;
 }
 
 QString formatTime(qint64 ms)
@@ -176,7 +185,7 @@ void TransferGraph::addSample(qint64 bytesDone, qint64 elapsedMs)
     const double avg = averageSpeed();
     // 앱(또는 .ui)에서 직접 넣은 설명은 덮어쓰지 않는다
     if (accessibleDescription().isEmpty() || accessibleDescription() == m_autoDescription) {
-        m_autoDescription = tr("현재 %1, 평균 %2").arg(formatRate(m_current), formatRate(avg));
+        m_autoDescription = tr("현재 %1, 평균 %2").arg(formatValue(m_current), formatValue(avg));
         setAccessibleDescription(m_autoDescription);
     }
     Q_EMIT speedChanged(m_current, avg);
@@ -253,6 +262,31 @@ QString TransferGraph::formatRate(double bytesPerSecond)
     return formatIn(bytesPerSecond, unit, (unit == 0 || v >= 100.0) ? 0 : 1);
 }
 
+QString TransferGraph::formatValue(double perSecond) const
+{
+    if (m_unit == Unit::Bytes)
+        return formatRate(perSecond);
+    return formatCount(perSecond, (perSecond > 0.0 && perSecond < 10.0) ? 1 : 0, m_countSuffix);
+}
+
+void TransferGraph::setUnit(Unit unit)
+{
+    if (m_unit == unit)
+        return;
+    m_unit = unit;
+    m_scaleShown = 0.0;  // 눈금을 새 단위로 다시 고른다
+    retarget();
+    update();
+}
+
+void TransferGraph::setCountSuffix(const QString &suffix)
+{
+    if (m_countSuffix == suffix)
+        return;
+    m_countSuffix = suffix;
+    update();
+}
+
 QSize TransferGraph::sizeHint() const
 {
     return {560, 140};
@@ -306,9 +340,10 @@ void TransferGraph::decimate()
 
 double TransferGraph::targetScale() const
 {
-    double top = std::max({m_peak, m_current, m_limit, 1024.0 * 1024.0});
+    const bool count = m_unit == Unit::Count;
+    double top = std::max({m_peak, m_current, m_limit, count ? 10.0 : 1024.0 * 1024.0});
     top *= 1.15;
-    const double step = gridStep(top);
+    const double step = gridStep(top, count);
     return std::ceil(top / step) * step;
 }
 
@@ -437,13 +472,14 @@ void TransferGraph::paintEvent(QPaintEvent *)
         const QRectF headerRect(plot.left(), 8, plot.width(), 18);
         p.drawText(headerRect, Qt::AlignLeft | Qt::AlignVCenter, title);
         if (m_peak > 0)
-            p.drawText(headerRect, Qt::AlignRight | Qt::AlignVCenter, tr("최대 %1").arg(formatRate(m_peak)));
+            p.drawText(headerRect, Qt::AlignRight | Qt::AlignVCenter, tr("최대 %1").arg(formatValue(m_peak)));
     }
 
     // 눈금 선 (글자는 평균 · 제한 글자와 겹치지 않는 것만 나중에)
     p.setFont(small);
-    const double step = gridStep(scale);
-    const int unit = unitIndexFor(step * 2);
+    const bool count = m_unit == Unit::Count;
+    const double step = gridStep(scale, count);
+    const int unit = count ? 0 : unitIndexFor(step * 2);
     struct GridLabel { QRectF rect; QString text; };
     QList<GridLabel> gridLabels;
     for (double v = step; v < scale * 0.999; v += step) {
@@ -452,7 +488,7 @@ void TransferGraph::paintEvent(QPaintEvent *)
         p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
         const double inUnit = v / std::pow(1024.0, unit);
         const int decimals = std::abs(inUnit - std::round(inUnit)) < 1e-6 ? 0 : 1;
-        const QString text = formatIn(v, unit, decimals);
+        const QString text = count ? formatCount(v, decimals, m_countSuffix) : formatIn(v, unit, decimals);
         gridLabels.append({QRectF(plot.left() + 2, y - 15, QFontMetricsF(small).horizontalAdvance(text) + 2, 14), text});
     }
     const auto drawGridLabels = [&](const QList<QRectF> &avoid) {
@@ -529,7 +565,7 @@ void TransferGraph::paintEvent(QPaintEvent *)
         pen.setStyle(Qt::DashLine);
         p.setPen(pen);
         p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
-        QString limitText = formatRate(m_limit);
+        QString limitText = formatValue(m_limit);
         limitText.replace(QLocale().decimalPoint() + u"0 "_s, u" "_s);  // 50.0 MB/s → 50 MB/s
         const QRectF r(plot.left(), y - 15, plot.width() - 4, 14);
         haloText(r, Qt::AlignRight | Qt::AlignBottom, tr("제한 %1").arg(limitText), tc[Token::Warn]);
@@ -549,7 +585,7 @@ void TransferGraph::paintEvent(QPaintEvent *)
         const bool below = std::abs(y - yLine) < 16 && y >= yLine;
         const QRectF label = below ? QRectF(plot.left() + 2, y + 1, 200, 14)
                                    : QRectF(plot.left() + 2, y - 15, 200, 14);
-        const QString avgText = tr("평균 %1").arg(formatRate(avg));
+        const QString avgText = tr("평균 %1").arg(formatValue(avg));
         haloText(label, Qt::AlignLeft | (below ? Qt::AlignTop : Qt::AlignBottom), avgText, tc[Token::Fg2]);
         taken.append(QRectF(label.left(), label.top(), QFontMetricsF(small).horizontalAdvance(avgText) + 4,
                             label.height()));
@@ -562,7 +598,7 @@ void TransferGraph::paintEvent(QPaintEvent *)
         const qreal y = std::round(yLine) + 0.5;
         p.setPen(QPen(c, 1.0));
         p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
-        const QString text = m_paused ? tr("일시 정지") : formatRate(m_current);
+        const QString text = m_paused ? tr("일시 정지") : formatValue(m_current);
         pill(&p, QPointF(plot.right() - 2, y), text, c, m_paused ? tc[Token::Surface] : tc[Token::OnAccent],
              plot.adjusted(0, 1, 0, -1), 3 * round);
     }
@@ -588,7 +624,7 @@ void TransferGraph::paintEvent(QPaintEvent *)
             const QString where = axis == Axis::Progress
                 ? QLocale().toString(100.0 * double(s.bytes) / double(m_total), 'f', 0) + u" %"_s
                 : formatTime(s.ms);
-            const QString text = where + u"  ·  "_s + (s.paused ? tr("일시 정지") : formatRate(s.speed));
+            const QString text = where + u"  ·  "_s + (s.paused ? tr("일시 정지") : formatValue(s.speed));
             const QFontMetricsF fm(small);
             const QSizeF box(fm.horizontalAdvance(text) + 14, 20);
             QRectF tip(pt.x() + 8, plot.top() + 2, box.width(), box.height());
