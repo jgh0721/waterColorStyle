@@ -5,6 +5,7 @@
 
 #include <fmstyle/Glyphs.h>
 #include <fmwidgets/Banner.h>
+#include <fmwidgets/BarListCard.h>
 #include <fmwidgets/BreadcrumbBar.h>
 #include <fmwidgets/Button.h>
 #include <fmwidgets/Card.h>
@@ -246,6 +247,15 @@ void fillGraph(fm::ui::TransferGraph *g)
     }
 }
 
+void fillBarList(fm::ui::BarListCard *w)
+{
+    w->setSeries({{u"사용"_s, fs::Token::Accent}, {u"예약"_s, fs::Token::Accent, 0.47}});
+    w->setRows({{u"C:"_s, u"시스템"_s, {182, 24}},
+                {u"D:"_s, u"작업"_s, {96, 0}, {}, u"2"_s},
+                {u"E:"_s, u"백업"_s, {240, 60}}});
+    w->setBadgeLegend(u"읽지 못한 폴더"_s);
+}
+
 template <typename T>
 std::function<QWidget *(QWidget *, bool)> plain()
 {
@@ -290,6 +300,15 @@ QList<WidgetInfo> widgetCatalog()
              if (samples)
                  fillGraph(g);
              return g;
+         }});
+    add({u"fm::ui::BarListCard"_s, kBase, u"fmwidgets/BarListCard.h"_s, u"가로 누적 막대 목록 카드"_s,
+         u"setSeries()로 구간(이름 · 색 토큰), setRows()로 줄(코드 · 이름 · 구간 값 · 배지)을 넣습니다. 막대 길이는 가장 긴 줄에 견줍니다."_s,
+         dom(u"fm::ui::BarListCard"_s, u"barListCard"_s, u"누적 막대 목록"_s, geometry(420, 100)), shapeIcon(Shape::Progress), false,
+         [](QWidget *parent, bool samples) {
+             auto *w = new BarListCard(parent);
+             if (samples)
+                 fillBarList(w);
+             return w;
          }});
     add({u"fm::ui::Label"_s, kBase, u"fmwidgets/Label.h"_s, u"글자 역할을 고르는 레이블"_s,
          u"textRole로 목업의 글자 역할(본문 · 도움말 · 메타 · 제목 · 설정 페이지 제목 · 구역 제목 등), tone으로 색, elideMode로 말줄임."_s,

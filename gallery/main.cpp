@@ -18,6 +18,7 @@
 #include <fmwidgets/ProgressBar.h>
 #include <fmwidgets/SegmentedControl.h>
 #include <fmwidgets/Tag.h>
+#include <fmwidgets/BarListCard.h>
 #include <fmwidgets/TransferGraph.h>
 #include <fmstyle/StylePaint.h>
 
@@ -436,6 +437,15 @@ QWidget *progressSection(const fs::ThemeColors &tc)
     thin->setFormat(u"%p%"_s);
     fs::setSmall(thin);
     left->addWidget(thin);
+    left->addSpacing(4);
+    left->addWidget(caption(u"누적 막대 목록 — 막대 길이는 가장 긴 줄에 견준다"_s, tc));
+    auto *usage = new fm::ui::BarListCard;
+    usage->setSeries({{u"사용"_s, fs::Token::Accent}, {u"예약"_s, fs::Token::Accent, 0.47}});
+    usage->setRows({{u"C:"_s, u"시스템"_s, {182, 24}},
+                    {u"D:"_s, u"작업"_s, {96, 0}, {}, u"2"_s},
+                    {u"E:"_s, u"백업"_s, {240, 60}}});
+    usage->setBadgeLegend(u"읽지 못한 폴더"_s);
+    left->addWidget(usage);
     left->addSpacing(4);
     left->addWidget(caption(u"메뉴 막대"_s, tc));
     auto *bar = new QMenuBar;

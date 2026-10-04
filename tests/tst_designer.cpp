@@ -83,7 +83,7 @@ void TestDesigner::initTestCase()
 void TestDesigner::catalog()
 {
     // 기존 6종 + .ui에서 쓰는 위젯 · §6.3 부품 · 메인 창 부품 · 파일 목록 3종
-    QVERIFY2(m_widgets.size() >= 42, qPrintable(QString::number(m_widgets.size())));  // 기본 10 · 대화상자 12 · 설정 10 · 메인 창 7 · 파일 목록 3
+    QVERIFY2(m_widgets.size() >= 43, qPrintable(QString::number(m_widgets.size())));  // 기본 11 · 대화상자 12 · 설정 10 · 메인 창 7 · 파일 목록 3
     QSet<QString> names;
     QSet<QString> groups;
     const QStringList includeRoots = {u"fmstyle"_s, u"fmwidgets"_s, u"fmfilelist"_s, u"fmdialogs"_s, u"fmsettings"_s};
