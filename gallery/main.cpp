@@ -19,6 +19,9 @@
 #include <fmwidgets/SegmentedControl.h>
 #include <fmwidgets/Tag.h>
 #include <fmwidgets/BarListCard.h>
+#include <fmwidgets/LaneLadder.h>
+#include <fmwidgets/PairedTimeline.h>
+#include <fmwidgets/Toast.h>
 #include <fmwidgets/TransferGraph.h>
 #include <fmstyle/StylePaint.h>
 
@@ -612,6 +615,88 @@ QWidget *graphSection(const fs::ThemeColors &tc)
     return box;
 }
 
+// 사다리 · 두 줄 시간 흐름 · 알림 — 자취를 보이는 위젯 셋.
+QWidget *traceSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"사다리 · 두 줄 시간 흐름 · 알림"_s);
+    auto *v = new QVBoxLayout(box);
+    v->setSpacing(10);
+
+    v->addWidget(caption(u"사다리 — 레인 사이의 자취. 줄 종류가 선 모양을 정한다"_s, tc, 12));
+    auto *ladder = new fm::ui::LaneLadder;
+    ladder->setLanes({{u"앱"_s, u"app.exe"_s},
+                      {u"스캐너"_s, u"127.0.0.1"_s},
+                      {u"목적지"_s, u"FAKE-vendor.test"_s}});
+    ladder->setLaneWidth(240);
+    ladder->addRung(0, 1, u"0 ms"_s, u"연결 · ClientHello"_s);
+    ladder->addRung(1, 2, u"12 ms"_s, u"사외 TLS — 앵커로 검증"_s);
+    ladder->addRung(0, 1, u"31 ms"_s, u"POST /v1/messages"_s);
+    ladder->addRung(1, 1, u"33 ms"_s, u"표식을 더한다"_s, fm::ui::LaneLadder::Self);
+    ladder->addRung(2, 1, u"402 ms"_s, u"응답 머리 200 · text/event-stream"_s);
+    ladder->addRung(2, 1, u"2.1 s"_s, u"조각 열둘"_s, fm::ui::LaneLadder::Stream);
+    ladder->addRung(2, 1, u"5.8 s"_s, u"프록시 뒤는 보이지 않는다"_s, fm::ui::LaneLadder::Inferred);
+    ladder->addDivider(QString(), u"두 번째 교환"_s);
+    ladder->addRung(0, 1, u"6.0 s"_s, u"GET /v1/models"_s);
+    ladder->addRung(1, 2, u"6.4 s"_s, u"유휴 상한에 닿아 끊겼다"_s, fm::ui::LaneLadder::Failed);
+    ladder->setCurrentRow(5);
+    v->addWidget(ladder);
+
+    v->addWidget(caption(u"두 줄 시간 흐름 — 같은 자 위의 두 쪽. 기울기가 지연, 띠가 빈 자리"_s, tc, 12));
+    auto *tl = new fm::ui::PairedTimeline;
+    tl->setRows({u"받음"_s, u"목적지 → 스캐너"_s}, {u"넘김"_s, u"스캐너 → 앱"_s});
+    tl->setSpanMs(9000);
+    const qint64 at[] = {400, 620, 790, 980, 1180, 4800, 5020, 5240, 8600};
+    for (int i = 0; i < 9; ++i) {
+        const auto kind = i == 0 ? fm::ui::PairedTimeline::First : fm::ui::PairedTimeline::Tick;
+        tl->addMark(fm::ui::PairedTimeline::kTopRow, at[i], kind, i);
+        // 넘긴 쪽은 조금 늦는다 — 마지막 하나는 넘기지 못하고 끊겼다.
+        if (i < 8)
+            tl->addMark(fm::ui::PairedTimeline::kBottomRow, at[i] + (i == 5 ? 380 : 40), kind, i);
+    }
+    tl->addMark(fm::ui::PairedTimeline::kBottomRow, 8700, fm::ui::PairedTimeline::Cut);
+    v->addWidget(tl);
+
+    v->addWidget(caption(u"알림 — 바탕 창 아래 가운데에 쌓인다. 누르면 닫히고, 마우스를 올리면 시계가 멈춘다"_s, tc, 12));
+    auto *stage = new QWidget;
+    stage->setMinimumHeight(132);
+    stage->setAutoFillBackground(true);
+    {
+        QPalette pal = stage->palette();
+        pal.setColor(QPalette::Window, tc[fs::Token::Alt]);
+        stage->setPalette(pal);
+    }
+    auto *row = new QHBoxLayout;
+    row->setSpacing(6);
+    const struct { const char16_t *label; fm::ui::Toast::Tone tone; const char16_t *text; } kinds[] = {
+        {u"알림", fm::ui::Toast::Info, u"스캔을 시작했다 — 디스크 단계."},
+        {u"됨", fm::ui::Toast::Ok, u"보고를 <b>내보냈다</b> — report-2026.json."},
+        {u"경고", fm::ui::Toast::Warn, u"못 본 범위가 있다 — 다른 사용자의 프로필."},
+        {u"위험", fm::ui::Toast::Danger, u"서비스와 끊겼다."},
+    };
+    for (const auto &k : kinds) {
+        auto *b = new QPushButton(QString::fromUtf16(k.label));
+        QObject::connect(b, &QPushButton::clicked, stage, [stage, k] {
+            fm::ui::Toast::showOver(stage, k.tone, QString::fromUtf16(k.text));
+        });
+        row->addWidget(b);
+    }
+    auto *keep = new QPushButton(u"단추가 있는 알림"_s);
+    QObject::connect(keep, &QPushButton::clicked, stage, [stage] {
+        auto *t = fm::ui::Toast::showOver(stage, fm::ui::Toast::Warn, u"피드가 오래됐다 — 38 일 전."_s, -1);
+        if (t)
+            t->setActionText(u"지금 받기"_s);
+    });
+    row->addWidget(keep);
+    row->addStretch(1);
+    v->addLayout(row);
+    v->addWidget(stage);
+    // 갤러리를 열면 하나는 떠 있게 — 가만히 있는 모습도 보여야 한다.
+    QTimer::singleShot(0, stage, [stage] {
+        fm::ui::Toast::showOver(stage, fm::ui::Toast::Ok, u"스캔을 마쳤다 — 자산 <b>412</b> · Shadow AI 7."_s, -1);
+    });
+    return box;
+}
+
 // 도구 설명 모양 — QToolTip은 마우스를 올려야 뜨므로 같은 바탕을 그리는 라벨로 보인다.
 class TipPreview : public QLabel
 {
@@ -887,6 +972,7 @@ QWidget *buildTile(fs::Variant variant)
     v->addWidget(progressSection(tc));
     v->addWidget(chromeSection(tc));
     v->addWidget(graphSection(tc));
+    v->addWidget(traceSection(tc));
     v->addStretch(1);
     return tile;
 }

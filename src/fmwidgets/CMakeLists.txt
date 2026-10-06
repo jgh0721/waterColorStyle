@@ -16,6 +16,8 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/Glyph.h
     include/fmwidgets/KeyChip.h
     include/fmwidgets/Label.h
+    include/fmwidgets/LaneLadder.h
+    include/fmwidgets/PairedTimeline.h
     include/fmwidgets/PanelStatusBar.h
     include/fmwidgets/PanelTabStrip.h
     include/fmwidgets/ProgressBar.h
@@ -23,6 +25,7 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/SettingsWidgets.h
     include/fmwidgets/Switch.h
     include/fmwidgets/Tag.h
+    include/fmwidgets/Toast.h
     include/fmwidgets/TransferGraph.h
     BarListCard.cpp
     Controls.cpp
@@ -31,10 +34,13 @@ qt_add_library(fmwidgets STATIC
     DialogParts.cpp
     DialogWidgets.cpp
     Label.cpp
+    LaneLadder.cpp
     MainBars.cpp
+    PairedTimeline.cpp
     PanelChrome.cpp
     SegmentedControl.cpp
     SettingsWidgets.cpp
+    Toast.cpp
     TransferGraph.cpp
 )
 

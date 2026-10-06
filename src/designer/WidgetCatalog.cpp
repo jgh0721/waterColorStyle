@@ -26,6 +26,8 @@
 #include <fmwidgets/SettingsWidgets.h>
 #include <fmwidgets/Switch.h>
 #include <fmwidgets/Tag.h>
+#include <fmwidgets/LaneLadder.h>
+#include <fmwidgets/PairedTimeline.h>
 #include <fmwidgets/TransferGraph.h>
 
 #ifdef FM_DESIGNER_WITH_FILELIST
@@ -247,6 +249,34 @@ void fillGraph(fm::ui::TransferGraph *g)
     }
 }
 
+void fillLadder(fm::ui::LaneLadder *w)
+{
+    w->setLanes({{u"앱"_s, u"app.exe"_s}, {u"중계"_s, u"127.0.0.1"_s}, {u"목적지"_s, u"example.test"_s}});
+    w->setLaneWidth(240);
+    w->addRung(0, 1, u"0 ms"_s, u"연결"_s);
+    w->addRung(1, 2, u"12 ms"_s, u"바깥으로"_s);
+    w->addRung(1, 1, u"14 ms"_s, u"머리를 손본다"_s, fm::ui::LaneLadder::Self);
+    w->addRung(2, 1, u"402 ms"_s, u"응답 머리"_s);
+    w->addRung(2, 1, u"2.1 s"_s, u"조각 여럿"_s, fm::ui::LaneLadder::Stream);
+    w->addRung(2, 1, u"5.8 s"_s, u"그 뒤는 보이지 않는다"_s, fm::ui::LaneLadder::Inferred);
+    w->addDivider(QString(), u"두 번째"_s);
+    w->addRung(1, 2, u"6.4 s"_s, u"유휴 상한에 닿았다"_s, fm::ui::LaneLadder::Failed);
+}
+
+void fillTimeline(fm::ui::PairedTimeline *w)
+{
+    w->setRows({u"받음"_s, u"바깥 → 여기"_s}, {u"넘김"_s, u"여기 → 앱"_s});
+    w->setSpanMs(9000);
+    const qint64 at[] = {400, 620, 790, 980, 1180, 4800, 5020, 5240, 8600};
+    for (int i = 0; i < 9; ++i) {
+        const auto kind = i == 0 ? fm::ui::PairedTimeline::First : fm::ui::PairedTimeline::Tick;
+        w->addMark(fm::ui::PairedTimeline::kTopRow, at[i], kind, i);
+        if (i < 8)
+            w->addMark(fm::ui::PairedTimeline::kBottomRow, at[i] + (i == 5 ? 380 : 40), kind, i);
+    }
+    w->addMark(fm::ui::PairedTimeline::kBottomRow, 8700, fm::ui::PairedTimeline::Cut);
+}
+
 void fillBarList(fm::ui::BarListCard *w)
 {
     w->setSeries({{u"사용"_s, fs::Token::Accent}, {u"예약"_s, fs::Token::Accent, 0.47}});
@@ -300,6 +330,24 @@ QList<WidgetInfo> widgetCatalog()
              if (samples)
                  fillGraph(g);
              return g;
+         }});
+    add({u"fm::ui::LaneLadder"_s, kBase, u"fmwidgets/LaneLadder.h"_s, u"레인 사이의 자취를 차례대로 그리는 사다리"_s,
+         u"setLanes()로 레인을, addRung()으로 줄을 넣습니다. 줄 종류가 선 모양을 정합니다 — 본 것 · 추정(점선) · 멈춤(위험색) · 스트림(굵은 점선)."_s,
+         dom(u"fm::ui::LaneLadder"_s, u"laneLadder"_s, u"사다리"_s, geometry(560, 280)), shapeIcon(Shape::Progress), false,
+         [](QWidget *parent, bool samples) {
+             auto *w = new LaneLadder(parent);
+             if (samples)
+                 fillLadder(w);
+             return w;
+         }});
+    add({u"fm::ui::PairedTimeline"_s, kBase, u"fmwidgets/PairedTimeline.h"_s, u"같은 자 위에 두 쪽을 그리는 시간 흐름"_s,
+         u"setRows()로 두 줄의 이름을, addMark()로 눈금을 넣습니다. pairId가 같은 두 눈금을 잇고, 상한을 넘는 빈 자리는 띠가 됩니다."_s,
+         dom(u"fm::ui::PairedTimeline"_s, u"pairedTimeline"_s, u"두 줄 시간 흐름"_s, geometry(560, 90)), shapeIcon(Shape::Graph), false,
+         [](QWidget *parent, bool samples) {
+             auto *w = new PairedTimeline(parent);
+             if (samples)
+                 fillTimeline(w);
+             return w;
          }});
     add({u"fm::ui::BarListCard"_s, kBase, u"fmwidgets/BarListCard.h"_s, u"가로 누적 막대 목록 카드"_s,
          u"setSeries()로 구간(이름 · 색 토큰), setRows()로 줄(코드 · 이름 · 구간 값 · 배지)을 넣습니다. 막대 길이는 가장 긴 줄에 견줍니다."_s,
