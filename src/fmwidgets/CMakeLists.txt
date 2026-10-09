@@ -1,4 +1,5 @@
 qt_add_library(fmwidgets STATIC
+    include/fmwidgets/RenameComparisonView.h
     include/fmwidgets/Banner.h
     include/fmwidgets/BarListCard.h
     include/fmwidgets/BreadcrumbBar.h
