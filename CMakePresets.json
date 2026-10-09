@@ -2,6 +2,45 @@
     "version": 6,
     "configurePresets": [
         {
+            "name": "vc2026-qt612-base",
+            "hidden": true,
+            "generator": "Visual Studio 18 2026",
+            "architecture": "x64",
+            "toolset": "v145,host=x64",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "D:/Qt/Qt-6.12.0-VC2026-X64-H-MD-2026-09-04",
+                "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+                "FMSTYLE_WITH_QTITAN": "ON",
+                "FMSTYLE_BUILD_GALLERY": "OFF",
+                "FMSTYLE_BUILD_DESIGNER_PLUGIN": "OFF",
+                "FMSTYLE_BUILD_EXAMPLES": "OFF",
+                "FMSTYLE_BUILD_DEMO": "OFF",
+                "FMSTYLE_BUILD_LABS": "OFF"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "vc2026-qt612-libraries",
+            "displayName": "Qt 6.12 / v145 libraries only",
+            "inherits": "vc2026-qt612-base",
+            "cacheVariables": {
+                "FMSTYLE_BUILD_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "vc2026-qt612-tests",
+            "displayName": "Qt 6.12 / v145 Qtitan baseline tests",
+            "inherits": "vc2026-qt612-base",
+            "cacheVariables": {
+                "FMSTYLE_BUILD_TESTS": "ON"
+            }
+        },
+        {
             "name": "base",
             "hidden": true,
             "generator": "Ninja",
@@ -41,7 +80,51 @@
             }
         }
     ],
+    "testPresets": [
+        {
+            "name": "vc2026-qt612-debug",
+            "configurePreset": "vc2026-qt612-tests",
+            "configuration": "Debug",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        },
+        {
+            "name": "vc2026-qt612-release",
+            "configurePreset": "vc2026-qt612-tests",
+            "configuration": "Release",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        }
+    ],
     "buildPresets": [
+        {
+            "name": "vc2026-qt612-libraries-debug",
+            "configurePreset": "vc2026-qt612-libraries",
+            "configuration": "Debug"
+        },
+        {
+            "name": "vc2026-qt612-libraries-release",
+            "configurePreset": "vc2026-qt612-libraries",
+            "configuration": "Release"
+        },
+        {
+            "name": "vc2026-qt612-tests-debug",
+            "configurePreset": "vc2026-qt612-tests",
+            "configuration": "Debug"
+        },
+        {
+            "name": "vc2026-qt612-tests-release",
+            "configurePreset": "vc2026-qt612-tests",
+            "configuration": "Release"
+        },
         { "name": "debug", "configurePreset": "debug" },
         { "name": "debug-noqtitan", "configurePreset": "debug-noqtitan" },
         { "name": "release", "configurePreset": "release" }
