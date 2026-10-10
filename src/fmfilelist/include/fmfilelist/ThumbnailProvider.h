@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <QCache>
 #include <QHash>
@@ -7,6 +7,8 @@
 #include <QObject>
 #include <QSet>
 #include <QThreadPool>
+#include <atomic>
+#include <memory>
 
 namespace fm::filelist {
 
@@ -52,6 +54,13 @@ public:
 
     /// 앱 자체 캐시만 비운다(셸 섬네일 캐시는 그대로).
     void clearCache();
+    /// Cancel queued extraction and reject running results from the old generation.
+    /// Native shell calls already running finish cooperatively; they are never killed.
+    void CancelRequests();
+    void SetCacheLimitMb(int megabytes);
+    int PendingCount() const { return m_pending.size(); }
+    int CacheCostKb() const { return m_cache.totalCost(); }
+    quint64 Generation() const { return m_generation->load(); }
 
     static constexpr int kImageSize = 256;
 
@@ -62,8 +71,9 @@ Q_SIGNALS:
 
 private:
     static QString keyOf(const QString &path, const QDateTime &modified, qint64 size);
-    void finished(const QString &key, const QString &path, const QImage &image);
+    void finished(const QString &key, const QString &path, const QImage &image, quint64 generation);
 
+    std::shared_ptr<std::atomic<quint64>> m_generation = std::make_shared<std::atomic<quint64>>(0);
     QThreadPool m_pool;
     QCache<QString, QImage> m_cache;
     QSet<QString> m_pending;

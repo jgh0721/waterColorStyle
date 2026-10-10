@@ -1,6 +1,8 @@
-#include "fmfilelist/ThumbnailPainter.h"
+﻿#include "fmfilelist/ThumbnailPainter.h"
 
 #include "fmfilelist/FileIconPainter.h"
+#include "fmfilelist/FileGroups.h"
+#include <QIcon>
 #include "ListPainting_p.h"
 
 #include <fmstyle/StylePaint.h>
@@ -212,6 +214,11 @@ void paintTile(QPainter *p, const QRect &rect, const QModelIndex &index, const T
     p->save();
     p->setRenderHint(QPainter::Antialiasing);
 
+    const auto Group = index.data(GroupStyleRole).value<ResolvedGroupStyle>();
+    if (!s.marked && !invCur) {
+        const auto Background = Group.background(tc.isDark());
+        if (Background && Background->isValid()) p->fillRect(tile, *Background);
+    }
     // 타일 바탕: 선택 = 타일 전체(역상 선택은 캡션만)
     if (s.marked && !invSel) {
         p->setPen(Qt::NoPen);
@@ -306,8 +313,12 @@ void paintTile(QPainter *p, const QRect &rect, const QModelIndex &index, const T
         // 미리보기 없음: 글리프(폴더 · 파일 = 크기 × .62, 상위 폴더 = 크기 × .46)
         const Kind kind = Kind(index.data(KindRole).toInt());
         const qreal g = std::round(ts * (kind == Kind::Up ? 0.46 : 0.62));
-        FileIconPainter::paint(p, QRectF(box.center().x() - g / 2.0, box.center().y() - g / 2.0, g, g), kind,
-                               tc[Token::Fg3], tc);
+        const auto Icon = index.data(Qt::DecorationRole).value<QIcon>();
+        if (!Icon.isNull() && kind != Kind::Folder && kind != Kind::Up) {
+            p->setRenderHint(QPainter::SmoothPixmapTransform);
+            p->drawPixmap(QRect(qRound(box.center().x() - g / 2.0), qRound(box.center().y() - g / 2.0), qRound(g), qRound(g)), Icon.pixmap(QSize(qRound(g), qRound(g))));
+        }
+        else FileIconPainter::paint(p, QRectF(box.center().x() - g / 2.0, box.center().y() - g / 2.0, g, g), kind, tc[Token::Fg3], tc);
     }
     p->restore();
 
@@ -344,8 +355,13 @@ void paintTile(QPainter *p, const QRect &rect, const QModelIndex &index, const T
         p->setBrush(captionFill);
         p->drawRoundedRect(QRectF(caption), wc ? 0 : 4, wc ? 0 : 4);
     }
-    const bool bold = !wc && s.marked && a.boldSelection;
-    const QFont nameFont = fm::style::pixelFont(baseFont, 12.5, bold ? QFont::DemiBold : QFont::Normal);
+    if (!s.marked && !invCur) {
+        const auto Foreground = Group.text(tc.isDark());
+        if (Foreground && Foreground->isValid()) nameColor = *Foreground;
+    }
+    const bool bold = (!wc && s.marked && a.boldSelection) || Group.bold;
+    QFont nameFont = fm::style::pixelFont(baseFont, 12.5, bold ? QFont::DemiBold : QFont::Normal);
+    nameFont.setItalic(Group.italic); nameFont.setUnderline(Group.underline); nameFont.setStrikeOut(Group.strike);
     const int textWidth = caption.width() - 8;
     const QStringList lines = wrapName(index.data(FullNameRole).toString(), nameFont, textWidth, a.nameLines);
     p->setFont(nameFont);

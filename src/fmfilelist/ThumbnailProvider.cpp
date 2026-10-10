@@ -1,4 +1,4 @@
-#include "fmfilelist/ThumbnailProvider.h"
+﻿#include "fmfilelist/ThumbnailProvider.h"
 
 #include "fmfilelist/FileRoles.h"
 
@@ -56,7 +56,7 @@ QImage makeThumbnail(const QString &path, ThumbnailProvider::Method method)
     const QString ext = QFileInfo(path).suffix();
     QImage image;
 #ifdef Q_OS_WIN
-    if (method != ThumbnailProvider::Method::Builtin && ThumbnailProvider::targetOf(ext) != 0)
+    if (image.isNull() && method != ThumbnailProvider::Method::Builtin && ThumbnailProvider::targetOf(ext) != 0)
         image = shellThumbnail(path, px);
 #endif
     if (image.isNull() && method != ThumbnailProvider::Method::Shell && isImageExtension(ext))
@@ -77,7 +77,7 @@ ThumbnailProvider::ThumbnailProvider(QObject *parent)
 
 ThumbnailProvider::~ThumbnailProvider()
 {
-    m_pool.clear();
+    CancelRequests();
     m_pool.waitForDone();
 }
 
@@ -88,35 +88,43 @@ QString ThumbnailProvider::keyOf(const QString &path, const QDateTime &modified,
 
 QImage ThumbnailProvider::thumbnail(const QString &path, const QDateTime &modified, qint64 size)
 {
+    if (!isTarget(QFileInfo(path).suffix())) return {};
     const QString key = keyOf(path, modified, size);
     if (const QImage *image = m_cache.object(key))
         return *image;
     if (m_skipSlow && isSlowVolume(path))
         return QImage();  // 네트워크 · 이동식 — 캐시에 없으면 종류 아이콘
-    if (m_pending.contains(key) || m_failed.contains(key))
-        return QImage();
+    // Painting requests visible tiles only. Bound the queue so old scroll positions
+    // cannot accumulate an unbounded backlog; the view repaints while work remains.
+    if (m_pending.contains(key) || m_failed.contains(key) || m_pending.size() >= 64)
+        return {};
     m_pending.insert(key);
     const Method method = m_method;
-    QPointer<ThumbnailProvider> self(this);
-    m_pool.start([self, key, path, method] {
+    const auto generation = m_generation;
+    const quint64 ticket = generation->load();
+    // Destruction cancels, then joins the pool before QObject is destroyed.
+    // The worker never reads GUI-owned containers; delivery belongs to this object.
+    m_pool.start([this, generation, ticket, key, path, method] {
+        if (generation->load() != ticket) return;
         const QImage image = makeThumbnail(path, method);
-        if (!self)
-            return;
-        QMetaObject::invokeMethod(self.data(), [self, key, path, image] {
-            if (self)
-                self->finished(key, path, image);
+        if (generation->load() != ticket) return;
+        QMetaObject::invokeMethod(this, [this, key, path, image, ticket] {
+            finished(key, path, image, ticket);
         }, Qt::QueuedConnection);
     });
-    return QImage();
+    return {};
 }
 
-void ThumbnailProvider::finished(const QString &key, const QString &path, const QImage &image)
+void ThumbnailProvider::finished(const QString &key, const QString &path, const QImage &image, quint64 generation)
 {
+    if (m_generation->load() != generation) return;
     m_pending.remove(key);
-    if (image.isNull())
+    if (image.isNull()) {
+        // Bounded negative cache; metadata revisions naturally use a new key.
+        if (m_failed.size() >= 4096) m_failed.clear();
         m_failed.insert(key);
-    else
-        m_cache.insert(key, new QImage(image), int(std::max<qsizetype>(1, image.sizeInBytes() / 1024)));
+    } else
+        m_cache.insert(key, new QImage(image), int(std::max<qsizetype>(1, (image.sizeInBytes() + 1023) / 1024)));
     Q_EMIT ready(path);
 }
 
@@ -134,6 +142,8 @@ void ThumbnailProvider::setMethod(Method method)
 {
     if (m_method == method)
         return;
+    CancelRequests();
+    m_cache.clear();
     m_method = method;
     m_failed.clear();  // 방법을 바꾸면 실패한 파일도 다시 시도한다
     Q_EMIT settingsChanged();
@@ -169,6 +179,7 @@ void ThumbnailProvider::setTargets(int targets)
 {
     if (m_targets == targets)
         return;
+    CancelRequests();
     m_targets = targets;
     Q_EMIT settingsChanged();
 }
@@ -177,6 +188,7 @@ void ThumbnailProvider::setSkipSlowVolumes(bool on)
 {
     if (m_skipSlow == on)
         return;
+    CancelRequests();
     m_skipSlow = on;
     Q_EMIT settingsChanged();
 }
@@ -204,8 +216,22 @@ bool ThumbnailProvider::isSlowVolume(const QString &path)
 
 void ThumbnailProvider::clearCache()
 {
+    CancelRequests();
     m_cache.clear();
     m_failed.clear();
+    Q_EMIT settingsChanged();
+}
+
+void ThumbnailProvider::CancelRequests()
+{
+    ++*m_generation;
+    m_pool.clear();
+    m_pending.clear();
+}
+
+void ThumbnailProvider::SetCacheLimitMb(int megabytes)
+{
+    m_cache.setMaxCost(std::clamp(megabytes, 4, 96) * 1024);
 }
 
 } // namespace fm::filelist

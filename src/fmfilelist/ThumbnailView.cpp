@@ -1,4 +1,4 @@
-#include "fmfilelist/ThumbnailView.h"
+﻿#include "fmfilelist/ThumbnailView.h"
 
 #include "fmfilelist/FileRoles.h"
 #include "fmfilelist/ThumbnailPainter.h"
@@ -104,6 +104,7 @@ ThumbnailListView::ThumbnailListView(QWidget *parent)
     setViewportMargins(8, 8, 8, 0);
     setAutoFillBackground(true);
     setBackgroundRole(QPalette::Base);
+    connect(this, &QListView::doubleClicked, this, &ThumbnailListView::rowActivated);
     updateGrid();
 }
 
@@ -201,7 +202,17 @@ void ThumbnailListView::keyPressEvent(QKeyEvent *event)
 void ThumbnailListView::mousePressEvent(QMouseEvent *event)
 {
     Q_EMIT paneActivated();
+    const auto index = indexAt(event->position().toPoint());
+    const int previous = cursorRow();
     QListView::mousePressEvent(event);
+    if (!index.isValid() || event->button() != Qt::LeftButton) return;
+    if (event->modifiers() & Qt::ControlModifier) toggleMark(model(), index.row());
+    else if (event->modifiers() & Qt::ShiftModifier) {
+        for (int row = std::min(previous, index.row()); row <= std::max(previous, index.row()); ++row) {
+            const auto item = model()->index(row, modelColumn());
+            if (!item.data(IsUpRole).toBool()) model()->setData(item, true, MarkedRole);
+        }
+    }
 }
 
 void ThumbnailListView::focusInEvent(QFocusEvent *event)
