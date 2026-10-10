@@ -482,6 +482,7 @@ void FmStyle::polish(QWidget *widget)
         widget->setFont(f);
         widget->setProperty(props::kStyledFont, true);
     }
+    polishItemView(widget);
     polishCalendarPart(widget);
 }
 
@@ -496,6 +497,7 @@ void FmStyle::unpolish(QWidget *widget)
     if (qobject_cast<QMenu *>(widget) && widget->isWindow())
         widget->setAttribute(Qt::WA_TranslucentBackground, false);
 #endif
+    unpolishItemView(widget);
     unpolishCalendarPart(widget);
     QProxyStyle::unpolish(widget);
 }
@@ -1281,6 +1283,14 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         if (const auto *f = qstyleoption_cast<const QStyleOptionFrame *>(option)) {
             if (f->lineWidth > 0) {
                 drawInputFrame(p, f->rect, f->state, tc, isInvalid(w));
+            } else if (isItemViewEditor(w)) {
+                // 항목 보기의 칸 편집기: 입력 바탕 + 강조색 1 px 테두리. 글자 자리는 칸과 같게 둔다.
+                p->fillRect(f->rect, tc[T::Field]);
+                p->save();
+                p->setPen(tc[T::Accent]);
+                p->setBrush(Qt::NoBrush);
+                p->drawRect(f->rect.adjusted(0, 0, -1, -1));
+                p->restore();
             } else {
                 // 스핀 · 콤보 상자 안의 편집기는 바깥 상자가 바탕을 이미 칠했다.
                 const QWidget *parent = w ? w->parentWidget() : nullptr;
@@ -1342,6 +1352,9 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
             }
             if (v->backgroundBrush.style() != Qt::NoBrush)
                 p->fillRect(v->rect, v->backgroundBrush);
+            // 마우스 올림: 목록 바탕에 글자색 4.5 %. 트리는 행 바탕(PE_PanelItemViewRow)과 같은 색을 겹쳐도 되게 불투명.
+            if (itemHover(v, w))
+                p->fillRect(v->rect, mix(v->palette.color(QPalette::Base), tc[T::Fg], 0.045));
         }
         return;
     case PE_PanelItemViewRow:
@@ -1349,8 +1362,38 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
             if ((v->state & State_Selected)
                 && proxy()->styleHint(SH_ItemView_ShowDecorationSelected, option, w))
                 p->fillRect(v->rect, paneActive(v, w) ? tc[T::Sel] : tc[T::SelIn]);
+            else if (itemHover(v, w))
+                p->fillRect(v->rect, mix(v->palette.color(QPalette::Base), tc[T::Fg], 0.045));
             else if (v->features & QStyleOptionViewItem::Alternate)
                 p->fillRect(v->rect, tc[T::Alt]);
+        }
+        return;
+    case PE_IndicatorItemViewItemDrop: {
+        // 끌어 놓기 위치: 항목 사이는 강조색 2 px 선(시작 쪽 작은 고리), 항목 위는 강조색 테두리 + 옅은 채움.
+        const QRect r = option->rect;
+        if (r.height() == 0 || r.width() == 0) {
+            const bool horizontal = r.height() == 0;
+            p->fillRect(horizontal ? QRect(r.left() + 6, r.top() - 1, std::max(0, r.width() - 6), 2)
+                                   : QRect(r.left() - 1, r.top() + 6, 2, std::max(0, r.height() - 6)),
+                        tc[T::Accent]);
+            p->save();
+            p->setRenderHint(QPainter::Antialiasing, true);
+            p->setPen(QPen(tc[T::Accent], 1.5));
+            p->setBrush(option->palette.base());
+            p->drawEllipse(horizontal ? QPointF(r.left() + 3, r.top()) : QPointF(r.left(), r.top() + 3), 2.75, 2.75);
+            p->restore();
+        } else {
+            fillRounded(p, crisp(r), kRadius, withAlpha(tc[T::Accent], 0.10));
+            strokeRounded(p, crisp(r, 1.5), kRadius, tc[T::Accent], 1.5);
+        }
+        return;
+    }
+    case PE_IndicatorColumnViewArrow:
+        // 열 보기의 하위 항목 표시 — 트리 가지와 같은 꺾쇠
+        if (const auto *v = qstyleoption_cast<const QStyleOptionViewItem *>(option)) {
+            const bool enabled = v->state & State_Enabled;
+            drawChevron(p, QRectF(v->rect).center(), 3.2, v->direction == Qt::RightToLeft ? Qt::LeftArrow : Qt::RightArrow,
+                        !enabled ? tc[T::Fg3] : (v->state & State_Selected) ? tc[T::Fg] : tc[T::Fg3]);
         }
         return;
 
@@ -1703,6 +1746,17 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
         p->restore();
         return;
     }
+    case CE_ColumnViewGrip: {
+        // 열 보기의 열 크기 손잡이: 목록 바탕에 짧은 세로줄 두 개
+        const QRect r = option->rect;
+        p->fillRect(r, option->palette.base());
+        const int h = std::max(4, r.height() * 2 / 5);
+        const int top = r.top() + (r.height() - h) / 2;
+        const int cx = r.center().x();
+        p->fillRect(QRect(cx - 1, top, 1, h), tc[T::Fg3]);
+        p->fillRect(QRect(cx + 2, top, 1, h), tc[T::Fg3]);
+        return;
+    }
     default:
         break;
     }
@@ -1898,13 +1952,8 @@ QRect FmStyle::subElementRect(SubElement element, const QStyleOption *option, co
 
     case SE_HeaderArrow:
         if (const auto *h = qstyleoption_cast<const QStyleOptionHeader *>(option)) {
-            // 목업: 정렬 꺾쇠는 이름 바로 뒤
-            const int margin = proxy()->pixelMetric(PM_HeaderMargin, option, w);
-            const int textWidth = option->fontMetrics.horizontalAdvance(h->text);
-            const QRect r = h->rect;
-            if (h->textAlignment & Qt::AlignRight)
-                return QRect(r.right() - margin - textWidth - 14, r.top(), 10, r.height());
-            return QRect(std::min(r.left() + margin + textWidth + 4, r.right() - 12), r.top(), 10, r.height());
+            // 목업: 정렬 꺾쇠는 이름 바로 뒤 (표 머리글은 가운데 맞춤이 기본)
+            return headerArrowRect(h, proxy()->pixelMetric(PM_HeaderMargin, option, w), h->rect.height());
         }
         break;
     case SE_HeaderLabel: {
@@ -2309,6 +2358,15 @@ QIcon FmStyle::standardIcon(StandardPixmap standardIcon, const QStyleOption *opt
     if (QIcon icon = themedStandardIcon(standardIcon, w, false); !icon.isNull())
         return icon;
     return QProxyStyle::standardIcon(standardIcon, option, w);
+}
+
+QPixmap FmStyle::generatedIconPixmap(QIcon::Mode iconMode, const QPixmap &pixmap, const QStyleOption *option) const
+{
+    // 선택한 항목의 아이콘은 그대로 — Qt 기본은 강조색을 30 % 덮어 목록 아이콘이 파랗게 물든다
+    // (선택해도 글자색을 바꾸지 않는 목록 규칙과 어긋남).
+    if (iconMode == QIcon::Selected)
+        return pixmap;
+    return QProxyStyle::generatedIconPixmap(iconMode, pixmap, option);
 }
 
 int FmStyle::styleHint(StyleHint hint, const QStyleOption *option, const QWidget *w,

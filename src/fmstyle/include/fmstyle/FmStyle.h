@@ -10,7 +10,8 @@ class ThemeColors;
 /// 크기 · 모서리 · 상태 표현은 디자인 목업을 따른다.
 ///
 /// 직접 그리는 것: 버튼(보통 · 기본 · 위험 · 투명 · 세그먼트), 도구 버튼, 입력 · 콤보 · 스핀 상자,
-/// 체크 상자 · 라디오 · 스위치, 탭(네 방향 · 닫기 단추), 머리글, 목록 선택 · 커서, 스크롤 막대, 진행 막대,
+/// 체크 상자 · 라디오 · 스위치, 탭(네 방향 · 닫기 단추), 머리글, 항목 보기(선택 · 커서 · 마우스 올림 ·
+/// 끌어 놓기 표시 · 칸 편집기 · 열 보기, 선택 아이콘은 물들이지 않음), 스크롤 막대, 진행 막대,
 /// 슬라이더 · 다이얼, 도구 상자, 메뉴, 메뉴 막대, 도구 설명, 카드 · 그룹 상자, 분할선, MDI 제목 표시줄 ·
 /// 단추 묶음, 창 단추 · 화살표 표준 아이콘. 나머지는 Fusion이 팔레트로 그린다.
 class FmStyle : public QProxyStyle
@@ -58,6 +59,8 @@ public:
                   QStyleHintReturn *returnData = nullptr) const override;
     QIcon standardIcon(StandardPixmap standardIcon, const QStyleOption *option = nullptr,
                        const QWidget *widget = nullptr) const override;
+    QPixmap generatedIconPixmap(QIcon::Mode iconMode, const QPixmap &pixmap,
+                                const QStyleOption *option) const override;
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;

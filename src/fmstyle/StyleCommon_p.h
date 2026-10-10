@@ -4,6 +4,7 @@
 
 #include "fmstyle/StyleProps.h"
 
+#include <QAbstractItemView>
 #include <QAbstractScrollArea>
 #include <QRegularExpression>
 #include <QCheckBox>
@@ -13,6 +14,8 @@
 #include <QStyleOption>
 #include <QVariant>
 #include <QWidget>
+
+#include <algorithm>
 
 namespace fm::style::detail {
 
@@ -143,6 +146,35 @@ inline bool paneActive(const QStyleOption *option, const QWidget *w)
         return true;
     const QWidget *painting = paintingWidget(w);
     return painting->hasFocus() || painting->isAncestorOf(painting->window()->focusWidget());
+}
+
+/// 항목 보기의 마우스 올림을 그릴 위젯 — 보이는 Qt 항목 보기만. Qtitan 그리드는 숨은 대리 보기를 넘기고
+/// 마우스 올림을 따로 그리므로 제외한다.
+inline bool itemHover(const QStyleOption *option, const QWidget *w)
+{
+    return (option->state & QStyle::State_MouseOver) && (option->state & QStyle::State_Enabled)
+        && qobject_cast<const QAbstractItemView *>(w) && !w->isHidden();
+}
+
+/// 항목 보기의 칸 편집기(위임자가 만든 테두리 없는 입력) — 부모가 보기의 viewport.
+inline bool isItemViewEditor(const QWidget *w)
+{
+    const QWidget *parent = w ? w->parentWidget() : nullptr;
+    const auto *view = parent ? qobject_cast<const QAbstractItemView *>(parent->parentWidget()) : nullptr;
+    return view && view->viewport() == parent;
+}
+
+/// 머리글 정렬 표시 자리 — 이름 바로 뒤(가운데 맞춤이면 가운데 놓인 이름 뒤), 오른쪽 맞춤이면 이름 앞.
+inline QRect headerArrowRect(const QStyleOptionHeader *h, int margin, int height)
+{
+    const int textWidth = h->fontMetrics.horizontalAdvance(h->text);
+    const QRect r = h->rect;
+    if (h->textAlignment & Qt::AlignRight)
+        return QRect(r.right() - margin - textWidth - 14, r.top(), 10, height);
+    int textRight = r.left() + margin + textWidth;
+    if (h->textAlignment & Qt::AlignHCenter)
+        textRight = r.left() + margin + (r.width() - 2 * margin + textWidth) / 2;
+    return QRect(std::min(textRight + 4, r.right() - 12), r.top(), 10, height);
 }
 
 inline QRectF crisp(const QRect &r, qreal width = 1.0)

@@ -6,8 +6,10 @@
 #include "fmstyle/WatercolorChrome.h"
 #include "fmstyle/WatercolorStyle.h"
 
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QCalendarWidget>
+#include <QHeaderView>
 #include <QIconEngine>
 #include <QPainter>
 #include <QPainterPath>
@@ -441,6 +443,41 @@ QList<DialNotch> dialNotches(const QStyleOptionSlider *dial)
         out.append({angle, i == 0 || (ns * i) % page == 0});
     }
     return out;
+}
+
+// =============================================================================================
+// 항목 보기
+
+namespace {
+
+constexpr char kHoverByStyle[] = "fmViewportHoverByStyle";
+
+QWidget *itemViewViewport(QWidget *widget)
+{
+    auto *view = qobject_cast<QAbstractItemView *>(widget);
+    if (!view || qobject_cast<QHeaderView *>(widget))
+        return nullptr;
+    return view->viewport();
+}
+
+} // namespace
+
+void polishItemView(QWidget *widget)
+{
+    QWidget *viewport = itemViewViewport(widget);
+    if (!viewport || viewport->testAttribute(Qt::WA_Hover))
+        return;
+    viewport->setAttribute(Qt::WA_Hover, true);
+    widget->setProperty(kHoverByStyle, true);
+}
+
+void unpolishItemView(QWidget *widget)
+{
+    QWidget *viewport = itemViewViewport(widget);
+    if (!viewport || !widget->property(kHoverByStyle).toBool())
+        return;
+    viewport->setAttribute(Qt::WA_Hover, false);
+    widget->setProperty(kHoverByStyle, QVariant());
 }
 
 // =============================================================================================

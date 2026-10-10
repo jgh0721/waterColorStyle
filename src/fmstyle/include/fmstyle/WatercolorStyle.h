@@ -12,7 +12,8 @@ class ThemeColors;
 /// 색은 테마 토큰(워터컬러 값) + 워터컬러 입체 색(WatercolorChrome)에서 가져온다.
 ///
 /// 직접 그리는 것: 입체 버튼(보통 · 기본 · 위험 · 투명 · 토글 묶음), 도구 버튼, 들어간 입력 · 콤보 · 스핀 상자,
-/// 체크 상자 · 라디오 · 스위치, 탭(네 방향 · 닫기 단추), 머리글, 목록 선택 · 점선 커서, 화살표 단추가 있는
+/// 체크 상자 · 라디오 · 스위치, 탭(네 방향 · 닫기 단추), 머리글, 항목 보기(선택 · 점선 커서 · 마우스 올림 ·
+/// 트리 점선 · 끌어 놓기 표시 · 칸 편집기 · 열 보기, 선택 아이콘은 물들이지 않음), 화살표 단추가 있는
 /// 스크롤 막대, 블록 진행 막대, 트랙 막대 · 다이얼, 도구 상자, 메뉴 · 메뉴 막대, 노란 도구 설명,
 /// 카드 · 그룹 상자 · 틀, 도구 모음, 상태 표시줄 칸, MDI 제목 표시줄 · 단추 묶음, 창 단추 · 화살표 표준 아이콘.
 /// 나머지는 Fusion이 팔레트로 그린다.
@@ -64,6 +65,8 @@ public:
                   QStyleHintReturn *returnData = nullptr) const override;
     QIcon standardIcon(StandardPixmap standardIcon, const QStyleOption *option = nullptr,
                        const QWidget *widget = nullptr) const override;
+    QPixmap generatedIconPixmap(QIcon::Mode iconMode, const QPixmap &pixmap,
+                                const QStyleOption *option) const override;
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;

@@ -4,10 +4,11 @@
 //   fmstyle_gallery --shot gallery.png    스크린샷을 저장하고 끝냄 (QT_QPA_PLATFORM=offscreen 가능)
 //   fmstyle_gallery --accent "#0F7A6E"    강조색을 바꿔 파생 규칙 확인
 //   fmstyle_gallery --parts               대화상자 부품 구역만
-//   fmstyle_gallery --qt-widgets          Qt 표준 위젯 구역만 (탭 네 방향 · 슬라이더 · 다이얼 · 도구 상자 · 달력 · 도크 · MDI)
+//   fmstyle_gallery --qt-widgets          Qt 표준 위젯 구역만 (탭 네 방향 · 슬라이더 · 다이얼 · 도구 상자 · 달력 · 도크 · MDI · 항목 보기)
 //   fmstyle_gallery --dark-tone navy      시안2 다크를 남색으로
 
 #include <fmstyle/FmStyle.h>
+#include <fmstyle/Glyphs.h>
 #include <fmstyle/StyleProps.h>
 #include <fmstyle/ThemeManager.h>
 #include <fmwidgets/Banner.h>
@@ -30,6 +31,7 @@
 #include <QButtonGroup>
 #include <QCalendarWidget>
 #include <QCheckBox>
+#include <QColumnView>
 #include <QComboBox>
 #include <QCommandLineParser>
 #include <QDateEdit>
@@ -42,6 +44,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMainWindow>
 #include <QMdiArea>
 #include <QMdiSubWindow>
@@ -58,9 +61,12 @@
 #include <QScrollBar>
 #include <QSlider>
 #include <QSpinBox>
+#include <QStandardItemModel>
+#include <QStyledItemDelegate>
 #include <QStatusBar>
 #include <QStylePainter>
 #include <QTabBar>
+#include <QTableWidget>
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolBar>
@@ -1283,6 +1289,196 @@ QWidget *qtWindowSection(const fs::ThemeColors &tc)
     return box;
 }
 
+// 한 줄을 마우스 올림 모양으로 — 마우스 올림은 커서가 있을 때만 생기므로 갤러리에서는 상태를 더해 보인다.
+class HoverRowDelegate : public QStyledItemDelegate
+{
+public:
+    HoverRowDelegate(int row, QObject *parent)
+        : QStyledItemDelegate(parent)
+        , m_row(row)
+    {
+    }
+
+    void paint(QPainter *p, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        QStyleOptionViewItem o(option);
+        if (index.row() == m_row)
+            o.state |= QStyle::State_MouseOver;
+        QStyledItemDelegate::paint(p, o, index);
+    }
+
+private:
+    int m_row;
+};
+
+// 끌어 놓기 위치 표시(PE_IndicatorItemViewItemDrop) — 끌고 있을 때만 보이므로 보기와 같은 방식으로 직접 그린다.
+// 위는 항목 사이(높이 0 = 선), 아래는 항목 위(사각형).
+class DropIndicatorPreview : public QWidget
+{
+public:
+    DropIndicatorPreview() { setFixedHeight(64); }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.fillRect(rect(), palette().base());
+        p.setPen(palette().color(QPalette::Text));
+        p.drawText(QRect(10, 4, width() - 20, 20), Qt::AlignVCenter, u"보고서.pdf"_s);
+        p.drawText(QRect(10, 36, width() - 20, 20), Qt::AlignVCenter, u"사진"_s);
+        p.setPen(QPen());  // 보기의 painter처럼 기본 펜
+        QStyleOption opt;
+        opt.initFrom(this);
+        opt.rect = QRect(6, 28, width() - 12, 0);
+        style()->drawPrimitive(QStyle::PE_IndicatorItemViewItemDrop, &opt, &p, this);
+        opt.rect = QRect(6, 36, width() - 12, 20);
+        style()->drawPrimitive(QStyle::PE_IndicatorItemViewItemDrop, &opt, &p, this);
+    }
+};
+
+// 항목 보기 — 표(가로 · 세로 머리글, 모서리 단추, 격자, 교차 행, 체크, 아이콘, 정렬 표시, 행 선택, 셀 편집기) ·
+// 트리(펼침 · 체크) · 목록(체크 · 사용 안 함) · 아이콘 모드(선택한 아이콘) · 열 보기(화살표 · 크기 손잡이) ·
+// 끌어 놓기 표시.
+QWidget *qtItemViewsSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"Qt 표준 위젯 — 항목 보기 (표 · 트리 · 목록 · 아이콘 모드 · 열 보기)"_s);
+    auto *grid = new QGridLayout(box);
+    grid->setContentsMargins(14, 12, 14, 14);
+    grid->setHorizontalSpacing(14);
+    grid->setVerticalSpacing(6);
+
+    const QIcon folder = folderIcon(tc[fs::Token::Folder]);
+    const QIcon doc = fileIcon(tc[fs::Token::Fg3], tc[fs::Token::KDoc]);
+    const QIcon image = fileIcon(tc[fs::Token::Fg3], tc[fs::Token::KImg]);
+
+    auto *table = new QTableWidget(5, 3);
+    table->setHorizontalHeaderLabels({u"이름"_s, u"크기"_s, u"종류"_s});
+    table->setAlternatingRowColors(true);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->horizontalHeader()->setStretchLastSection(true);
+    table->horizontalHeader()->setSortIndicatorShown(true);
+    table->horizontalHeader()->setSortIndicator(1, Qt::DescendingOrder);
+    struct Row { QString name; QString size; QString kind; Qt::CheckState check; int icon; };
+    const Row rows[] = {
+        {u"문서"_s, u"—"_s, u"폴더"_s, Qt::Unchecked, 0},
+        {u"보고서.pdf"_s, u"2.4 MB"_s, u"PDF"_s, Qt::Checked, 1},
+        {u"사진_001.jpg"_s, u"5.1 MB"_s, u"JPEG"_s, Qt::PartiallyChecked, 2},
+        {u"메모.txt"_s, u"3 KB"_s, u"텍스트"_s, Qt::Unchecked, 1},
+        {u"백업.zip"_s, u"128 MB"_s, u"압축"_s, Qt::Unchecked, 1},
+    };
+    for (int r = 0; r < 5; ++r) {
+        auto *name = new QTableWidgetItem(rows[r].icon == 0 ? folder : rows[r].icon == 2 ? image : doc, rows[r].name);
+        name->setCheckState(rows[r].check);
+        table->setItem(r, 0, name);
+        auto *size = new QTableWidgetItem(rows[r].size);
+        size->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        table->setItem(r, 1, size);
+        table->setItem(r, 2, new QTableWidgetItem(rows[r].kind));
+    }
+    table->resizeColumnToContents(0);
+    table->selectRow(1);
+    table->setItemDelegate(new HoverRowDelegate(0, table));
+    table->openPersistentEditor(table->item(3, 2));
+    table->resizeRowsToContents();
+    table->setFixedHeight(table->horizontalHeader()->sizeHint().height() + 5 * table->rowHeight(0) + 4);
+    grid->addWidget(caption(u"표 — 가운데 맞춤 머리글의 정렬 표시 · 첫 줄 마우스 올림 · '종류' 칸 편집 중"_s, tc),
+                    0, 0, 1, 2);
+    grid->addWidget(table, 1, 0, 1, 2);
+
+    auto *tree = new QTreeWidget;
+    tree->setHeaderLabels({u"이름"_s, u"크기"_s});
+    tree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    tree->header()->setStretchLastSection(false);
+    tree->header()->resizeSection(1, 64);
+    auto *root = new QTreeWidgetItem(tree, {u"D:\\Work"_s, QString()});
+    root->setIcon(0, folder);
+    auto *src = new QTreeWidgetItem(root, {u"src"_s, QString()});
+    src->setIcon(0, folder);
+    for (const QString &n : {u"main.cpp"_s, u"style.cpp"_s}) {
+        auto *f = new QTreeWidgetItem(src, {n, u"12 KB"_s});
+        f->setIcon(0, doc);
+        f->setCheckState(0, n == u"main.cpp" ? Qt::Checked : Qt::Unchecked);
+    }
+    auto *docs = new QTreeWidgetItem(root, {u"docs"_s, QString()});
+    docs->setIcon(0, folder);
+    new QTreeWidgetItem(docs, {u"PLAN.md"_s, u"40 KB"_s});
+    auto *other = new QTreeWidgetItem(tree, {u"E:\\Backup"_s, QString()});
+    other->setIcon(0, folder);
+    new QTreeWidgetItem(other, {u"2026-09"_s, QString()});
+    root->setExpanded(true);
+    src->setExpanded(true);
+    tree->setCurrentItem(src->child(1));
+    tree->setFixedHeight(190);
+
+    auto *list = new QListWidget;
+    for (const QString &n : {u"보고서.pdf"_s, u"사진_001.jpg"_s, u"메모.txt"_s, u"백업.zip"_s, u"잠긴 파일"_s}) {
+        auto *it = new QListWidgetItem(n == u"사진_001.jpg" ? image : doc, n, list);
+        if (n == u"메모.txt") {
+            it->setFlags(it->flags() | Qt::ItemIsUserCheckable);
+            it->setCheckState(Qt::Checked);
+        }
+        if (n == u"잠긴 파일")
+            it->setFlags(it->flags() & ~Qt::ItemIsEnabled);
+    }
+    list->setCurrentRow(1);
+    list->setItemDelegate(new HoverRowDelegate(3, list));
+    list->setFixedHeight(190);
+    grid->addWidget(caption(u"트리 — 펼침 · 체크 · 현재 항목 선택"_s, tc), 2, 0);
+    grid->addWidget(caption(u"목록 — 체크 · 넷째 줄 마우스 올림 · 사용 안 함(마지막)"_s, tc), 2, 1);
+    grid->addWidget(tree, 3, 0);
+    grid->addWidget(list, 3, 1);
+
+    auto *icons = new QListWidget;
+    icons->setViewMode(QListView::IconMode);
+    icons->setIconSize(QSize(32, 32));
+    icons->setGridSize(QSize(84, 70));
+    icons->setResizeMode(QListView::Adjust);
+    icons->setMovement(QListView::Static);
+    const QColor fileLine = tc[fs::Token::Fg3];
+    for (const QString &n : {u"문서"_s, u"사진"_s, u"보고서.pdf"_s, u"사진_001.jpg"_s}) {
+        const bool dir = n == u"문서" || n == u"사진";
+        const QIcon icon = dir ? fs::glyphIcon(fs::Glyph::Folder, tc[fs::Token::Folder], 32)
+                               : fs::glyphIcon(fs::Glyph::File, fileLine, 32,
+                                               tc[n.endsWith(u".jpg") ? fs::Token::KImg : fs::Token::KPdf]);
+        new QListWidgetItem(icon, n, icons);
+    }
+    icons->item(0)->setSelected(true);
+    icons->item(2)->setSelected(true);
+    icons->setFixedHeight(170);
+
+    auto *model = new QStandardItemModel(box);
+    QStandardItem *selectedChild = nullptr;
+    for (const QString &top : {u"C:\\"_s, u"D:\\"_s, u"E:\\"_s}) {
+        auto *item = new QStandardItem(folder, top);
+        for (const QString &child : {u"Program Files"_s, u"Users"_s, u"Windows"_s}) {
+            auto *c = new QStandardItem(folder, child);
+            c->appendRow(new QStandardItem(doc, u"readme.txt"_s));
+            item->appendRow(c);
+            if (top == u"C:\\" && child == u"Users")
+                selectedChild = c;
+        }
+        model->appendRow(item);
+    }
+    auto *columns = new QColumnView;
+    columns->setModel(model);
+    columns->setColumnWidths({90, 110, 110});
+    columns->setCurrentIndex(model->indexFromItem(selectedChild));
+    columns->setFixedHeight(150);
+
+    auto *right = new QVBoxLayout;
+    right->setSpacing(6);
+    right->addWidget(columns);
+    right->addWidget(caption(u"끌어 놓기 표시 — 항목 사이(선) · 항목 위(사각형)"_s, tc));
+    right->addWidget(new DropIndicatorPreview);
+    grid->addWidget(caption(u"아이콘 모드 — 첫째 · 셋째 선택"_s, tc), 4, 0);
+    grid->addWidget(caption(u"열 보기 — 하위가 있는 항목의 화살표 · 열 크기 손잡이"_s, tc), 4, 1);
+    grid->addWidget(icons, 5, 0, Qt::AlignTop);
+    grid->addLayout(right, 5, 1);
+    grid->setColumnStretch(0, 1);
+    grid->setColumnStretch(1, 1);
+    return box;
+}
+
 // --parts: 대화상자 부품 구역만 (목업 대조용)
 bool g_partsOnly = false;
 // --qt-widgets: Qt 표준 위젯 구역만
@@ -1313,6 +1509,7 @@ QWidget *buildTile(fs::Variant variant)
         v->addWidget(qtTabsSection(tc));
         v->addWidget(qtRangesSection(tc));
         v->addWidget(qtWindowSection(tc));
+        v->addWidget(qtItemViewsSection(tc));
         v->addStretch(1);
         return tile;
     }
@@ -1328,6 +1525,7 @@ QWidget *buildTile(fs::Variant variant)
     v->addWidget(qtTabsSection(tc));
     v->addWidget(qtRangesSection(tc));
     v->addWidget(qtWindowSection(tc));
+    v->addWidget(qtItemViewsSection(tc));
     v->addStretch(1);
     return tile;
 }

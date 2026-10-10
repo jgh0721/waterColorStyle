@@ -500,6 +500,7 @@ void WatercolorStyle::polish(QWidget *widget)
         widget->setFont(f);
         widget->setProperty(props::kStyledFont, true);
     }
+    polishItemView(widget);
     polishCalendarPart(widget);
 }
 
@@ -510,6 +511,7 @@ void WatercolorStyle::unpolish(QWidget *widget)
         widget->setFont(QFont());
         widget->setAttribute(Qt::WA_SetFont, false);
     }
+    unpolishItemView(widget);
     unpolishCalendarPart(widget);
     QProxyStyle::unpolish(widget);
 }
@@ -1401,19 +1403,38 @@ void drawInnerButton(QPainter *p, const QRect &r, const X &x, bool enabled, bool
            enabled ? x.out : x.disLine);
 }
 
-// 트리의 가지 표시: 9 × 9 상자에 + / − (XP 방식)
-void drawBranch(QPainter *p, const QRect &rect, QStyle::State s, const ThemeColors &tc, const X &x)
+// 트리의 가지 표시(XP 방식): 점선 연결선 + 하위가 있으면 9 × 9 상자에 + / −.
+// 선은 QWindowsStyle과 같은 규칙 — 항목이면 가운데에서 바깥쪽 가로선, 아래 형제가 있으면 아래로 이어지는 세로선,
+// 위로는 언제나 가운데(상자가 있으면 상자 위)까지.
+void drawBranch(QPainter *p, const QRect &rect, QStyle::State s, Qt::LayoutDirection direction, const ThemeColors &tc)
 {
-    if (!(s & QStyle::State_Children))
+    constexpr int kBox = 9;
+    const bool children = s & QStyle::State_Children;
+    const int midH = rect.x() + rect.width() / 2;
+    const int midV = rect.y() + rect.height() / 2;
+    const int half = children ? kBox / 2 : 0;
+    // 선 · 상자 테두리는 보조 글자색 — 입체 그림자색(lo)은 다크 바탕에서 보이지 않는다.
+    const QColor line = tc[T::Fg3];
+    const QBrush dotted(line, Qt::Dense4Pattern);
+    if (s & QStyle::State_Item) {
+        if (direction == Qt::RightToLeft)
+            p->fillRect(QRect(rect.left(), midV, midH - half - rect.left(), 1), dotted);
+        else
+            p->fillRect(QRect(midH + half, midV, rect.right() - midH - half + 1, 1), dotted);
+    }
+    if (s & QStyle::State_Sibling)
+        p->fillRect(QRect(midH, midV + half, 1, rect.bottom() - midV - half + 1), dotted);
+    if (s & (QStyle::State_Open | QStyle::State_Children | QStyle::State_Item | QStyle::State_Sibling))
+        p->fillRect(QRect(midH, rect.y(), 1, midV - half - rect.y()), dotted);
+    if (!children)
         return;
-    QRect b(0, 0, 9, 9);
-    b.moveCenter(rect.center());
+    const QRect b(midH - half, midV - half, kBox, kBox);
     p->fillRect(b, tc[T::Field]);
-    outline(p, b, x.lo);
+    outline(p, b, line);
     const QColor sign = tc[T::Fg];
-    hLine(p, b.left() + 2, b.right() - 2, b.center().y(), sign);
+    hLine(p, b.left() + 2, b.right() - 2, midV, sign);
     if (!(s & QStyle::State_Open))
-        vLine(p, b.center().x(), b.top() + 2, b.bottom() - 2, sign);
+        vLine(p, midH, b.top() + 2, b.bottom() - 2, sign);
 }
 
 } // namespace
@@ -1449,6 +1470,10 @@ void WatercolorStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
         if (const auto *f = qstyleoption_cast<const QStyleOptionFrame *>(option)) {
             if (f->lineWidth > 0) {
                 drawInputFrame(p, f->rect, f->state, tc, x, isInvalid(w));
+            } else if (isItemViewEditor(w)) {
+                // 항목 보기의 칸 편집기: 입력 바탕 + 강조색 1 px 테두리. 글자 자리는 칸과 같게 둔다.
+                p->fillRect(f->rect, tc[T::Field]);
+                outline(p, f->rect, tc[T::Accent]);
             } else {
                 // 스핀 · 콤보 상자 안의 편집기는 바깥 상자가 바탕을 이미 칠했다.
                 const QWidget *parent = w ? w->parentWidget() : nullptr;
@@ -1498,7 +1523,7 @@ void WatercolorStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
         }
         return;
     case PE_IndicatorBranch:
-        drawBranch(p, option->rect, option->state, tc, x);
+        drawBranch(p, option->rect, option->state, option->direction, tc);
         return;
 
     case PE_PanelItemViewItem:
@@ -1509,6 +1534,9 @@ void WatercolorStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
             }
             if (v->backgroundBrush.style() != Qt::NoBrush)
                 p->fillRect(v->rect, v->backgroundBrush);
+            // 마우스 올림(XP 핫 트래킹): 목록 바탕에 강조색 12 %. 트리 행 바탕과 겹쳐도 되게 불투명.
+            if (itemHover(v, w))
+                p->fillRect(v->rect, mix(v->palette.color(QPalette::Base), tc[T::Accent], 0.12));
         }
         return;
     case PE_PanelItemViewRow:
@@ -1516,8 +1544,34 @@ void WatercolorStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
             if ((v->state & State_Selected)
                 && proxy()->styleHint(SH_ItemView_ShowDecorationSelected, option, w))
                 p->fillRect(v->rect, paneActive(v, w) ? tc[T::Sel] : tc[T::SelIn]);
+            else if (itemHover(v, w))
+                p->fillRect(v->rect, mix(v->palette.color(QPalette::Base), tc[T::Accent], 0.12));
             else if (v->features & QStyleOptionViewItem::Alternate)
                 p->fillRect(v->rect, tc[T::Alt]);
+        }
+        return;
+    case PE_IndicatorItemViewItemDrop: {
+        // 끌어 놓기 위치: 항목 사이는 강조색 2 px 선 + 양 끝 세로 막대(XP), 항목 위는 강조색 2 px 테두리.
+        const QRect r = option->rect;
+        if (r.height() == 0) {
+            p->fillRect(QRect(r.left(), r.top() - 1, r.width(), 2), tc[T::Accent]);
+            p->fillRect(QRect(r.left(), r.top() - 3, 2, 6), tc[T::Accent]);
+            p->fillRect(QRect(r.right() - 1, r.top() - 3, 2, 6), tc[T::Accent]);
+        } else if (r.width() == 0) {
+            p->fillRect(QRect(r.left() - 1, r.top(), 2, r.height()), tc[T::Accent]);
+            p->fillRect(QRect(r.left() - 3, r.top(), 6, 2), tc[T::Accent]);
+            p->fillRect(QRect(r.left() - 3, r.bottom() - 1, 6, 2), tc[T::Accent]);
+        } else {
+            outline(p, r, tc[T::Accent]);
+            outline(p, r.adjusted(1, 1, -1, -1), tc[T::Accent]);
+        }
+        return;
+    }
+    case PE_IndicatorColumnViewArrow:
+        // 열 보기의 하위 항목 표시 — 채운 삼각형
+        if (const auto *v = qstyleoption_cast<const QStyleOptionViewItem *>(option)) {
+            triangle(p, QRectF(v->rect).center(), 7, v->direction == Qt::RightToLeft ? Qt::LeftArrow : Qt::RightArrow,
+                     (v->state & State_Enabled) ? tc[T::Fg] : x.disFg);
         }
         return;
 
@@ -1866,6 +1920,19 @@ void WatercolorStyle::drawControl(ControlElement element, const QStyleOption *op
         p->drawRect(option->rect.adjusted(0, 0, -1, -1));
         p->restore();
         return;
+    case CE_ColumnViewGrip: {
+        // 열 보기의 열 크기 손잡이: 입체 칸에 새긴 세로줄 두 개
+        const QRect r = option->rect;
+        raised(p, r, x, Look::Normal, x.out);
+        const int h = std::max(4, r.height() * 2 / 5);
+        const int top = r.top() + (r.height() - h) / 2;
+        const int cx = r.center().x();
+        for (const int xx : {cx - 2, cx + 1}) {
+            vLine(p, xx, top, top + h - 1, x.lo);
+            vLine(p, xx + 1, top, top + h - 1, x.hi);
+        }
+        return;
+    }
     default:
         break;
     }
@@ -2030,13 +2097,8 @@ QRect WatercolorStyle::subElementRect(SubElement element, const QStyleOption *op
 
     case SE_HeaderArrow:
         if (const auto *h = qstyleoption_cast<const QStyleOptionHeader *>(option)) {
-            // 목업: 정렬 화살표는 이름 바로 뒤
-            const int margin = proxy()->pixelMetric(PM_HeaderMargin, option, w);
-            const int textWidth = option->fontMetrics.horizontalAdvance(h->text);
-            const QRect r = h->rect;
-            if (h->textAlignment & Qt::AlignRight)
-                return QRect(r.right() - margin - textWidth - 14, r.top(), 10, r.height() - 1);
-            return QRect(std::min(r.left() + margin + textWidth + 4, r.right() - 12), r.top(), 10, r.height() - 1);
+            // 목업: 정렬 화살표는 이름 바로 뒤 (표 머리글은 가운데 맞춤이 기본)
+            return headerArrowRect(h, proxy()->pixelMetric(PM_HeaderMargin, option, w), h->rect.height() - 1);
         }
         break;
     case SE_HeaderLabel: {
@@ -2458,6 +2520,15 @@ QIcon WatercolorStyle::standardIcon(StandardPixmap standardIcon, const QStyleOpt
     if (QIcon icon = themedStandardIcon(standardIcon, w, true); !icon.isNull())
         return icon;
     return QProxyStyle::standardIcon(standardIcon, option, w);
+}
+
+QPixmap WatercolorStyle::generatedIconPixmap(QIcon::Mode iconMode, const QPixmap &pixmap,
+                                             const QStyleOption *option) const
+{
+    // 선택한 항목의 아이콘은 그대로 — Qt 기본은 강조색을 30 % 덮어 목록 아이콘이 파랗게 물든다.
+    if (iconMode == QIcon::Selected)
+        return pixmap;
+    return QProxyStyle::generatedIconPixmap(iconMode, pixmap, option);
 }
 
 int WatercolorStyle::styleHint(StyleHint hint, const QStyleOption *option, const QWidget *w,

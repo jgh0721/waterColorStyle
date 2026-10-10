@@ -81,6 +81,13 @@ struct DialNotch
 };
 QList<DialNotch> dialNotches(const QStyleOptionSlider *dial);
 
+// ------------------------------------------------------------------------------------- 항목 보기
+
+/// 항목 보기의 보기 영역(viewport)에 Hover 이벤트를 켠다 — 그래야 Qt가 항목에 State_MouseOver를 넘긴다.
+/// 앱이 이미 켠 경우는 건드리지 않고, unpolish는 스타일이 켠 것만 끈다.
+void polishItemView(QWidget *widget);
+void unpolishItemView(QWidget *widget);
+
 // ------------------------------------------------------------------------------------- 달력
 
 /// QCalendarWidget — 내비게이션 줄을 강조색 띠 대신 날짜 칸 바탕으로, Qt 기본 주말 빨간 글자를 일반 글자로.
