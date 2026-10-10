@@ -1,11 +1,15 @@
 #include "fmstyle/Glyphs.h"
 
 #include "fmstyle/ThemeColors.h"
+#include "fmstyle/ThemeManager.h"
 
 #include <QCache>
+#include <QIconEngine>
 #include <QPainter>
 #include <QPixmap>
+#include <QPointer>
 #include <QSvgRenderer>
+#include <QWidget>
 
 #include <array>
 
@@ -199,6 +203,66 @@ QIcon glyphIcon(Glyph glyph, const GlyphStateColors &colors, int px)
 QIcon shieldIcon(const ThemeColors &colors, int px)
 {
     return glyphIcon(Glyph::Shield, colors[Token::Shield], px, colors[Token::Shield2]);
+}
+
+namespace {
+
+/// 그릴 때 위젯(없으면 앱)의 테마 색을 읽는 글리프 아이콘.
+class ThemedGlyphEngine final : public QIconEngine
+{
+public:
+    ThemedGlyphEngine(Glyph glyph, const QWidget *widget)
+        : m_glyph(glyph)
+        , m_widget(const_cast<QWidget *>(widget))
+        , m_hasWidget(widget != nullptr)
+    {
+    }
+
+    void paint(QPainter *painter, const QRect &rect, QIcon::Mode mode, QIcon::State) override
+    {
+        const ThemeColors &tc = m_hasWidget && m_widget ? themeColorsFor(m_widget) : ThemeManager::instance().colors();
+        if (m_glyph == Glyph::Shield) {
+            paintGlyph(painter, m_glyph, QRectF(rect), tc[Token::Shield], tc[Token::Shield2]);
+            return;
+        }
+        const QColor color = mode == QIcon::Disabled                              ? tc[Token::Fg3]
+                           : (mode == QIcon::Active || mode == QIcon::Selected) ? tc[Token::Fg]
+                                                                                 : tc[Token::Fg2];
+        paintGlyph(painter, m_glyph, QRectF(rect), color);
+    }
+
+    QPixmap pixmap(const QSize &size, QIcon::Mode mode, QIcon::State state) override
+    {
+        return scaledPixmap(size, mode, state, 1.0);
+    }
+
+    QPixmap scaledPixmap(const QSize &size, QIcon::Mode mode, QIcon::State state, qreal scale) override
+    {
+        QPixmap pm(QSize(qRound(size.width() * scale), qRound(size.height() * scale)));
+        pm.setDevicePixelRatio(scale);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        paint(&p, QRect(QPoint(0, 0), size), mode, state);
+        return pm;
+    }
+
+    QIconEngine *clone() const override { return new ThemedGlyphEngine(*this); }
+    QString key() const override { return u"fm.glyph"_s; }
+
+private:
+    Glyph m_glyph;
+    QPointer<QWidget> m_widget;
+    bool m_hasWidget;
+};
+
+} // namespace
+
+QIcon themedGlyphIcon(Glyph glyph, const QWidget *widget)
+{
+    if (glyph == Glyph::None || glyph == Glyph::Count)
+        return {};
+    return QIcon(new ThemedGlyphEngine(glyph, widget));
 }
 
 } // namespace fm::style

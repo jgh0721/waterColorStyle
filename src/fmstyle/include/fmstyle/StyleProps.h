@@ -29,6 +29,8 @@ inline constexpr char kBusyPhase[] = "fmBusyPhase";        // qreal 0 ~ 1 — �
 inline constexpr char kStyledFont[] = "fmStyledFont";      // bool — 스타일이 polish에서 준 글꼴(unpolish에서 되돌림)
 inline constexpr char kDockButton[] = "fmDockButton";      // "close" | "float" | "pin" | "unpin" | "menu" — 도크 제목 줄 단추
 inline constexpr char kDockExtraButtons[] = "fmDockExtraButtons";  // int — 사용자 제목 줄이 닫기 · 떼어 내기 밖에 둔 단추 수
+inline constexpr char kOwnPanel[] = "fmOwnPanel";          // bool — 위젯이 바탕 · 틀을 직접 그린다(그림자 있는 메뉴) — PE_PanelMenu · PE_FrameMenu를 건너뜀
+inline constexpr char kMenuItemHeight[] = "fmMenuItemHeight"; // int — 메뉴 항목 높이(0 = 디자인 값, fm::ui::Menu::setItemHeight)
 } // namespace props
 
 /// Link: 바탕 · 테두리 없는 글자 단추(강조 글자색) — 진행 창 '간단히 보기'.

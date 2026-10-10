@@ -860,13 +860,9 @@ void WatercolorStyle::drawMenuBarItem(const QStyleOption *option, QPainter *p, c
         const int top = r.top() + (r.height() - kMenuBarItemHeight) / 2;
         p->fillRect(QRect(r.left(), top, r.width(), kMenuBarItemHeight), tc[T::Accent]);
     }
-    int flags = Qt::AlignCenter | Qt::TextShowMnemonic | Qt::TextDontClip | Qt::TextSingleLine;
-    if (!proxy()->styleHint(SH_UnderlineShortcut, mi, w))
-        flags |= Qt::TextHideMnemonic;
-    p->save();
-    p->setPen(!enabled ? x.disFg : lit ? tc[T::OnAccent] : tc[T::Fg]);
-    p->drawText(r, flags, mi->text);
-    p->restore();
+    // 아이콘 + 글(fm::ui::MenuBar) — 강조 바탕이면 아이콘도 흰색
+    drawMenuBarItemContents(p, mi, proxy(), w, !enabled ? x.disFg : lit ? tc[T::OnAccent] : tc[T::Fg],
+                            lit ? tc[T::OnAccent] : QColor());
 }
 
 void WatercolorStyle::drawMenuItem(const QStyleOption *option, QPainter *p, const QWidget *w) const
@@ -1749,10 +1745,12 @@ void WatercolorStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
         return;
 
     case PE_PanelMenu:
-        p->fillRect(option->rect, tc[T::Surface]);
+        if (!boolProp(w, props::kOwnPanel))  // 그림자 있는 메뉴(fm::ui::Menu)는 바탕을 직접 그린다
+            p->fillRect(option->rect, tc[T::Surface]);
         return;
     case PE_FrameMenu:
-        outline(p, option->rect, x.menuLine);
+        if (!boolProp(w, props::kOwnPanel))
+            outline(p, option->rect, x.menuLine);
         return;
     case PE_PanelMenuBar:
         return;
@@ -2612,11 +2610,13 @@ QSize WatercolorStyle::sizeFromContents(ContentsType type, const QStyleOption *o
             int width = 4 + 20 + 6 + cs.width() + 14 + (subMenu ? 10 : 0);
             if (mi->text.contains(u'\t') || mi->reservedShortcutWidth > 0)
                 width += 28;
-            return QSize(width, kMenuItemHeight);
+            const int custom = intProp(w, props::kMenuItemHeight);  // fm::ui::Menu::setItemHeight
+            return QSize(width, custom > 0 ? custom : kMenuItemHeight);
         }
         break;
     case CT_MenuBarItem:
-        return QSize(cs.width() + 18, kMenuBarItemHeight);
+        return QSize(menuBarItemContents(qstyleoption_cast<const QStyleOptionMenuItem *>(option), cs).width() + 18,
+                     kMenuBarItemHeight);
 
     case CT_ProgressBar:
         if (const auto *pb = qstyleoption_cast<const QStyleOptionProgressBar *>(option)) {

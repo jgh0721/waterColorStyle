@@ -96,6 +96,14 @@ struct DialNotch
 };
 QList<DialNotch> dialNotches(const QStyleOptionSlider *dial);
 
+// ------------------------------------------------------------------------------------- 메뉴 막대
+
+/// 메뉴 막대 항목의 내용 폭 — 아이콘과 글이 다 있으면 아이콘 16 + 간격 6 + 글(Qt는 아이콘만 잰다).
+QSize menuBarItemContents(const QStyleOptionMenuItem *option, const QSize &contents);
+/// 메뉴 막대 항목의 아이콘 · 글을 가운데에 그린다. iconTint가 유효하면 아이콘을 그 색으로 물들인다(강조 바탕 위).
+void drawMenuBarItemContents(QPainter *painter, const QStyleOptionMenuItem *option, const QStyle *style,
+                             const QWidget *widget, const QColor &textColor, const QColor &iconTint = QColor());
+
 // ------------------------------------------------------------------------------------- 도구 단추 · 그룹 상자
 
 /// 도구 단추의 부분. 분할(MenuButtonPopup)은 단추 칸 · 메뉴 칸, 드롭다운(InstantPopup · DelayedPopup + 메뉴)은

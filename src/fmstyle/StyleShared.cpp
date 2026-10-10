@@ -1,5 +1,7 @@
 #include "StyleShared_p.h"
 
+#include "StyleCommon_p.h"
+
 #include "fmstyle/FmStyle.h"
 #include "fmstyle/Glyphs.h"
 #include "fmstyle/StyleProps.h"
@@ -315,6 +317,56 @@ ChromeGlyph dockButtonGlyph(const QString &kind)
     if (kind == u"menu")
         return ChromeGlyph::ChevronDown;
     return ChromeGlyph::Close;
+}
+
+QSize menuBarItemContents(const QStyleOptionMenuItem *option, const QSize &contents)
+{
+    if (!option || option->icon.isNull() || option->text.isEmpty())
+        return contents;
+    return QSize(16 + 6 + option->fontMetrics.horizontalAdvance(plainText(option->text)), contents.height());
+}
+
+void drawMenuBarItemContents(QPainter *painter, const QStyleOptionMenuItem *option, const QStyle *style,
+                             const QWidget *widget, const QColor &textColor, const QColor &iconTint)
+{
+    const QRect r = option->rect;
+    const bool enabled = option->state & QStyle::State_Enabled;
+    int flags = Qt::TextShowMnemonic | Qt::TextDontClip | Qt::TextSingleLine;
+    if (!style->styleHint(QStyle::SH_UnderlineShortcut, option, widget))
+        flags |= Qt::TextHideMnemonic;
+    const bool hasIcon = !option->icon.isNull();
+    const bool hasText = !option->text.isEmpty();
+    if (!hasIcon) {
+        // 글만 — 예전과 같은 자리(보드 스냅숏 그대로)
+        painter->save();
+        painter->setPen(textColor);
+        painter->drawText(r, flags | Qt::AlignCenter, option->text);
+        painter->restore();
+        return;
+    }
+    const int textWidth = hasText ? option->fontMetrics.horizontalAdvance(plainText(option->text)) : 0;
+    const int total = (hasIcon ? 16 : 0) + (hasIcon && hasText ? 6 : 0) + textWidth;
+    int x = r.left() + (r.width() - total) / 2;
+    painter->save();
+    if (hasIcon) {
+        const QIcon::Mode mode = !enabled ? QIcon::Disabled
+                               : (option->state & (QStyle::State_Selected | QStyle::State_Sunken)) ? QIcon::Active
+                                                                                                    : QIcon::Normal;
+        const qreal dpr = painter->device() ? painter->device()->devicePixelRatioF() : 1.0;
+        QPixmap pm = option->icon.pixmap(QSize(16, 16), dpr, mode);
+        if (iconTint.isValid()) {
+            QPainter tint(&pm);
+            tint.setCompositionMode(QPainter::CompositionMode_SourceIn);
+            tint.fillRect(pm.rect(), iconTint);
+        }
+        painter->drawPixmap(QRect(x, r.top() + (r.height() - 16) / 2, 16, 16), pm);
+        x += 16 + 6;
+    }
+    if (hasText) {
+        painter->setPen(textColor);
+        painter->drawText(QRect(x, r.top(), textWidth + 2, r.height()), flags | Qt::AlignLeft | Qt::AlignVCenter, option->text);
+    }
+    painter->restore();
 }
 
 ToolButtonParts toolButtonParts(const QStyle *style, const QStyleOptionToolButton *option, const QWidget *widget,

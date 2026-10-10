@@ -22,6 +22,7 @@
 #include <fmwidgets/PanelStatusBar.h>
 #include <fmwidgets/PanelTabStrip.h>
 #include <fmwidgets/ProgressBar.h>
+#include <fmwidgets/ProgressRing.h>
 #include <fmwidgets/SegmentedControl.h>
 #include <fmwidgets/SettingsWidgets.h>
 #include <fmwidgets/Switch.h>
@@ -78,7 +79,7 @@ QPixmap canvas(QPainter &p)
     return pm;
 }
 
-enum class Shape { Button, Switch, Segment, Card, Progress, Graph, Pill, Footer, Radio, Swatch };
+enum class Shape { Button, Switch, Segment, Card, Progress, Ring, Graph, Pill, Footer, Radio, Swatch };
 
 QIcon shapeIcon(Shape shape)
 {
@@ -117,6 +118,13 @@ QIcon shapeIcon(Shape shape)
         p.drawRoundedRect(QRectF(2, 9, 18, 4), 2, 2);
         p.setBrush(kAccent);
         p.drawRoundedRect(QRectF(2, 9, 11, 4), 2, 2);
+        break;
+    case Shape::Ring:
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(QColor(0xEC, 0xEE, 0xF1), 3));
+        p.drawEllipse(QPointF(11, 11), 7, 7);
+        p.setPen(QPen(kAccent, 3, Qt::SolidLine, Qt::RoundCap));
+        p.drawArc(QRectF(4, 4, 14, 14), 90 * 16, -250 * 16);
         break;
     case Shape::Graph: {
         QPainterPath path;
@@ -322,6 +330,11 @@ QList<WidgetInfo> widgetCatalog()
          dom(u"fm::ui::ProgressBar"_s, u"progressBar"_s, u"진행 막대"_s,
              geometry(240, 16) + u"  <property name=\"value\"><number>62</number></property>\n"_s),
          shapeIcon(Shape::Progress), false, plain<ProgressBar>()});
+    add({u"fm::ui::ProgressRing"_s, kBase, u"fmwidgets/ProgressRing.h"_s, u"진행 고리(값 · 바쁨, 시안2 XP 칸)"_s,
+         u"value · minimum · maximum으로 채우고, busy(또는 범위 0–0)면 도는 호. valueDisplay로 백분율 · 값, state로 일시 정지 · 오류 색."_s,
+         dom(u"fm::ui::ProgressRing"_s, u"progressRing"_s, u"진행 고리"_s,
+             geometry(56, 56) + u"  <property name=\"value\"><number>72</number></property>\n"_s),
+         shapeIcon(Shape::Ring), false, plain<ProgressRing>()});
     add({u"fm::ui::TransferGraph"_s, kBase, u"fmwidgets/TransferGraph.h"_s, u"처리 속도 그래프"_s,
          u"진행 창의 속도 그래프. Designer에서는 예시 기록으로 그리고, 실행 중에는 addSample()로 채웁니다."_s,
          dom(u"fm::ui::TransferGraph"_s, u"transferGraph"_s, u"처리 속도 그래프"_s, geometry(560, 140)), shapeIcon(Shape::Graph), false,

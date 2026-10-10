@@ -16,9 +16,13 @@
 #include <fmwidgets/Banner.h>
 #include <fmwidgets/Button.h>
 #include <fmwidgets/DialogFooter.h>
+#include <fmwidgets/ContentDialog.h>
 #include <fmwidgets/DialogHeader.h>
 #include <fmwidgets/FlexLayout.h>
 #include <fmwidgets/FlowLayout.h>
+#include <fmwidgets/Menu.h>
+#include <fmwidgets/ProgressRing.h>
+#include <fmwidgets/ToolTip.h>
 #include <fmwidgets/KeyChip.h>
 #include <fmwidgets/Label.h>
 #include <fmwidgets/ProgressBar.h>
@@ -1682,6 +1686,193 @@ QWidget *qtButtonsSection(const fs::ThemeColors &tc)
     return box;
 }
 
+/// 내용 대화상자 미리보기 — 창 바탕 위에 덮는 층을 깔고 대화상자(창 안에 묻음)를 가운데. 누를 수 없다.
+class ContentDialogPreview : public QWidget
+{
+public:
+    explicit ContentDialogPreview(fm::ui::ContentDialog *dialog)
+    {
+        dialog->setParent(this);
+        dialog->setWindowFlags(Qt::Widget);
+        dialog->setAttribute(Qt::WA_TransparentForMouseEvents);
+        dialog->setSmokeVisible(false);
+        auto *v = new QVBoxLayout(this);
+        v->setContentsMargins(16, 16, 16, 16);
+        v->addWidget(dialog, 0, Qt::AlignCenter);
+        dialog->show();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        const fs::ThemeColors &tc = fs::themeColorsFor(this);
+        QPainter p(this);
+        p.fillRect(rect(), tc[fs::Token::Win]);
+        // 뒤 창의 흔적(줄 몇 개) 위에 덮는 층
+        for (int y = 14; y < height(); y += 22)
+            p.fillRect(QRect(14, y, width() - 28, 10), tc[fs::Token::Grid]);
+        p.fillRect(rect(), QColor(0, 0, 0, tc.isWatercolor() ? 46 : 77));
+    }
+};
+
+// 진행 고리 · 도구 설명 · 메뉴 · 메뉴 막대 · 내용 대화상자(fm::ui) — 두 디자인에 맞춘 새 위젯.
+QWidget *extrasSection(const fs::ThemeColors &tc)
+{
+    namespace ui = fm::ui;
+    auto *box = section(u"fm::ui — 진행 고리 · 도구 설명 · 메뉴 · 메뉴 막대 · 내용 대화상자"_s);
+    auto *grid = new QGridLayout(box);
+    grid->setContentsMargins(14, 12, 14, 14);
+    grid->setHorizontalSpacing(14);
+    grid->setVerticalSpacing(4);
+    CaptionGrid g(grid, tc);
+
+    g.addTitle(u"진행 고리 ProgressRing — 시안1 둥근 끝 호 · 시안2 XP 칸"_s);
+    auto ring = [](int value, int size = 56) {
+        auto *r = new ui::ProgressRing;
+        r->setValue(value);
+        r->setFixedSize(size, size);
+        return r;
+    };
+    auto *actual = ring(42);
+    actual->setRange(0, 80);
+    actual->setValueDisplay(ui::ProgressRing::Actual);
+    auto *paused = ring(38);
+    paused->setState(ui::ProgressRing::Paused);
+    auto *error = ring(80);
+    error->setState(ui::ProgressRing::Error);
+    auto *busy = ring(0);
+    busy->setBusy(true);
+    auto *noTrack = ring(60);
+    noTrack->setTrackVisible(false);
+    auto *small = ring(70, 24);
+    auto *large = ring(64, 88);
+    large->setThickness(8);
+    auto *disabled = ring(50);
+    disabled->setEnabled(false);
+    auto *rings = new QWidget;
+    auto *ringRow = new QHBoxLayout(rings);
+    ringRow->setContentsMargins(0, 0, 0, 0);
+    ringRow->setSpacing(16);
+    const QList<std::pair<QString, QWidget *>> ringCells = {
+        {u"0 %"_s, ring(0)}, {u"72 %"_s, ring(72)}, {u"100 %"_s, ring(100)}, {u"값 42/80"_s, actual},
+        {u"일시 정지"_s, paused}, {u"오류"_s, error}, {u"바쁨"_s, busy}, {u"홈 없음"_s, noTrack},
+        {u"작게 24"_s, small}, {u"크게 88 · 두께 8"_s, large}, {u"사용 안 함"_s, disabled}};
+    for (const auto &[name, w] : ringCells) {
+        auto *cell = new QVBoxLayout;
+        cell->setSpacing(4);
+        cell->addWidget(w, 0, Qt::AlignHCenter | Qt::AlignBottom);
+        cell->addWidget(caption(name, tc, 11), 0, Qt::AlignHCenter);
+        ringRow->addLayout(cell);
+    }
+    ringRow->addStretch(1);
+    g.addWide(u"값 · 상태 · 바쁨(무한) · 크기"_s, rings);
+
+    g.addTitle(u"도구 설명 ToolTip — 시안1 Surface · 그림자 / 시안2 XP 노란 칸 · 풍선 도움말"_s);
+    auto plainTip = new ui::ToolTip;
+    plainTip->setWindowFlags(Qt::Widget);
+    plainTip->setText(u"선택한 항목을 복사합니다 (F5)"_s);
+    auto *richTip = new ui::ToolTip;
+    richTip->setWindowFlags(Qt::Widget);
+    richTip->setText(u"<b>D:\\Downloads</b><br>파일 128개 · 3.95 GB<br>수정한 날짜 2026-09-27"_s);
+    auto *balloon = new ui::ToolTip;
+    balloon->setWindowFlags(Qt::Widget);
+    balloon->setTitle(u"관리자 권한이 필요합니다"_s);
+    balloon->setGlyph(ui::glyph::Shield);
+    balloon->setText(u"보호된 폴더라 계속하면 UAC 창이 뜹니다."_s);
+    balloon->setMaximumTextWidth(220);
+    balloon->setTail(Qt::TopEdge, 28);
+    auto *warn = new ui::ToolTip;
+    warn->setWindowFlags(Qt::Widget);
+    warn->setTitle(u"이름에 쓸 수 없는 글자"_s);
+    warn->setGlyph(ui::glyph::Warning);
+    warn->setText(u"\\ / : * ? \" < > | 는 파일 이름에 쓸 수 없습니다."_s);
+    warn->setMaximumTextWidth(200);
+    warn->setTail(Qt::LeftEdge);
+    auto *hover = new QPushButton(u"마우스를 올려 보세요"_s);
+    ui::ToolTip *live = ui::ToolTip::attach(hover, u"붙인 도구 설명 — 대상 아래, 꼬리 있음"_s, u"도움말"_s, ui::glyph::Info);
+    live->setPlacement(ui::ToolTip::Below);
+    live->setTailVisible(true);
+    g.addRow({{u"글"_s, plainTip}, {u"서식 있는 글 · 여러 줄"_s, richTip}, {u"제목 · 아이콘 · 꼬리(위)"_s, balloon},
+              {u"경고 · 꼬리(왼쪽)"_s, warn}});
+    g.addWide(u"실제로 띄우기(붙인 도구 설명) — ToolTip::installGlobal로 앱 전체의 toolTip() · ToolTipRole도 이 모양"_s, hover);
+
+    g.addTitle(u"메뉴 Menu · 메뉴 막대 MenuBar — 그림자 판 · 글리프 아이콘 · 단축키 · 하위 메뉴"_s);
+    auto fillMenu = [](ui::Menu *menu) {
+        menu->addAction(ui::glyph::Copy, u"복사"_s, QKeySequence(u"F5"_s));
+        menu->addAction(ui::glyph::Move, u"이동"_s, QKeySequence(u"F6"_s));
+        menu->addAction(ui::glyph::Rename, u"이름 바꾸기"_s, QKeySequence(u"F2"_s));
+        QAction *del = menu->addAction(ui::glyph::Trash, u"삭제"_s, QKeySequence(u"Del"_s));
+        del->setEnabled(false);
+        menu->addSeparator();
+        ui::Menu *sort = menu->addMenu(ui::glyph::ViewOneLine, u"정렬 기준"_s);
+        sort->addAction(u"이름"_s)->setCheckable(true);
+        QAction *size = sort->addAction(u"크기"_s);
+        size->setCheckable(true);
+        size->setChecked(true);
+        QAction *hidden = menu->addAction(u"숨김 파일 보기"_s);
+        hidden->setCheckable(true);
+        hidden->setChecked(true);
+    };
+    auto *menu = new ui::Menu;
+    menu->setWindowFlags(Qt::Widget);
+    fillMenu(menu);
+    menu->setFixedSize(menu->sizeHint());
+    auto *tall = new ui::Menu;
+    tall->setWindowFlags(Qt::Widget);
+    tall->setItemHeight(36);
+    tall->addAction(ui::glyph::NewFolder, u"새 폴더"_s, QKeySequence(u"F7"_s));
+    tall->addAction(ui::glyph::NewFile, u"새 파일"_s, QKeySequence(u"Shift+F4"_s));
+    tall->setFixedSize(tall->sizeHint());
+    auto *bars = new QWidget;
+    auto *barColumn = new QVBoxLayout(bars);
+    barColumn->setContentsMargins(0, 0, 0, 0);
+    auto *menuBar = new ui::MenuBar;
+    menuBar->setNativeMenuBar(false);
+    fillMenu(menuBar->addMenu(u"파일(&F)"_s));
+    fillMenu(menuBar->addMenu(u"편집(&E)"_s));
+    menuBar->addMenu(ui::glyph::Search, u"찾기(&S)"_s)->addAction(ui::glyph::Search, u"이름으로 찾기"_s, QKeySequence(u"Ctrl+F"_s));
+    menuBar->addAction(ui::glyph::Refresh, u"새로 고침"_s);
+    barColumn->addWidget(menuBar);
+    barColumn->addWidget(caption(u"막대 항목을 누르면 fm::ui::Menu가 펼쳐진다"_s, tc, 11));
+    barColumn->addStretch(1);
+    g.addRow({{u"메뉴(아이콘 · 단축키 · 사용 안 함 · 하위 메뉴 · 체크)"_s, menu}, {u"항목 높이 36(setItemHeight)"_s, tall},
+              {u"메뉴 막대"_s, bars}});
+
+    g.addTitle(u"내용 대화상자 ContentDialog — 시안1 Windows 11 ContentDialog / 시안2 XP 대화상자"_s);
+    auto *confirm = new ui::ContentDialog;
+    confirm->setTitle(u"파일 3개를 영구 삭제할까요?"_s);
+    confirm->setText(u"휴지통을 거치지 않고 지웁니다. 되돌릴 수 없습니다."_s);
+    confirm->setPrimaryButtonText(u"영구 삭제"_s);
+    confirm->setSecondaryButtonText(u"휴지통으로"_s);
+    confirm->setCloseButtonText(u"취소"_s);
+    auto *closeDefault = new ui::ContentDialog;
+    closeDefault->setTitle(u"저장하지 않은 설정"_s);
+    closeDefault->setText(u"바꾼 설정을 저장할까요?"_s);
+    closeDefault->setPrimaryButtonText(u"저장"_s);
+    closeDefault->setCloseButtonText(u"닫기"_s);
+    closeDefault->setDefaultButton(ui::ContentDialog::CloseButton);
+    auto *run = new QPushButton(u"내용 대화상자 열기"_s);
+    auto *result = caption(u"결과: —"_s, tc);
+    QObject::connect(run, &QPushButton::clicked, run, [run, result] {
+        const auto r = ui::ContentDialog::ask(run, u"폴더를 비울까요?"_s, u"D:\\Temp 안의 항목 42개를 휴지통으로 옮깁니다."_s,
+                                              u"비우기"_s, u"건너뛰기"_s, u"취소"_s);
+        result->setText(u"결과: %1"_s.arg(r == ui::ContentDialog::Primary     ? u"Primary(비우기)"_s
+                                         : r == ui::ContentDialog::Secondary ? u"Secondary(건너뛰기)"_s
+                                                                             : u"None(취소 · Esc)"_s));
+    });
+    auto *runColumn = new QWidget;
+    auto *runLayout = new QVBoxLayout(runColumn);
+    runLayout->setContentsMargins(0, 0, 0, 0);
+    runLayout->addWidget(run);
+    runLayout->addWidget(result);
+    runLayout->addStretch(1);
+    g.addRow({{u"단추 셋 · 기본 단추 = 기본(Primary)"_s, new ContentDialogPreview(confirm)},
+              {u"단추 둘 · 기본 단추 = 닫기"_s, new ContentDialogPreview(closeDefault)},
+              {u"실제로 띄우기(창을 덮는 층 · Esc = None)"_s, runColumn}});
+    grid->setColumnStretch(4, 1);
+    return box;
+}
+
 /// 배치 비교용 상자 — 강조색 옅은 바탕 + 1 px 테두리. 크기 정책은 Preferred(늘어날 수 있음).
 QLabel *layoutBox(const QString &text, const fs::ThemeColors &tc, int minHeight = 0)
 {
@@ -2371,6 +2562,7 @@ bool g_qtWidgetsOnly = false;
 bool g_docksOnly = false;
 bool g_controlsOnly = false;
 bool g_layoutsOnly = false;  // --layouts: 배치 비교 구역만
+bool g_extrasOnly = false;   // --extras: 진행 고리 · 도구 설명 · 메뉴 · 내용 대화상자 구역만
 
 QWidget *buildTile(fs::Variant variant)
 {
@@ -2410,6 +2602,11 @@ QWidget *buildTile(fs::Variant variant)
         v->addStretch(1);
         return tile;
     }
+    if (g_extrasOnly) {
+        v->addWidget(extrasSection(tc));
+        v->addStretch(1);
+        return tile;
+    }
     if (g_qtWidgetsOnly) {
         v->addWidget(qtInputsSection(tc));
         v->addWidget(qtButtonsSection(tc));
@@ -2431,6 +2628,7 @@ QWidget *buildTile(fs::Variant variant)
     v->addWidget(chromeSection(tc));
     v->addWidget(graphSection(tc));
     v->addWidget(traceSection(tc));
+    v->addWidget(extrasSection(tc));
     v->addWidget(layoutsSection(tc));
     v->addWidget(qtInputsSection(tc));
     v->addWidget(qtButtonsSection(tc));
@@ -2464,15 +2662,17 @@ int main(int argc, char *argv[])
     const QCommandLineOption docksOption(u"docks"_s, u"도크 구역만 보입니다."_s);
     const QCommandLineOption controlsOption(u"controls"_s, u"입력 · 단추 구역만 보입니다."_s);
     const QCommandLineOption layoutsOption(u"layouts"_s, u"배치 비교(흐름 · 유연 상자 · 격자) 구역만 보입니다."_s);
+    const QCommandLineOption extrasOption(u"extras"_s, u"진행 고리 · 도구 설명 · 메뉴 · 내용 대화상자 구역만 보입니다."_s);
     const QCommandLineOption toneOption(u"dark-tone"_s, u"다크 색조: gray · navy (시안2)."_s, u"tone"_s, u"gray"_s);
     parser.addOptions({shotOption, accentOption, noFixOption, delayOption, designOption, partsOption, qtWidgetsOption, docksOption,
-                       controlsOption, layoutsOption, toneOption});
+                       controlsOption, layoutsOption, extrasOption, toneOption});
     parser.process(app);
     g_partsOnly = parser.isSet(partsOption);
     g_qtWidgetsOnly = parser.isSet(qtWidgetsOption);
     g_docksOnly = parser.isSet(docksOption);
     g_controlsOnly = parser.isSet(controlsOption);
     g_layoutsOnly = parser.isSet(layoutsOption);
+    g_extrasOnly = parser.isSet(extrasOption);
     if (parser.value(toneOption) == u"navy"_s)
         fs::ThemeManager::instance().setDarkTone(fs::ThemeManager::DarkTone::Navy);
 

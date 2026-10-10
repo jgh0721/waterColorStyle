@@ -49,6 +49,12 @@ inline bool boolProp(const QWidget *w, const char *name)
     return w && w->property(name).toBool();
 }
 
+inline int intProp(const QWidget *w, const char *name, int fallback = 0)
+{
+    const QVariant v = w ? w->property(name) : QVariant();
+    return v.isValid() ? v.toInt() : fallback;
+}
+
 inline bool isSmall(const QWidget *w) { return stringProp(w, props::kSize) == u"small"; }
 inline QString segmentOf(const QWidget *w) { return stringProp(w, props::kSegment); }
 inline QString keyHintOf(const QWidget *w) { return stringProp(w, props::kKeyHint); }

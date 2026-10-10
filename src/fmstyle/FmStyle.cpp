@@ -871,13 +871,8 @@ void FmStyle::drawMenuBarItem(const QStyleOption *option, QPainter *p, const QWi
                                        -(r.height() - kMenuBarItemHeight) / 2.0);
         fillRounded(p, bg, kRadius, overlay(tc[T::Fg], down ? 0.10 : 0.06));
     }
-    int flags = Qt::AlignCenter | Qt::TextShowMnemonic | Qt::TextDontClip | Qt::TextSingleLine;
-    if (!proxy()->styleHint(SH_UnderlineShortcut, mi, w))
-        flags |= Qt::TextHideMnemonic;
-    p->save();
-    p->setPen(enabled ? tc[T::Fg] : tc[T::Fg3]);
-    p->drawText(r, flags, mi->text);
-    p->restore();
+    // 아이콘 + 글(fm::ui::MenuBar) — Qt 기본은 아이콘만
+    drawMenuBarItemContents(p, mi, proxy(), w, enabled ? tc[T::Fg] : tc[T::Fg3]);
 }
 
 void FmStyle::drawMenuItem(const QStyleOption *option, QPainter *p, const QWidget *w) const
@@ -1567,6 +1562,8 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         return;
 
     case PE_PanelMenu: {
+        if (boolProp(w, props::kOwnPanel))
+            return;  // 그림자 있는 메뉴(fm::ui::Menu)는 바탕을 직접 그린다
         const bool rounded = w && w->testAttribute(Qt::WA_TranslucentBackground);
         if (rounded)
             fillRounded(p, crisp(option->rect), kCardRadius, tc[T::Surface]);
@@ -1575,6 +1572,8 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         return;
     }
     case PE_FrameMenu: {
+        if (boolProp(w, props::kOwnPanel))
+            return;
         const bool rounded = w && w->testAttribute(Qt::WA_TranslucentBackground);
         if (rounded) {
             strokeRounded(p, crisp(option->rect), kCardRadius, tc[T::Line]);
@@ -2452,11 +2451,13 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
             int width = 6 + 20 + 8 + cs.width() + 12 + (subMenu ? 12 : 0);
             if (mi->text.contains(u'\t') || mi->reservedShortcutWidth > 0)
                 width += 28;
-            return QSize(width, kMenuItemHeight);
+            const int custom = intProp(w, props::kMenuItemHeight);  // fm::ui::Menu::setItemHeight
+            return QSize(width, custom > 0 ? custom : kMenuItemHeight);
         }
         break;
     case CT_MenuBarItem:
-        return QSize(cs.width() + 20, kMenuBarItemHeight);
+        return QSize(menuBarItemContents(qstyleoption_cast<const QStyleOptionMenuItem *>(option), cs).width() + 20,
+                     kMenuBarItemHeight);
 
     case CT_ProgressBar:
         if (const auto *pb = qstyleoption_cast<const QStyleOptionProgressBar *>(option)) {

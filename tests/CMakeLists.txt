@@ -68,6 +68,13 @@ if(TARGET fmdesignerplugin)
     set_tests_properties(tst_designer PROPERTIES ENVIRONMENT "${_testEnv}")
 endif()
 
+# 진행 고리 · 떠 있는 위젯 — ProgressRing · ToolTip · Menu · MenuBar · ContentDialog(두 디자인)
+qt_add_executable(tst_popups tst_popups.cpp)
+target_link_libraries(tst_popups PRIVATE Fm::widgets Qt6::Test)
+fm_set_compile_options(tst_popups)
+add_test(NAME tst_popups COMMAND tst_popups)
+set_tests_properties(tst_popups PROPERTIES ENVIRONMENT "${_testEnv}")
+
 # 웹 배치 — 흐름 배치(FlowLayout) · 유연 상자(FlexLayout)
 qt_add_executable(tst_layouts tst_layouts.cpp)
 target_link_libraries(tst_layouts PRIVATE Fm::widgets Qt6::Test)
