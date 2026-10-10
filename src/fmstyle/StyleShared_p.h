@@ -6,6 +6,7 @@
 #include <QIcon>
 #include <QRect>
 #include <QStyle>
+#include <QStyleOption>
 #include <QTabBar>
 #include <QTransform>
 
@@ -33,7 +34,21 @@ enum class ChromeGlyph : std::uint8_t {
     Extension,      // » 넘친 가로 도구 모음 · 메뉴 막대
     ExtensionDown,  // 세로 도구 모음
     Refresh,
+    Pin,            // 세운 압정 — 도크를 자동 숨김으로
+    Unpin,          // 눕힌 압정 — 자동 숨김 도크를 다시 도크로
 };
+
+/// 도크 제목 줄 단추 종류(fmDockButton)의 기호. 모르는 값이면 Close.
+ChromeGlyph dockButtonGlyph(const QString &kind);
+
+/// QDockWidget 기본 제목 줄 단추(qt_dockwidget_closebutton · floatbutton)에 fmDockButton을 붙인다 —
+/// 스타일이 단추 바탕과 기호를 함께 그린다.
+void polishDockButton(QWidget *widget);
+
+/// 도크 제목 줄의 단추 · 글자 자리(SE_DockWidget*). QCommonStyle과 같은 배치 규칙(오른쪽부터 닫기 · 떼어 내기,
+/// 세로 제목 줄은 돌려서)에 단추 크기 · 간격을 디자인 값으로. 사용자 제목 줄의 추가 단추(fmDockExtraButtons)도 비운다.
+QRect dockTitleSubRect(QStyle::SubElement element, const QStyleOption *option, const QWidget *widget, int button,
+                       int gap, int rightMargin, int textMargin);
 
 /// rect 가운데 정사각형(한 변 16을 기준으로 늘이고 줄인다)에 그린다.
 void paintChromeGlyph(QPainter *painter, ChromeGlyph glyph, const QRectF &rect, const QColor &color,
@@ -80,6 +95,29 @@ struct DialNotch
     bool major;
 };
 QList<DialNotch> dialNotches(const QStyleOptionSlider *dial);
+
+// ------------------------------------------------------------------------------------- 도구 단추 · 그룹 상자
+
+/// 도구 단추의 부분. 분할(MenuButtonPopup)은 단추 칸 · 메뉴 칸, 드롭다운(InstantPopup · DelayedPopup + 메뉴)은
+/// 오른쪽 indicatorWidth에 꺾쇠를 두고 글자 · 아이콘은 나머지 가운데. 누름(State_Sunken)은 눌린 칸에만 남긴다.
+struct ToolButtonParts
+{
+    QRect button;     // 글자 · 아이콘 자리(CE_ToolButtonLabel)
+    QRect menu;       // 분할의 메뉴 칸(그 밖에는 빈 사각형)
+    QRect indicator;  // 꺾쇠 자리(분할이면 menu)
+    QStyle::State buttonState;
+    QStyle::State menuState;
+    bool split = false;
+    bool dropDown = false;
+};
+ToolButtonParts toolButtonParts(const QStyle *style, const QStyleOptionToolButton *option, const QWidget *widget,
+                                int indicatorWidth);
+/// 메뉴가 달렸지만 분할이 아닌 도구 단추 — 크기에 꺾쇠 자리를 더해야 한다(Qt는 분할일 때만 더한다).
+bool toolButtonHasDropDown(const QStyleOption *option);
+
+/// 그룹 상자의 제목 줄(체크 상자 + 글자) 영역을 정렬(textAlignment · 오른쪽에서 왼쪽)에 맞춰 둔다.
+/// indicator = 체크 상자 한 변, gap = 체크 상자와 글자 사이, textPad = 글자 폭에 더할 여유.
+QRect groupBoxTitleRect(const QStyleOptionGroupBox *option, QStyle::SubControl sc, int indicator, int gap, int textPad);
 
 // ------------------------------------------------------------------------------------- 항목 보기
 

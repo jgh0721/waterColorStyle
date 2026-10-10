@@ -60,6 +60,8 @@ constexpr int kInputHeight = 30;
 constexpr int kInputPadX = 10;
 constexpr int kComboArrowWidth = 28;
 constexpr int kSpinButtonWidth = 20;
+constexpr int kMenuButtonIndicator = 16;  // 분할 도구 단추의 메뉴 칸
+constexpr int kToolDropDown = 14;         // 메뉴 달린 도구 단추(분할 아님)의 꺾쇠 자리
 constexpr int kIndicator = 16;
 constexpr int kSwitchWidth = 40;
 constexpr int kSwitchHeight = 20;
@@ -96,6 +98,11 @@ constexpr qreal kSliderTrack = 4.0;       // 슬라이더 홈 두께
 constexpr int kTitleBarHeight = 30;       // MDI 창 제목 표시줄
 constexpr int kCaptionButtonW = 36;       // 제목 표시줄 단추 폭 (높이는 제목 표시줄)
 constexpr int kMdiButton = 22;            // 메뉴 막대의 MDI 단추 묶음 한 칸
+// 도크(07 §4.2) — 제목 줄 28(글자 높이 + 위아래 5), 단추 22(= 2 × 6 + Qt가 줄인 아이콘 10), 분할선 5
+constexpr int kDockTitleMargin = 5;
+constexpr int kDockButtonMargin = 6;
+constexpr int kDockButton = 2 * kDockButtonMargin + 10;
+constexpr int kDockSeparator = 5;
 
 int inputHeight(const QWidget *w) { return density(w) == Density::Dialog ? kInputHeightDialog : kInputHeight; }
 
@@ -266,15 +273,18 @@ QColor buttonTextColor(QStyle::State s, ButtonRole role, bool segment, const The
 
 // 입력 상자 바탕: 필드 색 + 버튼 테두리, 아래 선은 메타 글자색(포커스면 강조색 2 px) — Windows 11 방식.
 // 오류(fmInvalid)면 테두리와 아래 선이 위험색.
+/// 입력 칸 바탕 · 테두리. 읽기 전용(State_ReadOnly)은 창 쪽으로 흐린 바탕에 아래 1 px 선이 없다 —
+/// 고칠 수 있는 칸만 밑줄이 있다(포커스 · 오류 2 px 선은 그대로).
 void drawInputFrame(QPainter *p, const QRect &rect, QStyle::State s, const ThemeColors &tc, bool invalid = false)
 {
     const bool enabled = s & QStyle::State_Enabled;
     const bool focus = s & QStyle::State_HasFocus;
     const bool hover = s & QStyle::State_MouseOver;
+    const bool readOnly = s & QStyle::State_ReadOnly;
     const QRectF r = crisp(rect);
 
-    QColor bg = enabled ? tc[T::Field] : tc[T::Win];
-    if (enabled && hover && !focus)
+    QColor bg = !enabled ? tc[T::Win] : readOnly ? mix(tc[T::Field], tc[T::Win], 0.6) : tc[T::Field];
+    if (enabled && hover && !focus && !readOnly)
         bg = mix(bg, tc[T::Fg], 0.025);
     fillRounded(p, r, kRadius, bg);
     const QColor border = !enabled ? mix(tc[T::BtnLine], tc[T::Win], 0.5) : invalid ? tc[T::Danger] : tc[T::BtnLine];
@@ -289,8 +299,31 @@ void drawInputFrame(QPainter *p, const QRect &rect, QStyle::State s, const Theme
     p->setClipPath(clip);
     if (focus || invalid)
         p->fillRect(QRectF(rect.left(), rect.bottom() - 1.0, rect.width(), 2.0), invalid ? tc[T::Danger] : tc[T::Accent]);
-    else
+    else if (!readOnly)
         p->fillRect(QRectF(rect.left(), rect.bottom(), rect.width(), 1.0), tc[T::Fg3]);
+    p->restore();
+}
+
+/// 틀 없는 콤보 · 스핀 상자: 바탕 · 테두리 없이 마우스 올림 · 펼침만 옅은 겹침, 포커스는 아래 2 px 강조선.
+void drawFramelessInput(QPainter *p, const QRect &rect, QStyle::State s, const ThemeColors &tc)
+{
+    if (!(s & QStyle::State_Enabled))
+        return;
+    if (s & (QStyle::State_MouseOver | QStyle::State_On))
+        fillRounded(p, crisp(rect), kRadius, overlay(tc[T::Fg], (s & QStyle::State_On) ? 0.08 : 0.05));
+    if (s & QStyle::State_HasFocus)
+        p->fillRect(QRectF(rect.left() + 2, rect.bottom() - 1.0, rect.width() - 4, 2.0), tc[T::Accent]);
+}
+
+/// 스핀 상자 ± 기호(QAbstractSpinBox::PlusMinus) — 꺾쇠와 같은 크기 · 굵기.
+void drawPlusMinus(QPainter *p, const QPointF &c, qreal half, bool plus, const QColor &color)
+{
+    p->save();
+    p->setRenderHint(QPainter::Antialiasing, true);
+    p->setPen(QPen(color, 1.2, Qt::SolidLine, Qt::RoundCap));
+    p->drawLine(QPointF(c.x() - half, c.y()), QPointF(c.x() + half, c.y()));
+    if (plus)
+        p->drawLine(QPointF(c.x(), c.y() - half), QPointF(c.x(), c.y() + half));
     p->restore();
 }
 
@@ -410,9 +443,9 @@ void drawSwitch(QPainter *p, const QRect &rect, QStyle::State s, const ThemeColo
     p->restore();
 }
 
-QColor progressColor(const QWidget *w, const ThemeColors &tc)
+QColor progressColor(const QStyleOption *opt, const QWidget *w, const ThemeColors &tc)
 {
-    const QString state = stringProp(w, props::kProgressState);
+    const QString state = stringProp(opt, w, props::kProgressState);
     if (state == u"paused")
         return tc[T::Paused];
     if (state == u"error")
@@ -484,6 +517,7 @@ void FmStyle::polish(QWidget *widget)
     }
     polishItemView(widget);
     polishCalendarPart(widget);
+    polishDockButton(widget);
 }
 
 void FmStyle::unpolish(QWidget *widget)
@@ -575,10 +609,15 @@ void FmStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, const QWi
         return;
     }
 
-    if (role == ButtonRole::Subtle) {
+    // 납작한 단추(QPushButton::setFlat)는 은은한 단추처럼 — 마우스 올림 · 누름 · 켬에만 바탕
+    const auto *b = qstyleoption_cast<const QStyleOptionButton *>(option);
+    const bool flat = b && (b->features & QStyleOptionButton::Flat);
+    if (role == ButtonRole::Subtle || (flat && role == ButtonRole::Normal)) {
         if (enabled && (pressed || hover || on)) {
             const QColor bg = on ? tc[T::AccentSoft] : overlay(tc[T::Fg], pressed ? 0.12 : 0.07);
             fillRounded(p, r, kRadius, bg);
+        } else if (!enabled && on) {
+            fillRounded(p, r, kRadius, mix(tc[T::AccentSoft], tc[T::Win], 0.5));
         }
     } else {
         QColor bg = tc[T::Btn];
@@ -593,8 +632,9 @@ void FmStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, const QWi
             bg = border = tc[T::DangerFill];
             hoverAmount = 0.10;
             pressAmount = 0.18;
-        } else if (enabled && on) {
-            bg = tc[T::AccentSoft];
+        } else if (on) {
+            // 켠 토글 — 사용 안 함이어도 켠 것이 보이게 흐린 강조 바탕
+            bg = enabled ? tc[T::AccentSoft] : mix(tc[T::AccentSoft], tc[T::Win], 0.5);
         }
         if (!enabled)
             border = mix(tc[T::BtnLine], tc[T::Win], 0.4);
@@ -670,9 +710,56 @@ void FmStyle::drawToolPanel(const QStyleOption *option, QPainter *p, const QWidg
         strokeRounded(p, QRectF(option->rect).adjusted(1, 1, -1, -1), kRadius - 1, tc[T::Focus], 2.0);
 }
 
+// 도구 단추: 바탕은 한 덩어리(둥근 모서리). 분할이면 바탕이 보일 때 두 칸 사이 1 px 선과 눌린 칸만 더 짙게,
+// 메뉴 달린 단추(분할 아님)는 오른쪽에 꺾쇠 — Qt 기본(오른쪽 아래 작은 화살표) 대신.
+void FmStyle::drawToolButton(const QStyleOptionComplex *option, QPainter *p, const QWidget *w) const
+{
+    const auto *tb = qstyleoption_cast<const QStyleOptionToolButton *>(option);
+    if (!tb || !dockButtonKind(w).isEmpty() || !segmentOf(w).isEmpty()) {
+        QProxyStyle::drawComplexControl(CC_ToolButton, option, p, w);
+        return;
+    }
+    const ThemeColors &tc = colorsFor(w);
+    const ToolButtonParts parts = toolButtonParts(proxy(), tb, w, kToolDropDown);
+    const bool enabled = tb->state & State_Enabled;
+
+    QStyleOptionToolButton panel = *tb;
+    panel.state = parts.split ? tb->state & ~State_Sunken : parts.buttonState;
+    drawToolPanel(&panel, p, w);
+    if (parts.split && enabled) {
+        const bool lit = !(tb->state & State_AutoRaise) || (tb->state & (State_MouseOver | State_Sunken | State_On));
+        p->save();
+        QPainterPath clip;
+        clip.addRoundedRect(crisp(tb->rect), kRadius, kRadius);
+        p->setClipPath(clip);
+        for (const auto &[rect, state] : {std::pair{parts.button, parts.buttonState}, std::pair{parts.menu, parts.menuState}}) {
+            if (state & State_Sunken)
+                p->fillRect(rect, overlay(tc[T::Fg], 0.07));
+        }
+        p->restore();
+        if (lit) {
+            const int x = tb->direction == Qt::RightToLeft ? parts.menu.right() : parts.menu.left();
+            p->fillRect(QRect(x, tb->rect.top() + 5, 1, tb->rect.height() - 10), tc[T::Line]);
+        }
+    }
+
+    QStyleOptionToolButton label = *tb;
+    const int fw = proxy()->pixelMetric(PM_DefaultFrameWidth, option, w);
+    label.rect = parts.button.adjusted(fw, fw, -fw, -fw);
+    label.state = parts.buttonState;
+    proxy()->drawControl(CE_ToolButtonLabel, &label, p, w);
+
+    if (parts.split || parts.dropDown) {
+        const QPointF c = QRectF(parts.indicator).center() - QPointF(parts.dropDown ? 2 : 0, 0);
+        drawChevron(p, c, 3.0, Qt::DownArrow, enabled ? tc[T::Fg2] : tc[T::Fg3]);
+    }
+}
+
 void FmStyle::drawFocus(const QStyleOption *option, QPainter *p, const QWidget *w) const
 {
     const ThemeColors &tc = colorsFor(w);
+    if (isComboPopupView(w))
+        return;  // 콤보 펼친 목록에는 커서 테두리가 없다(선택 겹침이 가리키는 항목)
     // 목록의 커서 (TC의 커서 막대 테두리)
     if (qobject_cast<const QAbstractItemView *>(w)) {
         p->save();
@@ -902,7 +989,7 @@ void FmStyle::drawProgress(ControlElement element, const QStyleOption *option, Q
     }
 
     // CE_ProgressBarContents
-    const QColor color = (pb->state & State_Enabled) ? progressColor(w, tc) : tc[T::Fg3];
+    const QColor color = (pb->state & State_Enabled) ? progressColor(pb, w, tc) : tc[T::Fg3];
     if (pb->minimum == pb->maximum) {
         // 진행률을 알 수 없음 — 30 % 구간이 왼쪽에서 오른쪽으로 흐른다. 위상(0 ~ 1)은 fm::ui::ProgressBar가
         // 동적 속성 fmBusyPhase로 넘긴다. 속성이 없으면(일반 QProgressBar) 가운데에 멈춰 있다.
@@ -1253,6 +1340,57 @@ void FmStyle::drawMdiControls(const QStyleOptionComplex *option, QPainter *p, co
     }
 }
 
+// 도크 제목 줄(07 §4.2): 창 바탕 · 아래 1 px Line, 12 px DemiBold 제목(비활성 Fg2 · 활성 Fg),
+// 활성 도크면 위 2 px 강조색(패널 탭 줄의 활성 표시와 같음). 세로 제목 줄은 돌려 그린다(글자는 아래에서 위로).
+void FmStyle::drawDockTitle(const QStyleOption *option, QPainter *p, const QWidget *w) const
+{
+    const auto *dw = qstyleoption_cast<const QStyleOptionDockWidget *>(option);
+    if (!dw)
+        return;
+    const ThemeColors &tc = colorsFor(w);
+    const bool active = dockActive(w);
+    QRect r = dw->rect;
+    QRect text = proxy()->subElementRect(SE_DockWidgetTitleBarText, dw, w);
+    p->save();
+    if (dw->verticalTitleBar) {
+        text = QRect(r.bottom() - text.bottom(), text.left() - r.left(), text.height(), text.width());
+        p->translate(r.left(), r.bottom() + 1);
+        p->rotate(-90);
+        r = QRect(0, 0, r.height(), r.width());
+    }
+    p->fillRect(r, tc[T::Win]);
+    p->fillRect(QRect(r.left(), r.bottom(), r.width(), 1), tc[T::Line]);
+    if (active)
+        p->fillRect(QRect(r.left(), r.top(), r.width(), 2), tc[T::Accent]);
+    if (!dw->title.isEmpty() && text.width() > 0) {
+        QFont f = p->font();
+        f.setPixelSize(12);
+        f.setWeight(QFont::DemiBold);
+        p->setFont(f);
+        p->setPen(!(dw->state & State_Enabled) ? tc[T::Fg3] : active ? tc[T::Fg] : tc[T::Fg2]);
+        p->drawText(text, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine | Qt::TextHideMnemonic,
+                    QFontMetrics(f).elidedText(dw->title, Qt::ElideRight, text.width()));
+    }
+    p->restore();
+}
+
+// 도크 제목 줄 단추: 22 × 22 둥근 겹침(마우스 올림 7 % · 누름 12 %), 기호 16(Fg2 → 올림 Fg).
+void FmStyle::drawDockButton(const QStyleOption *option, QPainter *p, const QWidget *w) const
+{
+    const ThemeColors &tc = colorsFor(w);
+    const QStyle::State s = option->state;
+    const bool enabled = s & State_Enabled;
+    const bool pressed = enabled && (s & (State_Sunken | State_On));
+    const bool hover = enabled && (s & (State_Raised | State_MouseOver));
+    const QRectF r(option->rect);
+    if (pressed || hover)
+        fillRounded(p, r, kRadius, overlay(tc[T::Fg], pressed ? 0.12 : 0.07));
+    QRectF box(0, 0, 16, 16);
+    box.moveCenter(r.center());
+    paintChromeGlyph(p, dockButtonGlyph(dockButtonKind(w)), box,
+                     !enabled ? tc[T::Fg3] : (pressed || hover) ? tc[T::Fg] : tc[T::Fg2], false);
+}
+
 // =============================================================================================
 // drawPrimitive
 
@@ -1273,8 +1411,33 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
     case PE_IndicatorButtonDropDown:
         return;
     case PE_PanelButtonTool:
-        drawToolPanel(option, p, w);
+        if (!dockButtonKind(w).isEmpty())
+            drawDockButton(option, p, w);
+        else
+            drawToolPanel(option, p, w);
         return;
+    case PE_FrameDockWidget: {
+        // 떠 있는 도크(사용자 제목 줄) · 자동 숨김 펼친 창의 틀: 창 바탕 + 1 px 선
+        const QRect r = option->rect;
+        p->fillRect(r, tc[T::Win]);
+        p->save();
+        p->setPen(dockActive(w) ? tc[T::Line] : tc[T::Grid]);
+        p->setBrush(Qt::NoBrush);
+        p->drawRect(r.adjusted(0, 0, -1, -1));
+        p->restore();
+        return;
+    }
+    case PE_IndicatorDockWidgetResizeHandle: {
+        // 도크 분할선: 평소 비움, 마우스 올림이면 가운데 2 px 강조색
+        if (!(option->state & State_MouseOver))
+            return;
+        const QRect r = option->rect;
+        if (r.width() < r.height())
+            p->fillRect(QRect(r.center().x(), r.top(), 2, r.height()), tc[T::Accent]);
+        else
+            p->fillRect(QRect(r.left(), r.center().y(), r.width(), 2), tc[T::Accent]);
+        return;
+    }
     case PE_FrameFocusRect:
         drawFocus(option, p, w);
         return;
@@ -1346,6 +1509,12 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
 
     case PE_PanelItemViewItem:
         if (const auto *v = qstyleoption_cast<const QStyleOptionViewItem *>(option)) {
+            if (isComboPopupView(w)) {
+                // 콤보 펼친 목록: 메뉴 항목처럼 안쪽 둥근 겹침(선택 = 마우스가 가리키는 항목)
+                if (v->state & State_Selected)
+                    fillRounded(p, crisp(v->rect.adjusted(3, 1, -3, -1)), kRadius, overlay(tc[T::Fg], 0.07));
+                return;
+            }
             if (v->state & State_Selected) {
                 p->fillRect(v->rect, paneActive(v, w) ? tc[T::Sel] : tc[T::SelIn]);
                 return;
@@ -1489,6 +1658,11 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
     }
     case PE_IndicatorToolBarSeparator: {
         const QRect r = option->rect;
+        if (qobject_cast<const QComboBox *>(w)) {
+            // 콤보 펼친 목록의 구분선(insertSeparator) — 폭 전체(좌우 6 안쪽)
+            p->fillRect(QRect(r.left() + 6, r.center().y(), r.width() - 12, 1), tc[T::Line]);
+            return;
+        }
         if (option->state & State_Horizontal)
             p->fillRect(QRect(r.center().x(), r.center().y() - 10, 1, 20), tc[T::Line]);
         else
@@ -1589,6 +1763,8 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
         }
         break;
     case CE_ToolButtonLabel:
+        if (!dockButtonKind(w).isEmpty())
+            return;  // 도크 제목 줄 단추는 PE_PanelButtonTool에서 기호까지 그렸다
         if (const auto *tb = qstyleoption_cast<const QStyleOptionToolButton *>(option)) {
             const bool segment = !segmentOf(w).isEmpty();
             QStyleOptionToolButton copy = *tb;
@@ -1660,6 +1836,10 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
     case CE_ToolBoxTabShape:
     case CE_ToolBoxTabLabel:
         drawToolBoxTab(element, option, p, w);
+        return;
+
+    case CE_DockWidgetTitle:
+        drawDockTitle(option, p, w);
         return;
 
     case CE_Header:
@@ -1776,9 +1956,13 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
     case CC_ComboBox:
         if (const auto *cb = qstyleoption_cast<const QStyleOptionComboBox *>(option)) {
             QStyle::State s = cb->state;
-            if (s & State_On)  // 목록이 열려 있으면 포커스처럼 강조
-                s |= State_HasFocus;
-            drawInputFrame(p, cb->rect, s, tc, isInvalid(w));
+            if (cb->frame) {
+                if (s & State_On)  // 목록이 열려 있으면 포커스처럼 강조
+                    s |= State_HasFocus;
+                drawInputFrame(p, cb->rect, s, tc, isInvalid(w));
+            } else {
+                drawFramelessInput(p, cb->rect, s, tc);
+            }
             const QRect arrow = proxy()->subControlRect(CC_ComboBox, cb, SC_ComboBoxArrow, w);
             drawChevron(p, QRectF(arrow).center() - QPointF(2, 0), 3.5, Qt::DownArrow,
                         (cb->state & State_Enabled) ? tc[T::Fg3] : tc[T::BtnLine]);
@@ -1787,7 +1971,13 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
 
     case CC_SpinBox:
         if (const auto *sb = qstyleoption_cast<const QStyleOptionSpinBox *>(option)) {
-            drawInputFrame(p, sb->rect, sb->state, tc, isInvalid(w));
+            QStyle::State s = sb->state;
+            if (const auto *spin = qobject_cast<const QAbstractSpinBox *>(w); spin && spin->isReadOnly())
+                s |= State_ReadOnly;
+            if (sb->frame)
+                drawInputFrame(p, sb->rect, s, tc, isInvalid(w));
+            else
+                drawFramelessInput(p, sb->rect, s & ~State_MouseOver, tc);
             if (sb->buttonSymbols == QAbstractSpinBox::NoButtons)
                 return;
             for (const SubControl sc : {SC_SpinBoxUp, SC_SpinBoxDown}) {
@@ -1800,10 +1990,17 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
                     fillRounded(p, QRectF(r).adjusted(1, 1, -1, -1), 3.0,
                                 overlay(tc[T::Fg], pressed ? 0.12 : 0.06));
                 }
-                drawChevron(p, QRectF(r).center(), 3.0, sc == SC_SpinBoxUp ? Qt::UpArrow : Qt::DownArrow,
-                            enabled ? tc[T::Fg2] : tc[T::BtnLine]);
+                const QColor glyph = enabled ? tc[T::Fg2] : tc[T::BtnLine];
+                if (sb->buttonSymbols == QAbstractSpinBox::PlusMinus)
+                    drawPlusMinus(p, QRectF(r).center(), 3.0, sc == SC_SpinBoxUp, glyph);
+                else
+                    drawChevron(p, QRectF(r).center(), 3.0, sc == SC_SpinBoxUp ? Qt::UpArrow : Qt::DownArrow, glyph);
             }
         }
+        return;
+
+    case CC_ToolButton:
+        drawToolButton(option, p, w);
         return;
 
     case CC_ScrollBar:
@@ -1840,9 +2037,14 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
         if (const auto *gb = qstyleoption_cast<const QStyleOptionGroupBox *>(option)) {
             if (gb->subControls & SC_GroupBoxFrame) {
                 const QRect fr = proxy()->subControlRect(CC_GroupBox, gb, SC_GroupBoxFrame, w);
-                const QRectF r = crisp(fr);
-                fillRounded(p, r, kCardRadius, tc[T::Surface]);
-                strokeRounded(p, r, kCardRadius, tc[T::Line]);
+                if (gb->features & QStyleOptionFrame::Flat) {
+                    // 납작(setFlat): 카드 없이 제목 아래 1 px 선만
+                    p->fillRect(QRect(fr.left(), fr.top(), fr.width(), 1), tc[T::Line]);
+                } else {
+                    const QRectF r = crisp(fr);
+                    fillRounded(p, r, kCardRadius, tc[T::Surface]);
+                    strokeRounded(p, r, kCardRadius, tc[T::Line]);
+                }
             }
             if ((gb->subControls & SC_GroupBoxLabel) && !gb->text.isEmpty()) {
                 const QRect lr = proxy()->subControlRect(CC_GroupBox, gb, SC_GroupBoxLabel, w);
@@ -1960,6 +2162,12 @@ QRect FmStyle::subElementRect(SubElement element, const QStyleOption *option, co
         const int margin = proxy()->pixelMetric(PM_HeaderMargin, option, w);
         return option->rect.adjusted(margin, 0, -margin, 0);
     }
+    case SE_DockWidgetCloseButton:
+    case SE_DockWidgetFloatButton:
+    case SE_DockWidgetTitleBarText:
+    case SE_DockWidgetIcon:
+        // 오른쪽 3 px 안쪽부터 닫기 · 떼어 내기(사이 2), 글자는 왼쪽 10
+        return dockTitleSubRect(element, option, w, kDockButton, 2, 3, 10);
     default:
         break;
     }
@@ -2069,17 +2277,16 @@ QRect FmStyle::subControlRect(ComplexControl control, const QStyleOptionComplex 
             const QRect r = gb->rect;
             const int lineHeight = gb->fontMetrics.height();
             const int titleHeight = gb->text.isEmpty() ? 0 : lineHeight + 8;
-            const bool checkable = gb->subControls & SC_GroupBoxCheckBox;
-            const int indicatorSpace = checkable ? kIndicator + 8 : 0;
             switch (sc) {
             case SC_GroupBoxCheckBox:
-                return QRect(r.left(), r.top() + (lineHeight - kIndicator) / 2, kIndicator, kIndicator);
             case SC_GroupBoxLabel:
-                return QRect(r.left() + indicatorSpace, r.top(),
-                             gb->fontMetrics.horizontalAdvance(gb->text) + 8, lineHeight);
+                // 제목 줄(체크 + 글자)은 정렬(setAlignment)을 따른다
+                return groupBoxTitleRect(gb, sc, kIndicator, 8, 8);
             case SC_GroupBoxFrame:
                 return r.adjusted(0, titleHeight, 0, 0);
             case SC_GroupBoxContents:
+                if (gb->features & QStyleOptionFrame::Flat)
+                    return r.adjusted(0, titleHeight + 1, 0, 0);
                 return r.adjusted(1, titleHeight + 1, -1, -1);
             default:
                 break;
@@ -2181,7 +2388,8 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
         const bool segment = !segmentOf(w).isEmpty();
         if (segment)
             return QSize(cs.width() + 2 * segmentPadX(w) + 4, segmentHeight(w));
-        return QSize(std::max(kButtonHeight, cs.width() + 16), std::max(kButtonHeight, cs.height() + 16));
+        const int dropDown = toolButtonHasDropDown(option) ? kToolDropDown - 2 : 0;
+        return QSize(std::max(kButtonHeight, cs.width() + 16) + dropDown, std::max(kButtonHeight, cs.height() + 16));
     }
 
     case CT_LineEdit:
@@ -2267,6 +2475,11 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
 int FmStyle::pixelMetric(PixelMetric metric, const QStyleOption *option, const QWidget *w) const
 {
     switch (metric) {
+    case PM_MenuButtonIndicator:
+        // 분할 도구 단추의 메뉴 칸만 — 메뉴 달린 누름 단추(주소 줄 드라이브 단추 등)의 폭은 그대로 둔다
+        if (qstyleoption_cast<const QStyleOptionToolButton *>(option))
+            return kMenuButtonIndicator;
+        break;
     case PM_ButtonShiftHorizontal:
     case PM_ButtonShiftVertical:
         return 0;
@@ -2343,6 +2556,14 @@ int FmStyle::pixelMetric(PixelMetric metric, const QStyleOption *option, const Q
         return kTitleBarHeight;
     case PM_TitleBarButtonSize:
         return kMdiButton;
+    case PM_DockWidgetTitleMargin:
+        return kDockTitleMargin;
+    case PM_DockWidgetTitleBarButtonMargin:
+        return kDockButtonMargin;
+    case PM_DockWidgetFrameWidth:
+        return 1;
+    case PM_DockWidgetSeparatorExtent:
+        return kDockSeparator;
     default:
         break;
     }
@@ -2406,6 +2627,8 @@ int FmStyle::styleHint(StyleHint hint, const QStyleOption *option, const QWidget
         return Qt::ElideRight;
     case SH_LineEdit_PasswordCharacter:
         return 0x25CF;
+    case SH_DockWidget_ButtonsHaveFrame:
+        return 1;  // 단추 바탕을 늘 그리게(PE_PanelButtonTool) — 기호도 스타일이 그린다
     default:
         break;
     }

@@ -2,6 +2,7 @@
 
 #include "fmstyle/FmStyle.h"
 #include "fmstyle/Glyphs.h"
+#include "fmstyle/StyleProps.h"
 #include "fmstyle/ThemeColors.h"
 #include "fmstyle/WatercolorChrome.h"
 #include "fmstyle/WatercolorStyle.h"
@@ -191,6 +192,18 @@ void paintChromeGlyph(QPainter *p, ChromeGlyph glyph, const QRectF &rect, const 
             strokePolyline(p, {at(5, 4), at(8, 7), at(11, 4)}, pen);
             strokePolyline(p, {at(5, 8.5), at(8, 11.5), at(11, 8.5)}, pen);
             break;
+        case ChromeGlyph::Pin:
+        case ChromeGlyph::Unpin:
+            if (glyph == ChromeGlyph::Unpin) {
+                // 눕힌 압정 — 바늘이 왼쪽
+                p->translate(square.center());
+                p->rotate(90);
+                p->translate(-square.center());
+            }
+            p->drawRoundedRect(box(6, 2.5, 4, 5.5), 0.8 * s, 0.8 * s);
+            p->drawLine(at(4, 8.5), at(12, 8.5));
+            p->drawLine(at(8, 8.5), at(8, 13.5));
+            break;
         case ChromeGlyph::Refresh:
             break;
         }
@@ -258,10 +271,149 @@ void paintChromeGlyph(QPainter *p, ChromeGlyph glyph, const QRectF &rect, const 
         }
         break;
     }
+    case ChromeGlyph::Pin:
+    case ChromeGlyph::Unpin: {
+        if (glyph == ChromeGlyph::Unpin) {
+            p->translate(square.center());
+            p->rotate(90);
+            p->translate(-square.center());
+        }
+        p->setRenderHint(QPainter::Antialiasing, false);
+        // 머리(속이 빈 네모 + 굵은 오른쪽 줄) · 받침 · 바늘
+        p->fillRect(box(6, 2, 4, 1), color);
+        p->fillRect(box(6, 2, 1, 6), color);
+        p->fillRect(box(9, 2, 2, 6), color);
+        p->fillRect(box(4, 8, 8, 1.5), color);
+        p->fillRect(box(7.5, 9.5, 1, 4), color);
+        break;
+    }
     case ChromeGlyph::Refresh:
         break;
     }
     p->restore();
+}
+
+void polishDockButton(QWidget *widget)
+{
+    if (widget->property(props::kDockButton).isValid())
+        return;
+    const QString name = widget->objectName();
+    if (name == u"qt_dockwidget_closebutton")
+        widget->setProperty(props::kDockButton, u"close"_s);
+    else if (name == u"qt_dockwidget_floatbutton")
+        widget->setProperty(props::kDockButton, u"float"_s);
+}
+
+ChromeGlyph dockButtonGlyph(const QString &kind)
+{
+    if (kind == u"float")
+        return ChromeGlyph::Restore;
+    if (kind == u"pin")
+        return ChromeGlyph::Pin;
+    if (kind == u"unpin")
+        return ChromeGlyph::Unpin;
+    if (kind == u"menu")
+        return ChromeGlyph::ChevronDown;
+    return ChromeGlyph::Close;
+}
+
+ToolButtonParts toolButtonParts(const QStyle *style, const QStyleOptionToolButton *option, const QWidget *widget,
+                                int indicatorWidth)
+{
+    ToolButtonParts parts;
+    parts.split = option->features & QStyleOptionToolButton::MenuButtonPopup;
+    parts.dropDown = !parts.split && (option->features & QStyleOptionToolButton::HasMenu);
+    parts.button = style->subControlRect(QStyle::CC_ToolButton, option, QStyle::SC_ToolButton, widget);
+    const bool sunken = option->state & QStyle::State_Sunken;
+    const QStyle::State base = option->state & ~QStyle::State_Sunken;
+    parts.buttonState = base;
+    parts.menuState = base;
+    if (parts.split) {
+        parts.menu = style->subControlRect(QStyle::CC_ToolButton, option, QStyle::SC_ToolButtonMenu, widget);
+        parts.indicator = parts.menu;
+        // QCommonStyle은 단추 칸을 눌러도 메뉴 칸까지 눌린 모양으로 그린다 — 눌린 칸만
+        if (sunken && (option->activeSubControls & QStyle::SC_ToolButton))
+            parts.buttonState |= QStyle::State_Sunken;
+        if (sunken && (option->activeSubControls & QStyle::SC_ToolButtonMenu))
+            parts.menuState |= QStyle::State_Sunken;
+        parts.menuState &= ~(QStyle::State_On | QStyle::State_HasFocus);
+        return parts;
+    }
+    parts.buttonState = option->state;
+    if (parts.dropDown) {
+        const QRect r = option->rect;
+        const int w = std::min(indicatorWidth, r.width() / 2);
+        parts.indicator = QStyle::visualRect(option->direction, r, QRect(r.right() - w + 1, r.top(), w, r.height()));
+        parts.button = QStyle::visualRect(option->direction, r, QRect(r.left(), r.top(), r.width() - w + 2, r.height()));
+    }
+    return parts;
+}
+
+bool toolButtonHasDropDown(const QStyleOption *option)
+{
+    const auto *tb = qstyleoption_cast<const QStyleOptionToolButton *>(option);
+    return tb && !(tb->features & QStyleOptionToolButton::MenuButtonPopup)
+           && (tb->features & QStyleOptionToolButton::HasMenu);
+}
+
+QRect groupBoxTitleRect(const QStyleOptionGroupBox *option, QStyle::SubControl sc, int indicator, int gap, int textPad)
+{
+    const QRect r = option->rect;
+    const int lineHeight = option->fontMetrics.height();
+    const bool checkable = option->subControls & QStyle::SC_GroupBoxCheckBox;
+    const int indicatorSpace = checkable ? indicator + gap : 0;
+    const int textWidth = option->text.isEmpty() ? 0 : option->fontMetrics.horizontalAdvance(option->text) + textPad;
+    const int width = std::min(r.width(), indicatorSpace + textWidth);
+    // 논리(왼쪽에서 오른쪽) 좌표로 두고 visualRect가 뒤집는다 — AlignLeft는 앞쪽, AlignRight는 뒤쪽
+    int left = r.left();
+    if (option->textAlignment & Qt::AlignHCenter)
+        left = r.left() + (r.width() - width) / 2;
+    else if (option->textAlignment & Qt::AlignRight)
+        left = r.right() - width + 1;
+    QRect res;
+    if (sc == QStyle::SC_GroupBoxCheckBox)
+        res = QRect(left, r.top() + (lineHeight - indicator) / 2, indicator, indicator);
+    else
+        res = QRect(left + indicatorSpace, r.top(), textWidth, lineHeight);
+    return QStyle::visualRect(option->direction, r, res);
+}
+
+QRect dockTitleSubRect(QStyle::SubElement element, const QStyleOption *option, const QWidget *widget, int button,
+                       int gap, int rightMargin, int textMargin)
+{
+    const auto *dw = qstyleoption_cast<const QStyleOptionDockWidget *>(option);
+    const bool closable = dw ? dw->closable : true;
+    const bool floatable = dw ? dw->floatable : false;
+    const bool vertical = dw && dw->verticalTitleBar;
+    const int extra = widget ? widget->property(props::kDockExtraButtons).toInt() : 0;
+    // 세로 제목 줄은 가로로 놓고 계산한 뒤 되돌린다(QCommonStyle과 같은 변환).
+    const QRect rect = vertical ? option->rect.transposed() : option->rect;
+    int right = rect.right() - rightMargin;
+    const auto take = [&] {
+        const QRect b(right - button + 1, rect.top() + (rect.height() - button) / 2, button, button);
+        right = b.left() - gap - 1;
+        return b;
+    };
+    QRect r;
+    const QRect closeRect = closable ? take() : QRect();
+    if (element == QStyle::SE_DockWidgetCloseButton) {
+        r = closeRect;
+    } else {
+        const QRect floatRect = floatable ? take() : QRect();
+        if (element == QStyle::SE_DockWidgetFloatButton) {
+            r = floatRect;
+        } else if (element == QStyle::SE_DockWidgetTitleBarText) {
+            for (int i = 0; i < extra; ++i)
+                take();
+            const int left = rect.left() + textMargin;
+            r = QRect(left, rect.top(), std::max(0, right - 4 - left + 1), rect.height());
+        }
+    }
+    if (r.isNull())
+        return r;
+    if (vertical)
+        return QRect(rect.left() + r.top() - rect.top(), rect.top() + rect.right() - r.right(), r.height(), r.width());
+    return QStyle::visualRect(option->direction, rect, r);
 }
 
 QIcon themedStandardIcon(QStyle::StandardPixmap pixmap, const QWidget *widget, bool watercolor)

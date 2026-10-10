@@ -6,6 +6,8 @@
 
 #include <QAbstractItemView>
 #include <QAbstractScrollArea>
+#include <QApplication>
+#include <QDockWidget>
 #include <QRegularExpression>
 #include <QCheckBox>
 #include <QRectF>
@@ -24,6 +26,22 @@ using namespace Qt::StringLiterals;
 inline QString stringProp(const QWidget *w, const char *name)
 {
     return w ? w->property(name).toString() : QString();
+}
+
+/// 콤보 상자의 펼친 목록(QComboBoxListView) — 커서 테두리 없이 메뉴처럼 그린다.
+inline bool isComboPopupView(const QWidget *w)
+{
+    return w && w->inherits("QComboBoxListView");
+}
+
+/// 옵션의 styleObject에 있으면 그 값, 없으면 위젯 값 — 항목 대리자처럼 위젯 없이 그리는 쪽이 상태를 넘긴다.
+inline QString stringProp(const QStyleOption *opt, const QWidget *w, const char *name)
+{
+    if (opt && opt->styleObject && opt->styleObject != w) {
+        if (const QVariant v = opt->styleObject->property(name); v.isValid())
+            return v.toString();
+    }
+    return stringProp(w, name);
 }
 
 inline bool boolProp(const QWidget *w, const char *name)
@@ -147,6 +165,27 @@ inline bool paneActive(const QStyleOption *option, const QWidget *w)
     const QWidget *painting = paintingWidget(w);
     return painting->hasFocus() || painting->isAncestorOf(painting->window()->focusWidget());
 }
+
+/// 도크 활성 — 위젯에서 도크까지 걸린 fmPaneActive(도킹 관리자가 건다), 없으면 도크 안에 키보드 포커스가 있는지.
+/// 제목 줄 · 제목 줄 단추 · 떠 있는 틀이 같은 판단을 쓴다.
+inline bool dockActive(const QWidget *w)
+{
+    const QDockWidget *dock = nullptr;
+    for (const QWidget *p = w; p; p = p->parentWidget()) {
+        const QVariant v = p->property(props::kPaneActive);
+        if (v.isValid())
+            return v.toBool();
+        if ((dock = qobject_cast<const QDockWidget *>(p)) || p->isWindow())
+            break;
+    }
+    if (!dock)
+        return false;
+    const QWidget *focus = QApplication::focusWidget();
+    return focus && (focus == dock || dock->isAncestorOf(focus));
+}
+
+/// 도크 제목 줄 단추(fmDockButton)인지 — 값은 "close" · "float" · "pin" · "unpin" · "menu".
+inline QString dockButtonKind(const QWidget *w) { return stringProp(w, props::kDockButton); }
 
 /// 항목 보기의 마우스 올림을 그릴 위젯 — 보이는 Qt 항목 보기만. Qtitan 그리드는 숨은 대리 보기를 넘기고
 /// 마우스 올림을 따로 그리므로 제외한다.

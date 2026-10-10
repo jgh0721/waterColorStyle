@@ -16,6 +16,7 @@ class QActionGroup;
 class QMenu;
 class QSplitter;
 class QSystemTrayIcon;
+class QTimer;
 class QToolBar;
 
 namespace fm::ui {
@@ -24,6 +25,10 @@ class FindBox;
 class FunctionKeyBar;
 class SegmentedControl;
 class Switch;
+}
+
+namespace fm::dock {
+class DockManager;
 }
 
 namespace fm::dialogs {
@@ -37,9 +42,14 @@ class MockProbe;
 namespace fm::app {
 
 class FilePanel;
+class FolderTreePane;
+class JobsPane;
+class PreviewPane;
+class PropertiesPane;
 
 /// 메인 창(01 §1 · §7.1, 06 §5.2) — 메뉴 막대 · 도구 모음(찾기 · 디자인 스위치) · 두 파일 패널 · 명령줄 · 기능 키.
 /// 두 디자인의 위젯 트리가 같고, 디자인 전환은 스타일 교체와 스타일 치수만으로 이루어진다.
+/// 도크(07 §6) — 폴더 트리 · 미리보기 · 속성 · 작업 대기열. 처음에는 모두 닫혀 있고(보드 스냅숏 그대로) 보기 › 도크로 연다.
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -90,6 +100,18 @@ public:
     /// 알림 영역 아이콘(일반 › 알림 영역 아이콘 — 표시 안 함 · 작업 중에만 · 항상). 시스템에 없으면 nullptr.
     QSystemTrayIcon *trayIcon() const noexcept { return m_tray; }
 
+    fm::dock::DockManager *dockManager() const noexcept { return m_docks; }
+    PreviewPane *previewPane() const noexcept { return m_previewPane; }
+    PropertiesPane *propertiesPane() const noexcept { return m_propertiesPane; }
+    FolderTreePane *folderTreePane() const noexcept { return m_folderTree; }
+    JobsPane *jobsPane() const noexcept { return m_jobsPane; }
+    /// 도크 넷을 기본 자리에 모두 연다(--docks · 스냅숏 main.docks) — 오른쪽 탭 묶음은 미리보기가 앞.
+    void openAllDocks();
+    /// 저장한 도크 배치와 이름 붙인 배치를 되살린다(시작할 때 설정과 무관 — 창 배치는 늘 되살린다).
+    void restoreDocks(const fm::settings::SessionState &session);
+    /// 미리보기 · 속성 · 폴더 트리를 지금 활성 패널의 커서 · 경로로 바로 맞춘다(평소에는 잠깐 모아서 한다).
+    void updateDockPanes();
+
 protected:
     void closeEvent(QCloseEvent *event) override;
 
@@ -98,6 +120,7 @@ private:
     void createMenus();
     void createToolBar();
     void createCentral();
+    void createDocks();
     void refreshIcons();
     void syncThemeControls();
     void updateWindowTitle();
@@ -142,6 +165,14 @@ private:
     QDateTime m_helperApprovedAt;
     QSystemTrayIcon *m_tray = nullptr;
     bool m_trayHold = false;  // 완료 알림을 보이는 동안 작업 중에만 모드에서도 잠시 남긴다
+    QMenu *m_viewMenu = nullptr;
+    QMainWindow *m_dockHost = nullptr;  // 두 패널 영역만 담는 안쪽 창 — 아래 도크가 명령줄 · 기능 키 막대 위에 붙는다
+    fm::dock::DockManager *m_docks = nullptr;
+    FolderTreePane *m_folderTree = nullptr;
+    PreviewPane *m_previewPane = nullptr;
+    PropertiesPane *m_propertiesPane = nullptr;
+    JobsPane *m_jobsPane = nullptr;
+    QTimer *m_paneTimer = nullptr;  // 커서를 빠르게 옮길 때 미리보기를 한 번만 읽는다
 };
 
 } // namespace fm::app

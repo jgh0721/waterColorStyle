@@ -68,6 +68,7 @@ protected:
 private:
     void drawButtonPanel(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
     void drawToolPanel(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
+    void drawToolButton(const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const;
     void drawSegment(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
     void drawFocus(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
     void drawTabShape(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
@@ -83,6 +84,8 @@ private:
     void drawDial(const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const;
     void drawTitleBar(const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const;
     void drawMdiControls(const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const;
+    void drawDockTitle(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
+    void drawDockButton(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
 
     void setAltDown(bool down, QObject *source);
 

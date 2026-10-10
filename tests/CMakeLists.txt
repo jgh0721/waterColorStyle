@@ -21,12 +21,13 @@ if(TARGET Fm::filelist)
     # 메인 창 — 데모 앱의 창 · 패널 소스를 그대로 넣어 검사한다.
     set(_demo ${PROJECT_SOURCE_DIR}/app/fmdemo)
     qt_add_executable(tst_mainwindow tst_mainwindow.cpp
+        ${_demo}/DockPanes.cpp ${_demo}/DockPanes.h
         ${_demo}/FilePanel.cpp ${_demo}/FilePanel.h ${_demo}/MainWindow.cpp ${_demo}/MainWindow.h
         ${_demo}/CatalogWindow.cpp ${_demo}/CatalogWindow.h ${_demo}/ThumbnailCompare.cpp ${_demo}/ThumbnailCompare.h
         ${_demo}/Snapshots.cpp ${_demo}/Snapshots.h ${_demo}/SingleInstance.cpp ${_demo}/SingleInstance.h)
     target_include_directories(tst_mainwindow PRIVATE ${_demo})
     find_package(Qt6 REQUIRED COMPONENTS Network)
-    target_link_libraries(tst_mainwindow PRIVATE Fm::dialogs Fm::filelist Fm::widgets Qt6::Network Qt6::Test)
+    target_link_libraries(tst_mainwindow PRIVATE Fm::dialogs Fm::dock Fm::filelist Fm::widgets Qt6::Network Qt6::Test)
     if(WIN32)
         target_link_libraries(tst_mainwindow PRIVATE psapi)
     endif()
@@ -66,3 +67,24 @@ if(TARGET fmdesignerplugin)
     add_test(NAME tst_designer COMMAND tst_designer)
     set_tests_properties(tst_designer PROPERTIES ENVIRONMENT "${_testEnv}")
 endif()
+
+# 웹 배치 — 흐름 배치(FlowLayout) · 유연 상자(FlexLayout)
+qt_add_executable(tst_layouts tst_layouts.cpp)
+target_link_libraries(tst_layouts PRIVATE Fm::widgets Qt6::Test)
+fm_set_compile_options(tst_layouts)
+add_test(NAME tst_layouts COMMAND tst_layouts)
+set_tests_properties(tst_layouts PROPERTIES ENVIRONMENT "${_testEnv}")
+
+# Qt 표준 위젯 스타일(두 디자인) — 틀 없는 입력 · 읽기 전용 · 납작한 단추 · 도구 단추 메뉴 · 그룹 상자 제목 · 콤보 구분선
+qt_add_executable(tst_style tst_style.cpp)
+target_link_libraries(tst_style PRIVATE Fm::style Qt6::Test)
+fm_set_compile_options(tst_style)
+add_test(NAME tst_style COMMAND tst_style)
+set_tests_properties(tst_style PROPERTIES ENVIRONMENT "${_testEnv}")
+
+# 도크 — QDockWidget 스타일 치수(두 디자인), 도킹 관리자(끌어 놓기 · 자동 숨김 · 상태 · 활성 도크 · 탭 닫기)
+qt_add_executable(tst_dock tst_dock.cpp)
+target_link_libraries(tst_dock PRIVATE Fm::dock Fm::style Qt6::Test)
+fm_set_compile_options(tst_dock)
+add_test(NAME tst_dock COMMAND tst_dock)
+set_tests_properties(tst_dock PROPERTIES ENVIRONMENT "${_testEnv}")

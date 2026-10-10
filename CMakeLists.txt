@@ -21,6 +21,7 @@ include(FmCompileOptions)
 
 add_subdirectory(src/fmstyle)
 add_subdirectory(src/fmwidgets)
+add_subdirectory(src/fmdock)
 
 # QtitanDataGrid(Developer Machines 상용 컴포넌트)는 이 저장소에 없다. 라이선스가 있으면 원본 · 패치 · 빌드 연결을
 # 담은 비공개 저장소를 third_party/QtitanDataGrid에 두거나 FMSTYLE_QTITAN_DIR로 위치를 알려 준다.

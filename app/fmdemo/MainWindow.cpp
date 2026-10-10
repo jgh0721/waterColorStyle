@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include "CatalogWindow.h"
+#include "DockPanes.h"
 #include "FilePanel.h"
 #include "ThumbnailCompare.h"
 
@@ -10,6 +11,7 @@
 #include <fmdialogs/MultiRenameDialog.h>
 #include <fmdialogs/ProgressDialog.h>
 #include <fmdialogs/SettingsDialog.h>
+#include <fmdock/DockManager.h>
 #include <fmfilelist/FileGroups.h>
 #include <fmfilelist/FileListView.h>
 #include <fmfilelist/FileRoles.h>
@@ -31,6 +33,7 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QDir>
+#include <QDockWidget>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -129,6 +132,7 @@ MainWindow::MainWindow(QWidget *parent)
     createMenus();
     createToolBar();
     createCentral();
+    createDocks();
     connect(&fs::ThemeManager::instance(), &fs::ThemeManager::changed, this, [this] {
         syncThemeControls();
         refreshIcons();
@@ -350,6 +354,7 @@ void MainWindow::createMenus()
                     [this] { startElevationFlow(1); });
         }
         if (def.title == u"보기") {
+            m_viewMenu = menu;  // 도크 하위 메뉴는 createDocks에서
             menu->addActions(m_viewModes->actions());
             menu->addSeparator();
             menu->addMenu(u"섬네일 구현 (활성 패널)"_s)->addActions(m_backends->actions());
@@ -474,7 +479,13 @@ void MainWindow::createCentral()
         button->setProperty("fmCommand", id);  // 단축키를 바꾸면 글자도(applyKeyBindings)
         connect(button, &QPushButton::clicked, a, &QAction::trigger);
     }
-    v->addWidget(m_splitter, 1);
+    // 도크 자리(07 §6) — 두 패널 영역만 안쪽 QMainWindow에 둔다. 도크가 닫혀 있으면 패널이 그 자리를 다 쓴다.
+    m_dockHost = new QMainWindow;
+    m_dockHost->setObjectName(u"dockHost"_s);
+    m_dockHost->setWindowFlags(Qt::Widget);
+    m_dockHost->setDockOptions(QMainWindow::AnimatedDocks | QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks);
+    m_dockHost->setCentralWidget(m_splitter);
+    v->addWidget(m_dockHost, 1);
     v->addWidget(m_commandLine);
     v->addWidget(m_functionKeys);
     setCentralWidget(central);
@@ -502,6 +513,84 @@ void MainWindow::createCentral()
                 m_active->openLocation(m_active->isLocal() || !target.startsWith(u"D:"_s, Qt::CaseInsensitive), target);
         }
     });
+}
+
+void MainWindow::createDocks()
+{
+    // 도크(07 §6) — 왼쪽 폴더 트리, 오른쪽 미리보기 · 속성(탭 묶음), 아래 작업 대기열. 처음에는 모두 닫혀 있고
+    // (보드 스냅숏 그대로) 보기 › 도크로 열면 이 자리에 붙는다. 끌어 옮긴 배치는 끝낼 때 세션에 저장한다.
+    m_docks = new fm::dock::DockManager(m_dockHost);
+    m_folderTree = new FolderTreePane;
+    m_previewPane = new PreviewPane;
+    m_propertiesPane = new PropertiesPane;
+    m_jobsPane = new JobsPane([this] { return jobs(); });
+    QDockWidget *tree = m_docks->addDock(u"folderTree"_s, u"폴더 트리"_s, m_folderTree, Qt::LeftDockWidgetArea);
+    QDockWidget *preview = m_docks->addDock(u"preview"_s, u"미리보기"_s, m_previewPane, Qt::RightDockWidgetArea);
+    QDockWidget *properties = m_docks->addDock(u"properties"_s, u"속성"_s, m_propertiesPane, Qt::RightDockWidgetArea);
+    QDockWidget *jobsDock = m_docks->addDock(u"jobs"_s, u"작업 대기열"_s, m_jobsPane, Qt::BottomDockWidgetArea);
+    m_docks->dropOnto(properties, preview, fm::dock::DockManager::DropSide::Center);
+    preview->raise();
+    m_dockHost->resizeDocks({tree, preview}, {240, 300}, Qt::Horizontal);
+    m_dockHost->resizeDocks({jobsDock}, {150}, Qt::Vertical);
+    for (QDockWidget *dock : m_docks->docks()) {
+        dock->hide();
+        dock->toggleViewAction()->setChecked(false);  // 창을 보이기 전이라 Hide 이벤트가 없다
+    }
+    m_viewMenu->addSeparator();
+    m_docks->populateMenu(m_viewMenu->addMenu(u"도크(&D)"_s));
+
+    // 커서를 빠르게 옮기면 미리보기는 멈춘 뒤 한 번만 읽는다
+    m_paneTimer = new QTimer(this);
+    m_paneTimer->setSingleShot(true);
+    m_paneTimer->setInterval(80);
+    connect(m_paneTimer, &QTimer::timeout, this, &MainWindow::updateDockPanes);
+    for (FilePanel *panel : {m_left, m_right}) {
+        connect(panel, &FilePanel::cursorChanged, m_paneTimer, qOverload<>(&QTimer::start));
+        connect(panel, &FilePanel::locationChanged, m_paneTimer, qOverload<>(&QTimer::start));
+    }
+    for (QDockWidget *dock : m_docks->docks()) {
+        // 열거나 탭으로 앞에 올 때 — 숨은 동안에는 읽지 않았다
+        connect(dock, &QDockWidget::visibilityChanged, m_paneTimer, [this](bool visible) {
+            if (visible)
+                m_paneTimer->start();
+        });
+    }
+    connect(m_folderTree, &FolderTreePane::folderActivated, this, [this](const QString &path) {
+        if (m_active)
+            m_active->openLocation(true, path);
+    });
+}
+
+void MainWindow::updateDockPanes()
+{
+    if (!m_docks || !m_active)
+        return;
+    const bool local = m_active->isLocal();
+    m_folderTree->follow(local ? m_active->currentPath() : QString());  // 모델이 없으면 자리만 기억한다
+    const QModelIndex index = m_active->cursorIndex();
+    if (m_previewPane->isVisible())
+        m_previewPane->showItem(index, local);
+    if (m_propertiesPane->isVisible())
+        m_propertiesPane->showItem(index, local);
+}
+
+void MainWindow::openAllDocks()
+{
+    for (QDockWidget *dock : m_docks->docks()) {
+        if (m_docks->isAutoHidden(dock))
+            m_docks->setAutoHidden(dock, false);
+        dock->show();
+    }
+    if (QDockWidget *preview = m_docks->dock(u"preview"_s))
+        preview->raise();
+    m_paneTimer->start();
+}
+
+void MainWindow::restoreDocks(const st::SessionState &session)
+{
+    m_docks->setLayouts(session.dockLayouts);
+    if (!session.docks.isEmpty())
+        m_docks->restoreState(session.docks);
 }
 
 void MainWindow::loadBoardState()
@@ -575,6 +664,8 @@ void MainWindow::setActivePanel(FilePanel *panel)
     if (changed) {
         const QSignalBlocker blocker(m_find);
         m_find->setText(panel->model()->quickFilter());
+        if (m_paneTimer)
+            m_paneTimer->start();
     }
     updateWindowTitle();
     updateActionStates();
@@ -1106,6 +1197,8 @@ st::SessionState MainWindow::sessionState() const
         (i == 0 ? session.leftCurrent : session.rightCurrent) = panel->currentTab();
     }
     session.rightActive = m_active == m_right;
+    session.docks = m_docks->saveState();
+    session.dockLayouts = m_docks->layouts();
     return session;
 }
 

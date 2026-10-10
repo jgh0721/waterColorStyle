@@ -5,8 +5,10 @@
 //   fmstyle_gallery --accent "#0F7A6E"    강조색을 바꿔 파생 규칙 확인
 //   fmstyle_gallery --parts               대화상자 부품 구역만
 //   fmstyle_gallery --qt-widgets          Qt 표준 위젯 구역만 (탭 네 방향 · 슬라이더 · 다이얼 · 도구 상자 · 달력 · 도크 · MDI · 항목 보기)
+//   fmstyle_gallery --docks               도크 구역만 (QDockWidget · 도킹 관리자)
 //   fmstyle_gallery --dark-tone navy      시안2 다크를 남색으로
 
+#include <fmdock/DockManager.h>
 #include <fmstyle/FmStyle.h>
 #include <fmstyle/Glyphs.h>
 #include <fmstyle/StyleProps.h>
@@ -15,6 +17,8 @@
 #include <fmwidgets/Button.h>
 #include <fmwidgets/DialogFooter.h>
 #include <fmwidgets/DialogHeader.h>
+#include <fmwidgets/FlexLayout.h>
+#include <fmwidgets/FlowLayout.h>
 #include <fmwidgets/KeyChip.h>
 #include <fmwidgets/Label.h>
 #include <fmwidgets/ProgressBar.h>
@@ -34,14 +38,19 @@
 #include <QColumnView>
 #include <QComboBox>
 #include <QCommandLineParser>
+#include <QCommandLinkButton>
 #include <QDateEdit>
+#include <QDateTimeEdit>
 #include <QDial>
+#include <QDialogButtonBox>
 #include <QDockWidget>
+#include <QFontComboBox>
 #include <QFrame>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -52,6 +61,8 @@
 #include <QMenuBar>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPlainTextEdit>
+#include <QPointer>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QRandomGenerator>
@@ -68,6 +79,7 @@
 #include <QTabBar>
 #include <QTableWidget>
 #include <QTabWidget>
+#include <QTextEdit>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolBox>
@@ -1178,6 +1190,633 @@ QWidget *qtRangesSection(const fs::ThemeColors &tc)
     return box;
 }
 
+/// 칸 제목 + 위젯을 두 줄로 쌓는 격자 — 구역마다 같은 모양.
+class CaptionGrid
+{
+public:
+    CaptionGrid(QGridLayout *grid, const fs::ThemeColors &tc) : m_grid(grid), m_tc(tc) {}
+
+    /// 한 줄에 칸을 채운다. 위젯 대신 레이아웃을 넣으려면 addLayoutRow.
+    void addRow(const QList<std::pair<QString, QWidget *>> &cells)
+    {
+        for (int c = 0; c < cells.size(); ++c) {
+            m_grid->addWidget(caption(cells[c].first, m_tc), m_row, c);
+            if (cells[c].second)
+                m_grid->addWidget(cells[c].second, m_row + 1, c, Qt::AlignTop);
+        }
+        m_row += 2;
+    }
+    /// 제목 + 한 줄 전체를 차지하는 위젯.
+    void addWide(const QString &title, QWidget *widget)
+    {
+        m_grid->addWidget(caption(title, m_tc), m_row++, 0, 1, -1);
+        m_grid->addWidget(widget, m_row++, 0, 1, -1);
+    }
+    void addTitle(const QString &text)
+    {
+        auto *l = caption(text, m_tc, 12);
+        QFont f = l->font();
+        f.setWeight(QFont::DemiBold);
+        l->setFont(f);
+        if (m_row > 0)
+            m_grid->setRowMinimumHeight(m_row++, 8);
+        m_grid->addWidget(l, m_row++, 0, 1, -1);
+    }
+
+private:
+    QGridLayout *m_grid;
+    const fs::ThemeColors &m_tc;
+    int m_row = 0;
+};
+
+/// 콤보 상자의 펼친 목록 — 팝업은 따로 뜨는 창이라 칸에 넣을 수 없다. 보인 뒤 잠깐 열어 찍은 그림을 보인다
+/// (편집할 수 없는 콤보는 메뉴 모양 목록, 편집 가능한 콤보는 항목 보기 목록).
+class ComboPopupPreview : public QLabel
+{
+public:
+    explicit ComboPopupPreview(QComboBox *combo) : m_combo(combo)
+    {
+        setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        setMinimumHeight(60);
+        QTimer::singleShot(250, this, [this] { capture(); });
+    }
+
+private:
+    void capture()
+    {
+        if (!m_combo || !m_combo->isVisible())
+            return;
+        m_combo->showPopup();
+        QWidget *popup = m_combo->view()->window();
+        QCoreApplication::processEvents();
+        const QPixmap shot = popup->grab();
+        m_combo->hidePopup();
+        setPixmap(shot);
+        setFixedSize((QSizeF(shot.size()) / shot.devicePixelRatio()).toSize());
+    }
+
+    QPointer<QComboBox> m_combo;
+};
+
+QMenu *sampleMenu(QWidget *parent)
+{
+    auto *menu = new QMenu(parent);
+    menu->addAction(u"이름"_s);
+    menu->addAction(u"크기"_s);
+    return menu;
+}
+
+// 입력 — 목업에 없는 Qt 기능: 한 줄 입력(지우기 단추 · 암호 · 읽기 전용 · 동작 아이콘 · 틀 없음 · 입력 마스크),
+// 콤보(아이콘 · 틀 없음 · 자리 표시 글 · 펼침), 스핀(화살표 · ± · 단추 없음 · 한계 · 특수 값 · 실수),
+// 날짜 · 시각(팝업 · 구역), 여러 줄 입력, 단축키 입력 · 글꼴 콤보.
+QWidget *qtInputsSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"Qt 표준 위젯 — 입력 (한 줄 · 콤보 · 스핀 · 날짜 · 여러 줄)"_s);
+    auto *grid = new QGridLayout(box);
+    grid->setContentsMargins(14, 12, 14, 14);
+    grid->setHorizontalSpacing(12);
+    grid->setVerticalSpacing(4);
+    CaptionGrid g(grid, tc);
+    const QColor iconColor = tc[fs::Token::Fg2];
+
+    g.addTitle(u"한 줄 입력 QLineEdit"_s);
+    auto *clear = new QLineEdit(u"report-final.pdf"_s);
+    clear->setClearButtonEnabled(true);
+    auto *password = new QLineEdit(u"secret"_s);
+    password->setEchoMode(QLineEdit::Password);
+    auto *readOnly = new QLineEdit(u"D:\\Work\\fm-core"_s);
+    readOnly->setReadOnly(true);
+    auto *actions = new QLineEdit;
+    actions->setPlaceholderText(u"폴더에서 찾기"_s);
+    actions->addAction(glyph(u"up"_s, iconColor), QLineEdit::LeadingPosition);
+    actions->addAction(glyph(u"trash"_s, iconColor), QLineEdit::TrailingPosition);
+    g.addRow({{u"지우기 단추"_s, clear}, {u"암호"_s, password}, {u"읽기 전용"_s, readOnly}, {u"앞 · 뒤 동작 아이콘"_s, actions}});
+    auto *frameless = new QLineEdit(u"틀 없음"_s);
+    frameless->setFrame(false);
+    auto *invalid = new QLineEdit(u"con.txt"_s);
+    fs::setInvalid(invalid);
+    auto *mask = new QLineEdit;
+    mask->setInputMask(u"9999-99-99"_s);
+    mask->setText(u"20260927"_s);
+    mask->setAlignment(Qt::AlignCenter);
+    auto *disabledPlaceholder = new QLineEdit;
+    disabledPlaceholder->setPlaceholderText(u"자리 표시 글 (사용 안 함)"_s);
+    disabledPlaceholder->setEnabled(false);
+    g.addRow({{u"틀 없음"_s, frameless}, {u"오류"_s, invalid}, {u"입력 마스크 · 가운데"_s, mask},
+              {u"사용 안 함 · 자리 표시"_s, disabledPlaceholder}});
+
+    g.addTitle(u"콤보 상자 QComboBox"_s);
+    auto *icons = new QComboBox;
+    icons->addItem(folderIcon(tc[fs::Token::Folder]), u"D:\\Downloads"_s);
+    icons->addItem(folderIcon(tc[fs::Token::Folder]), u"E:\\Backup"_s);
+    auto *noFrame = new QComboBox;
+    noFrame->setFrame(false);
+    noFrame->addItems({u"틀 없음"_s, u"둘째"_s});
+    auto *placeholder = new QComboBox;
+    placeholder->addItems({u"복사"_s, u"이동"_s});
+    placeholder->setPlaceholderText(u"작업을 고르세요"_s);
+    placeholder->setCurrentIndex(-1);
+    auto *open = new QComboBox;
+    open->addItems({u"펼친 모양"_s});
+    fs::setPreviewState(open, u"on,hover"_s);
+    g.addRow({{u"아이콘 항목"_s, icons}, {u"틀 없음"_s, noFrame}, {u"자리 표시 글"_s, placeholder}, {u"펼침 · 마우스 올림"_s, open}});
+    auto *editableHover = new QComboBox;
+    editableHover->setEditable(true);
+    editableHover->addItems({u"*.cpp;*.h"_s});
+    fs::setPreviewState(editableHover, u"hover"_s);
+    auto *editableDisabled = new QComboBox;
+    editableDisabled->setEditable(true);
+    editableDisabled->addItems({u"편집 가능 · 사용 안 함"_s});
+    editableDisabled->setEnabled(false);
+    auto *comboInvalid = new QComboBox;
+    comboInvalid->setEditable(true);
+    comboInvalid->addItems({u"E:\\없는 폴더"_s});
+    fs::setInvalid(comboInvalid);
+    auto *fonts = new QFontComboBox;
+    fonts->setCurrentFont(QFont(u"Segoe UI"_s));
+    g.addRow({{u"편집 가능 · 마우스 올림"_s, editableHover}, {u"편집 가능 · 사용 안 함"_s, editableDisabled},
+              {u"편집 가능 · 오류"_s, comboInvalid}, {u"글꼴 콤보"_s, fonts}});
+    // 펼친 목록: 편집할 수 없는 콤보(메뉴 모양) · 편집 가능한 콤보(항목 보기). 원본 콤보는 칸 안에 두되 보이지 않게.
+    auto *menuSource = new QComboBox;
+    menuSource->addItem(folderIcon(tc[fs::Token::Folder]), u"D:\\Downloads"_s);
+    menuSource->addItem(folderIcon(tc[fs::Token::Folder]), u"E:\\Backup"_s);
+    menuSource->addItem(u"구분선 아래 항목"_s);
+    menuSource->insertSeparator(2);
+    menuSource->setCurrentIndex(1);
+    auto *viewSource = new QComboBox;
+    viewSource->setEditable(true);
+    viewSource->addItems({u"*.cpp;*.h"_s, u"*.png;*.jpg"_s, u"*.*"_s});
+    auto *popups = new QWidget;
+    auto *popupRow = new QHBoxLayout(popups);
+    popupRow->setContentsMargins(0, 0, 0, 0);
+    popupRow->setSpacing(12);
+    for (QComboBox *source : {menuSource, viewSource}) {
+        auto *column = new QVBoxLayout;
+        column->setSpacing(2);
+        source->setFixedWidth(200);
+        column->addWidget(source);
+        column->addWidget(new ComboPopupPreview(source));
+        popupRow->addLayout(column);
+    }
+    popupRow->addStretch(1);
+    g.addWide(u"펼친 목록 — 편집할 수 없는 콤보(메뉴 모양 · 구분선 · 아이콘) · 편집 가능한 콤보(목록)"_s, popups);
+
+    g.addTitle(u"스핀 상자 QSpinBox · QDoubleSpinBox"_s);
+    auto spinBox = [](int value, QAbstractSpinBox::ButtonSymbols symbols) {
+        auto *s = new QSpinBox;
+        s->setRange(0, 10);
+        s->setValue(value);
+        s->setButtonSymbols(symbols);
+        return s;
+    };
+    auto *atMin = spinBox(0, QAbstractSpinBox::UpDownArrows);
+    auto *atMax = spinBox(10, QAbstractSpinBox::PlusMinus);
+    auto *noButtons = spinBox(4, QAbstractSpinBox::NoButtons);
+    auto *special = new QSpinBox;
+    special->setRange(0, 64);
+    special->setSpecialValueText(u"자동"_s);
+    special->setPrefix(u"최대 "_s);
+    special->setSuffix(u" 개"_s);
+    g.addRow({{u"최솟값 — 아래 단추 꺼짐"_s, atMin}, {u"± · 최댓값 — 더하기 꺼짐"_s, atMax}, {u"단추 없음"_s, noButtons},
+              {u"특수 값 · 접두어 · 접미어"_s, special}});
+    auto *real = new QDoubleSpinBox;
+    real->setRange(0, 1000);
+    real->setDecimals(2);
+    real->setValue(12.5);
+    real->setSuffix(u" MB/s"_s);
+    auto *spinFrameless = spinBox(3, QAbstractSpinBox::UpDownArrows);
+    spinFrameless->setFrame(false);
+    auto *spinReadOnly = spinBox(5, QAbstractSpinBox::UpDownArrows);
+    spinReadOnly->setReadOnly(true);
+    auto *spinDisabled = spinBox(5, QAbstractSpinBox::PlusMinus);
+    spinDisabled->setEnabled(false);
+    g.addRow({{u"실수"_s, real}, {u"틀 없음"_s, spinFrameless}, {u"읽기 전용"_s, spinReadOnly}, {u"± · 사용 안 함"_s, spinDisabled}});
+
+    g.addTitle(u"날짜 · 시각 QDateEdit · QTimeEdit · QDateTimeEdit"_s);
+    auto *time = new QTimeEdit(QTime(14, 5, 30));
+    time->setDisplayFormat(u"HH:mm:ss"_s);
+    auto *date = new QDateEdit(QDate(2026, 9, 27));
+    date->setDisplayFormat(u"yyyy-MM-dd"_s);
+    auto *dateTimePopup = new QDateTimeEdit(QDateTime(QDate(2026, 9, 27), QTime(22, 31)));
+    dateTimePopup->setDisplayFormat(u"yyyy-MM-dd HH:mm"_s);
+    dateTimePopup->setCalendarPopup(true);
+    auto *popupDisabled = new QDateEdit(QDate(2026, 10, 10));
+    popupDisabled->setCalendarPopup(true);
+    popupDisabled->setEnabled(false);
+    g.addRow({{u"시각"_s, time}, {u"날짜"_s, date}, {u"날짜 · 시각 — 달력 팝업"_s, dateTimePopup},
+              {u"달력 팝업 · 사용 안 함"_s, popupDisabled}});
+
+    g.addTitle(u"여러 줄 입력 QTextEdit · QPlainTextEdit · 단축키 입력 QKeySequenceEdit"_s);
+    auto *rich = new QTextEdit;
+    rich->setHtml(u"<b>굵게</b> · <i>기울임</i> · <a href=\"#\">링크</a><br>둘째 줄 — 서식 있는 글"_s);
+    rich->setFixedHeight(70);
+    auto *plain = new QPlainTextEdit;
+    plain->setPlaceholderText(u"메모를 남기세요 (자리 표시 글)"_s);
+    plain->setFixedHeight(70);
+    auto *plainReadOnly = new QPlainTextEdit(u"12:01  복사 시작\n12:02  3개 중 1개 완료\n12:03  일시 정지"_s);
+    plainReadOnly->setReadOnly(true);
+    plainReadOnly->setFixedHeight(70);
+    auto *keys = new QKeySequenceEdit(QKeySequence(u"Ctrl+Shift+C"_s));
+    g.addRow({{u"서식 있는 글"_s, rich}, {u"자리 표시 글"_s, plain}, {u"읽기 전용"_s, plainReadOnly}, {u"단축키 입력"_s, keys}});
+
+    g.addTitle(u"달력 QCalendarWidget · 도구 상자 QToolBox"_s);
+    auto *gridCalendar = new QCalendarWidget;
+    gridCalendar->setSelectedDate(QDate(2026, 9, 27));
+    gridCalendar->setGridVisible(true);
+    gridCalendar->setVerticalHeaderFormat(QCalendarWidget::ISOWeekNumbers);
+    gridCalendar->setFirstDayOfWeek(Qt::Monday);
+    gridCalendar->setDateRange(QDate(2026, 9, 3), QDate(2026, 10, 20));
+    auto *disabledCalendar = new QCalendarWidget;
+    disabledCalendar->setSelectedDate(QDate(2026, 10, 10));
+    disabledCalendar->setNavigationBarVisible(false);
+    disabledCalendar->setEnabled(false);
+    auto *toolBox = new QToolBox;
+    toolBox->addItem(qtPage(u"D:\\  E:\\"_s, tc), folderIcon(tc[fs::Token::Folder]), u"드라이브 (아이콘)"_s);
+    toolBox->addItem(qtPage(u"최근 위치 12개"_s, tc), u"최근 위치"_s);
+    toolBox->addItem(qtPage(u"연결 안 됨"_s, tc), folderIcon(tc[fs::Token::Folder]), u"네트워크 (사용 안 함)"_s);
+    toolBox->setItemEnabled(2, false);
+    toolBox->setCurrentIndex(1);
+    toolBox->setFixedHeight(190);
+    grid->addWidget(caption(u"칸 선 · ISO 주 번호 · 월요일 시작 · 날짜 범위(범위 밖 흐림)"_s, tc), 90, 0, 1, 2);
+    grid->addWidget(caption(u"내비게이션 줄 없음 · 사용 안 함"_s, tc), 90, 2);
+    grid->addWidget(caption(u"도구 상자 — 아이콘 · 사용 안 함 항목"_s, tc), 90, 3);
+    grid->addWidget(gridCalendar, 91, 0, 1, 2);
+    grid->addWidget(disabledCalendar, 91, 2, Qt::AlignTop);
+    grid->addWidget(toolBox, 91, 3, Qt::AlignTop);
+
+    for (int c = 0; c < 4; ++c)
+        grid->setColumnStretch(c, 1);
+    return box;
+}
+
+// 단추 · 선택 · 묶음 · 글자 — 목업에 없는 Qt 기능: 누름 단추(메뉴 · 납작 · 토글 · 기본 · 아이콘), 도구 단추(팝업 세 방식 ·
+// 화살표 · 글자 배치 · 올림 없음), 명령 링크 · 대화상자 단추 상자, 라디오 · 체크 상태, 그룹 상자(체크 · 납작 · 가운데),
+// 글자(링크 · 선택 · 틀 모양 · 사용 안 함 · 니모닉).
+QWidget *qtButtonsSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"Qt 표준 위젯 — 단추 · 선택 · 묶음 · 글자"_s);
+    auto *grid = new QGridLayout(box);
+    grid->setContentsMargins(14, 12, 14, 14);
+    grid->setHorizontalSpacing(12);
+    grid->setVerticalSpacing(4);
+    CaptionGrid g(grid, tc);
+    const QColor iconColor = tc[fs::Token::Fg2];
+
+    g.addTitle(u"누름 단추 QPushButton"_s);
+    auto *withMenu = new QPushButton(u"정렬 기준"_s);
+    withMenu->setMenu(sampleMenu(withMenu));
+    auto *flat = new QPushButton(u"납작한 단추"_s);
+    flat->setFlat(true);
+    auto *flatHover = new QPushButton(u"납작 · 마우스 올림"_s);
+    flatHover->setFlat(true);
+    fs::setPreviewState(flatHover, u"hover"_s);
+    auto *toggled = new QPushButton(u"토글 켬"_s);
+    toggled->setCheckable(true);
+    toggled->setChecked(true);
+    auto *defaultButton = new QPushButton(u"기본 단추"_s);
+    defaultButton->setDefault(true);
+    g.addRow({{u"메뉴"_s, withMenu}, {u"납작"_s, flat}, {u"납작 · 마우스 올림"_s, flatHover}, {u"토글 켬"_s, toggled},
+              {u"기본(Enter)"_s, defaultButton}});
+    auto *iconText = new QPushButton(glyph(u"copy"_s, iconColor), u"복사"_s);
+    auto *iconOnly = new QPushButton(glyph(u"trash"_s, iconColor), QString());
+    iconOnly->setToolTip(u"삭제"_s);
+    auto *menuDisabled = new QPushButton(u"메뉴 · 사용 안 함"_s);
+    menuDisabled->setMenu(sampleMenu(menuDisabled));
+    menuDisabled->setEnabled(false);
+    auto *toggledHover = new QPushButton(u"토글 켬 · 마우스 올림"_s);
+    toggledHover->setCheckable(true);
+    toggledHover->setChecked(true);
+    fs::setPreviewState(toggledHover, u"hover"_s);
+    auto *toggledDisabled = new QPushButton(u"토글 켬 · 사용 안 함"_s);
+    toggledDisabled->setCheckable(true);
+    toggledDisabled->setChecked(true);
+    toggledDisabled->setEnabled(false);
+    g.addRow({{u"아이콘 + 글자"_s, iconText}, {u"아이콘만"_s, iconOnly}, {u"메뉴 · 사용 안 함"_s, menuDisabled},
+              {u"토글 켬 · 마우스 올림"_s, toggledHover}, {u"토글 켬 · 사용 안 함"_s, toggledDisabled}});
+
+    g.addTitle(u"도구 단추 QToolButton"_s);
+    auto toolButton = [&](const QString &text, Qt::ToolButtonStyle style, bool autoRaise = true) {
+        auto *t = new QToolButton;
+        t->setText(text);
+        t->setIcon(glyph(u"copy"_s, iconColor));
+        t->setToolButtonStyle(style);
+        t->setAutoRaise(autoRaise);
+        return t;
+    };
+    auto *menuButton = toolButton(u"새로 만들기"_s, Qt::ToolButtonTextBesideIcon);
+    menuButton->setMenu(sampleMenu(menuButton));
+    menuButton->setPopupMode(QToolButton::MenuButtonPopup);
+    auto *instant = toolButton(u"보기"_s, Qt::ToolButtonTextBesideIcon);
+    instant->setMenu(sampleMenu(instant));
+    instant->setPopupMode(QToolButton::InstantPopup);
+    auto *delayed = toolButton(u"뒤로"_s, Qt::ToolButtonIconOnly);
+    delayed->setIcon(glyph(u"back"_s, iconColor));
+    delayed->setMenu(sampleMenu(delayed));
+    delayed->setPopupMode(QToolButton::DelayedPopup);
+    auto *menuHover = toolButton(u"분할 · 마우스 올림"_s, Qt::ToolButtonTextBesideIcon);
+    menuHover->setMenu(sampleMenu(menuHover));
+    menuHover->setPopupMode(QToolButton::MenuButtonPopup);
+    fs::setPreviewState(menuHover, u"hover"_s);
+    auto *arrows = new QWidget;
+    auto *arrowRow = new QHBoxLayout(arrows);
+    arrowRow->setContentsMargins(0, 0, 0, 0);
+    arrowRow->setSpacing(2);
+    for (const Qt::ArrowType arrow : {Qt::LeftArrow, Qt::UpArrow, Qt::DownArrow, Qt::RightArrow}) {
+        auto *a = new QToolButton;
+        a->setArrowType(arrow);
+        a->setAutoRaise(arrow != Qt::RightArrow);
+        arrowRow->addWidget(a);
+    }
+    arrowRow->addStretch(1);
+    g.addRow({{u"분할 메뉴(MenuButtonPopup)"_s, menuButton}, {u"바로 메뉴(InstantPopup)"_s, instant},
+              {u"누르고 있으면 메뉴(Delayed)"_s, delayed}, {u"분할 · 마우스 올림"_s, menuHover}, {u"화살표 넷(오른쪽은 올림 없음)"_s, arrows}});
+    auto *under = toolButton(u"아래 글자"_s, Qt::ToolButtonTextUnderIcon);
+    auto *textOnly = toolButton(u"글자만"_s, Qt::ToolButtonTextOnly);
+    auto *raised = toolButton(u"올림 없음"_s, Qt::ToolButtonTextBesideIcon, false);
+    auto *checked = toolButton(u"켬"_s, Qt::ToolButtonTextBesideIcon);
+    checked->setCheckable(true);
+    checked->setChecked(true);
+    auto *toolDisabled = toolButton(u"사용 안 함"_s, Qt::ToolButtonTextBesideIcon);
+    toolDisabled->setMenu(sampleMenu(toolDisabled));
+    toolDisabled->setPopupMode(QToolButton::MenuButtonPopup);
+    toolDisabled->setEnabled(false);
+    g.addRow({{u"아이콘 아래 글자"_s, under}, {u"글자만"_s, textOnly}, {u"올림 없음(autoRaise 끔)"_s, raised},
+              {u"켬(checkable)"_s, checked}, {u"분할 · 사용 안 함"_s, toolDisabled}});
+
+    g.addTitle(u"명령 링크 QCommandLinkButton · 단추 상자 QDialogButtonBox"_s);
+    auto *link = new QCommandLinkButton(u"이름을 바꿔 복사"_s, u"같은 이름이 있으면 번호를 붙입니다"_s);
+    auto *linkHover = new QCommandLinkButton(u"덮어쓰기"_s, u"대상 파일을 바꿉니다 (마우스 올림)"_s);
+    fs::setPreviewState(linkHover, u"hover"_s);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply);
+    grid->addWidget(caption(u"명령 링크"_s, tc), 100, 0);
+    grid->addWidget(caption(u"명령 링크 · 마우스 올림"_s, tc), 100, 1);
+    grid->addWidget(caption(u"단추 상자(확인 · 취소 · 적용)"_s, tc), 100, 2, 1, 3);
+    grid->addWidget(link, 101, 0);
+    grid->addWidget(linkHover, 101, 1);
+    grid->addWidget(buttons, 101, 2, 1, 3, Qt::AlignLeft | Qt::AlignTop);
+
+    // 라디오 · 체크
+    auto *choiceTitle = caption(u"라디오 QRadioButton · 체크 QCheckBox"_s, tc, 12);
+    QFont tf = choiceTitle->font();
+    tf.setWeight(QFont::DemiBold);
+    choiceTitle->setFont(tf);
+    grid->setRowMinimumHeight(102, 8);
+    grid->addWidget(choiceTitle, 103, 0, 1, -1);
+    auto *choices = new QGridLayout;
+    choices->setHorizontalSpacing(18);
+    choices->setVerticalSpacing(6);
+    const QStringList states = {u"끔"_s, u"켬"_s, u"마우스 올림"_s, u"누름"_s, u"키보드 포커스"_s, u"사용 안 함 · 켬"_s, u"사용 안 함 · 끔"_s};
+    for (int i = 0; i < states.size(); ++i) {
+        auto *radio = new QRadioButton(states[i]);
+        radio->setAutoExclusive(false);
+        auto *check = new QCheckBox(states[i]);
+        const bool on = i == 1 || i == 5 || i == 3;
+        radio->setChecked(on);
+        check->setChecked(on);
+        const QString preview = i == 2 ? u"hover"_s : i == 3 ? u"pressed"_s : i == 4 ? u"focus"_s : QString();
+        if (!preview.isEmpty()) {
+            fs::setPreviewState(radio, preview);
+            fs::setPreviewState(check, preview);
+        }
+        radio->setEnabled(i < 5);
+        check->setEnabled(i < 5);
+        choices->addWidget(radio, 0, i);
+        choices->addWidget(check, 1, i);
+    }
+    auto *partialDisabled = new QCheckBox(u"일부 · 사용 안 함"_s);
+    partialDisabled->setTristate(true);
+    partialDisabled->setCheckState(Qt::PartiallyChecked);
+    partialDisabled->setEnabled(false);
+    auto *iconRadio = new QRadioButton(u"아이콘 있는 라디오"_s);
+    iconRadio->setIcon(folderIcon(tc[fs::Token::Folder]));
+    iconRadio->setChecked(true);
+    iconRadio->setAutoExclusive(false);
+    auto *noText = new QCheckBox;
+    noText->setChecked(true);
+    noText->setToolTip(u"글자 없는 체크 상자"_s);
+    choices->addWidget(partialDisabled, 2, 0, 1, 2);
+    choices->addWidget(iconRadio, 2, 2, 1, 2);
+    choices->addWidget(noText, 2, 4);
+    choices->setColumnStretch(states.size(), 1);
+    grid->addLayout(choices, 104, 0, 1, -1);
+
+    // 그룹 상자
+    auto *groupTitle = caption(u"그룹 상자 QGroupBox"_s, tc, 12);
+    groupTitle->setFont(tf);
+    grid->setRowMinimumHeight(105, 8);
+    grid->addWidget(groupTitle, 106, 0, 1, -1);
+    auto groupBox = [&](const QString &title) {
+        auto *gb = new QGroupBox(title);
+        auto *l = new QVBoxLayout(gb);
+        l->addWidget(new QCheckBox(u"하위 항목"_s));
+        l->addWidget(new QLineEdit(u"값"_s));
+        return gb;
+    };
+    auto *checkableOn = groupBox(u"체크 · 켬"_s);
+    checkableOn->setCheckable(true);
+    checkableOn->setChecked(true);
+    auto *checkableOff = groupBox(u"체크 · 끔(안이 꺼짐)"_s);
+    checkableOff->setCheckable(true);
+    checkableOff->setChecked(false);
+    auto *flatGroup = groupBox(u"납작(flat)"_s);
+    flatGroup->setFlat(true);
+    auto *centered = groupBox(u"가운데 제목"_s);
+    centered->setAlignment(Qt::AlignHCenter);
+    auto *groupDisabled = groupBox(u"사용 안 함"_s);
+    groupDisabled->setEnabled(false);
+    auto *groups = new QHBoxLayout;
+    groups->setSpacing(12);
+    for (QGroupBox *gb : {checkableOn, checkableOff, flatGroup, centered, groupDisabled})
+        groups->addWidget(gb, 1);
+    grid->addLayout(groups, 107, 0, 1, -1);
+
+    // 글자
+    auto *labelTitle = caption(u"글자 QLabel"_s, tc, 12);
+    labelTitle->setFont(tf);
+    grid->setRowMinimumHeight(108, 8);
+    grid->addWidget(labelTitle, 109, 0, 1, -1);
+    auto *labels = new QGridLayout;
+    labels->setHorizontalSpacing(12);
+    labels->setVerticalSpacing(4);
+    auto *linkLabel = new QLabel(u"<a href=\"https://doc.qt.io\">Qt 문서</a> · <a href=\"#visited\">두 번째 링크</a>"_s);
+    linkLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    auto *selectable = new QLabel(u"선택한 글자가 보이는 라벨"_s);
+    selectable->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    selectable->setSelection(0, 5);
+    auto *disabledLabel = new QLabel(u"사용 안 함 라벨"_s);
+    disabledLabel->setEnabled(false);
+    auto *buddyRow = new QWidget;
+    auto *buddyLayout = new QHBoxLayout(buddyRow);
+    buddyLayout->setContentsMargins(0, 0, 0, 0);
+    auto *buddyLabel = new QLabel(u"이름(&N):"_s);
+    auto *buddyEdit = new QLineEdit;
+    buddyLabel->setBuddy(buddyEdit);
+    buddyLayout->addWidget(buddyLabel);
+    buddyLayout->addWidget(buddyEdit, 1);
+    labels->addWidget(caption(u"링크"_s, tc), 0, 0);
+    labels->addWidget(caption(u"선택(마우스로 고름)"_s, tc), 0, 1);
+    labels->addWidget(caption(u"사용 안 함"_s, tc), 0, 2);
+    labels->addWidget(caption(u"버디 · 니모닉(Alt+N)"_s, tc), 0, 3);
+    labels->addWidget(linkLabel, 1, 0);
+    labels->addWidget(selectable, 1, 1);
+    labels->addWidget(disabledLabel, 1, 2);
+    labels->addWidget(buddyRow, 1, 3);
+    struct Shape { QString name; QFrame::Shape shape; QFrame::Shadow shadow; };
+    const Shape shapes[] = {{u"Box · Plain"_s, QFrame::Box, QFrame::Plain},
+                            {u"Panel · Sunken"_s, QFrame::Panel, QFrame::Sunken},
+                            {u"Panel · Raised"_s, QFrame::Panel, QFrame::Raised},
+                            {u"StyledPanel · Sunken"_s, QFrame::StyledPanel, QFrame::Sunken},
+                            {u"WinPanel · Sunken"_s, QFrame::WinPanel, QFrame::Sunken}};
+    int col = 0;
+    for (const Shape &s : shapes) {
+        auto *l = new QLabel(u"틀 있는 라벨"_s);
+        l->setFrameStyle(int(s.shape) | int(s.shadow));
+        l->setMargin(4);
+        labels->addWidget(caption(u"틀 "_s + s.name, tc), 2, col);
+        labels->addWidget(l, 3, col++);
+    }
+    grid->addLayout(labels, 110, 0, 1, -1);
+
+    for (int c = 0; c < 5; ++c)
+        grid->setColumnStretch(c, 1);
+    return box;
+}
+
+/// 배치 비교용 상자 — 강조색 옅은 바탕 + 1 px 테두리. 크기 정책은 Preferred(늘어날 수 있음).
+QLabel *layoutBox(const QString &text, const fs::ThemeColors &tc, int minHeight = 0)
+{
+    auto *l = new QLabel(text);
+    l->setAlignment(Qt::AlignCenter);
+    l->setMargin(4);
+    l->setAutoFillBackground(true);
+    l->setFrameStyle(QFrame::Box | QFrame::Plain);
+    QPalette pal = l->palette();
+    pal.setColor(QPalette::Window, tc[fs::Token::AccentSoft]);
+    pal.setColor(QPalette::WindowText, tc[fs::Token::AccentFg]);
+    l->setPalette(pal);
+    if (minHeight > 0)
+        l->setMinimumHeight(minHeight);
+    return l;
+}
+
+/// 폭이 정해진 무대(틀) — 같은 폭에서 배치마다 어떻게 놓이는지 비교한다.
+QFrame *layoutStage(QLayout *layout, int width)
+{
+    auto *stage = new QFrame;
+    stage->setFrameShape(QFrame::StyledPanel);
+    layout->setContentsMargins(6, 6, 6, 6);
+    stage->setLayout(layout);
+    stage->setFixedWidth(width);
+    return stage;
+}
+
+const QStringList kLayoutWords = {u"src"_s, u"README.md"_s, u"build"_s, u"CMakeLists.txt"_s, u"docs"_s,
+                                  u"아주 긴 파일 이름.pdf"_s, u"tests"_s, u"img"_s};
+
+// 배치 — 흐름(FlowLayout) · 유연 상자(FlexLayout) · 격자(QGridLayout)를 같은 항목 · 같은 폭으로 나란히.
+QWidget *layoutsSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"배치 — 흐름 FlowLayout · 유연 상자 FlexLayout · 격자 QGridLayout (같은 항목 · 같은 폭 260)"_s);
+    auto *grid = new QGridLayout(box);
+    grid->setContentsMargins(14, 12, 14, 14);
+    grid->setHorizontalSpacing(14);
+    grid->setVerticalSpacing(4);
+    constexpr int kWidth = 260;
+    int row = 0;
+    auto title = [&](const QString &text) {
+        auto *l = caption(text, tc, 12);
+        QFont f = l->font();
+        f.setWeight(QFont::DemiBold);
+        l->setFont(f);
+        if (row > 0)
+            grid->setRowMinimumHeight(row++, 8);
+        grid->addWidget(l, row++, 0, 1, -1);
+    };
+    auto cells = [&](const QList<std::pair<QString, QWidget *>> &list) {
+        for (int c = 0; c < list.size(); ++c) {
+            grid->addWidget(caption(list[c].first, tc), row, c);
+            grid->addWidget(list[c].second, row + 1, c, Qt::AlignTop | Qt::AlignLeft);
+        }
+        row += 2;
+    };
+
+    title(u"흐름 — 항목은 제 크기(sizeHint) 그대로, 줄이 차면 다음 줄. 1차원(줄 단위), 늘이지 않는다"_s);
+    auto flow = [&](Qt::Alignment align) {
+        auto *layout = new fm::ui::FlowLayout(6, 6);
+        layout->setLineAlignment(align | Qt::AlignVCenter);
+        for (const QString &w : kLayoutWords)
+            layout->addWidget(layoutBox(w, tc));
+        return layoutStage(layout, kWidth);
+    };
+    cells({{u"줄 정렬 앞(AlignLeft)"_s, flow(Qt::AlignLeft)},
+           {u"가운데(AlignHCenter)"_s, flow(Qt::AlignHCenter)},
+           {u"양쪽(AlignJustify) — 남는 폭은 간격으로"_s, flow(Qt::AlignJustify)}});
+
+    title(u"유연 상자 — 한 축(주 축)에 놓고 남는 · 모자란 길이를 grow · shrink로 나눈다. 줄 바꿈하면 줄마다 따로 나눈다"_s);
+    using Flex = fm::ui::FlexLayout;
+    auto wrapGrow = new Flex;
+    wrapGrow->setWrap(Flex::Wrap::Wrap);
+    wrapGrow->setGap(6);
+    for (const QString &w : kLayoutWords)
+        wrapGrow->addWidget(layoutBox(w, tc), 1.0);
+    auto *ratios = new Flex;
+    ratios->setGap(6);
+    ratios->setAlignItems(Flex::Align::Center);
+    ratios->addWidget(layoutBox(u"1"_s, tc, 40), 1.0);
+    ratios->addWidget(layoutBox(u"2"_s, tc), 2.0);
+    ratios->addWidget(layoutBox(u"1"_s, tc, 24), 1.0);
+    auto *between = new Flex;
+    between->setGap(6);
+    between->setJustifyContent(Flex::Justify::SpaceBetween);
+    for (const QString &w : {u"뒤로"_s, u"경로"_s, u"설정"_s})
+        between->addWidget(layoutBox(w, tc));
+    cells({{u"wrap + 모두 grow 1 — 줄마다 꽉 참"_s, layoutStage(wrapGrow, kWidth)},
+           {u"grow 1 : 2 : 1 · align-items center"_s, layoutStage(ratios, kWidth)},
+           {u"justify-content space-between"_s, layoutStage(between, kWidth)}});
+    auto *column = new Flex(Flex::Direction::Column);
+    column->setGap(4);
+    column->setAlignItems(Flex::Align::Center);
+    for (const QString &w : {u"src"_s, u"아주 긴 파일 이름.pdf"_s, u"img"_s})
+        column->addWidget(layoutBox(w, tc));
+    auto *reverse = new Flex(Flex::Direction::RowReverse);
+    reverse->setGap(6);
+    for (const QString &w : {u"①"_s, u"②"_s, u"③"_s})
+        reverse->addWidget(layoutBox(w, tc));
+    auto *ordered = new Flex;
+    ordered->setGap(6);
+    QLabel *last = layoutBox(u"order -1"_s, tc);
+    for (const QString &w : {u"a"_s, u"b"_s, u"c"_s})
+        ordered->addWidget(layoutBox(w, tc));
+    ordered->addWidget(last);
+    ordered->setOrder(last, -1);
+    ordered->setAlignSelf(last, Flex::Align::End);
+    cells({{u"column + align-items center"_s, layoutStage(column, kWidth)},
+           {u"row-reverse — 주 축 시작이 오른쪽"_s, layoutStage(reverse, kWidth)},
+           {u"order -1 · align-self end"_s, layoutStage(ordered, kWidth)}});
+
+    title(u"격자 — 행과 열을 함께 맞춘다(2차원). 같은 열의 칸은 폭이, 같은 행의 칸은 높이가 같다. 줄 바꿈은 없다"_s);
+    auto *gridLayout = new QGridLayout;
+    gridLayout->setSpacing(6);
+    for (int i = 0; i < kLayoutWords.size(); ++i)
+        gridLayout->addWidget(layoutBox(kLayoutWords[i], tc), i / 3, i % 3);
+    auto *spanned = new QGridLayout;
+    spanned->setSpacing(6);
+    spanned->addWidget(layoutBox(u"머리 — 열 3칸 차지"_s, tc), 0, 0, 1, 3);
+    spanned->addWidget(layoutBox(u"옆 — 행 2칸"_s, tc, 50), 1, 0, 2, 1);
+    spanned->addWidget(layoutBox(u"b"_s, tc), 1, 1);
+    spanned->addWidget(layoutBox(u"c"_s, tc), 1, 2);
+    spanned->addWidget(layoutBox(u"d · e 합침"_s, tc), 2, 1, 1, 2);
+    spanned->setColumnStretch(1, 1);
+    auto *flowCompare = new fm::ui::FlowLayout(6, 6);
+    for (const QString &w : kLayoutWords.mid(0, 6))
+        flowCompare->addWidget(layoutBox(w, tc));
+    cells({{u"3열 격자 — 열 폭이 맞춰짐(폭이 모자라면 칸이 줄어 잘림)"_s, layoutStage(gridLayout, kWidth)},
+           {u"칸 합치기(row · column span) · 열 늘이기"_s, layoutStage(spanned, kWidth)},
+           {u"(비교) 같은 항목의 흐름 — 열이 맞지 않는다"_s, layoutStage(flowCompare, kWidth)}});
+    grid->setColumnStretch(3, 1);
+    return box;
+}
+
 // 주 창 구성 — 도크 제목 · 단추, 최대화한 MDI 창, 넘친 도구 모음(확장 단추) · 손잡이, 상태 표시줄 · 크기 조절 손잡이.
 QWidget *qtMainWindow(const fs::ThemeColors &tc)
 {
@@ -1479,10 +2118,259 @@ QWidget *qtItemViewsSection(const fs::ThemeColors &tc)
     return box;
 }
 
+// 도크 제목 줄 단추 하나 — 스타일이 바탕과 기호를 함께 그린다(fmDockButton).
+class DockButtonPreview : public QWidget
+{
+public:
+    DockButtonPreview(const QString &kind, const QString &preview = {})
+    {
+        fs::setDockButton(this, kind);
+        if (!preview.isEmpty())
+            fs::setPreviewState(this, preview);
+        const int margin = style()->pixelMetric(QStyle::PM_DockWidgetTitleBarButtonMargin, nullptr, this);
+        setFixedSize(2 * margin + 10, 2 * margin + 10);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        QStyleOptionToolButton opt;
+        opt.initFrom(this);
+        opt.state |= QStyle::State_AutoRaise;
+        style()->drawPrimitive(QStyle::PE_PanelButtonTool, &opt, &p, this);
+    }
+};
+
+// 떠 있는 도크 — 떠 있는 창은 타일에 넣을 수 없으므로 틀(PE_FrameDockWidget) · 제목 줄 · 단추를 같은 요소로 그린다.
+class FloatingDockPreview : public QWidget
+{
+public:
+    FloatingDockPreview(const QString &title, bool active, const fs::ThemeColors &tc)
+        : m_title(title)
+    {
+        fs::setPaneActive(this, active);
+        setFixedSize(240, 110);
+        m_float = new DockButtonPreview(u"float"_s);
+        m_close = new DockButtonPreview(u"close"_s, active ? u"hover"_s : QString());
+        m_float->setParent(this);
+        m_close->setParent(this);
+        auto *body = caption(u"  내용"_s, tc);
+        body->setParent(this);
+        m_body = body;
+    }
+
+protected:
+    void resizeEvent(QResizeEvent *) override
+    {
+        const QRect title = titleRect();
+        QStyleOptionDockWidget opt = option(title);
+        m_close->move(style()->subElementRect(QStyle::SE_DockWidgetCloseButton, &opt, this).topLeft());
+        m_float->move(style()->subElementRect(QStyle::SE_DockWidgetFloatButton, &opt, this).topLeft());
+        m_body->setGeometry(title.left(), title.bottom() + 6, title.width(), 20);
+    }
+
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        QStyleOptionFrame frame;
+        frame.initFrom(this);
+        style()->drawPrimitive(QStyle::PE_FrameDockWidget, &frame, &p, this);
+        const QStyleOptionDockWidget opt = option(titleRect());
+        style()->drawControl(QStyle::CE_DockWidgetTitle, &opt, &p, this);
+    }
+
+private:
+    QRect titleRect() const
+    {
+        const int fw = style()->pixelMetric(QStyle::PM_DockWidgetFrameWidth, nullptr, this);
+        const int margin = style()->pixelMetric(QStyle::PM_DockWidgetTitleMargin, nullptr, this);
+        const int button = 2 * style()->pixelMetric(QStyle::PM_DockWidgetTitleBarButtonMargin, nullptr, this) + 10;
+        const int height = std::max(button + 2, fontMetrics().height() + 2 * margin);
+        return QRect(fw, fw, width() - 2 * fw, height);
+    }
+
+    QStyleOptionDockWidget option(const QRect &rect) const
+    {
+        QStyleOptionDockWidget opt;
+        opt.initFrom(this);
+        opt.rect = rect;
+        opt.title = m_title;
+        opt.closable = true;
+        opt.floatable = true;
+        opt.movable = true;
+        return opt;
+    }
+
+    QString m_title;
+    QWidget *m_float = nullptr;
+    QWidget *m_close = nullptr;
+    QWidget *m_body = nullptr;
+};
+
+// 분할선 마우스 올림 — QMainWindow가 분할선을 그릴 때와 같은 요소(PE_IndicatorDockWidgetResizeHandle).
+class DockSeparatorPreview : public QWidget
+{
+public:
+    DockSeparatorPreview()
+    {
+        const int extent = style()->pixelMetric(QStyle::PM_DockWidgetSeparatorExtent, nullptr, this);
+        setFixedSize(extent, 90);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        QStyleOption opt;
+        opt.initFrom(this);
+        opt.state |= QStyle::State_MouseOver;
+        style()->drawPrimitive(QStyle::PE_IndicatorDockWidgetResizeHandle, &opt, &p, this);
+    }
+};
+
+QDockWidget *galleryDock(const QString &title, QWidget *content)
+{
+    auto *dock = new QDockWidget(title);
+    dock->setObjectName(title);
+    dock->setWidget(content);
+    return dock;
+}
+
+// 도크 — QMainWindow 도크(네 변 · 탭 묶음 · 세로 제목 줄 · 활성 도크 · 단추 마우스 올림)와 떠 있는 도크 · 분할선.
+QWidget *qtDocksSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"Qt 표준 위젯 — 도크 (QDockWidget)"_s);
+    auto *v = new QVBoxLayout(box);
+    v->setContentsMargins(14, 12, 14, 14);
+    v->setSpacing(6);
+
+    v->addWidget(caption(u"주 창 도크 — 왼쪽 '폴더'는 활성(닫기 마우스 올림), 오른쪽 둘은 탭 묶음, 아래는 세로 제목 줄"_s, tc));
+    auto *mw = new QMainWindow;
+    mw->setWindowFlags(Qt::Widget);
+    auto *center = caption(u"  중앙 위젯"_s, tc);
+    center->setAutoFillBackground(true);
+    mw->setCentralWidget(center);
+    QDockWidget *folders = galleryDock(u"폴더"_s, qtPage(u"C:\\  D:\\  E:\\"_s, tc));
+    fs::setPaneActive(folders, true);
+    if (auto *close = folders->findChild<QAbstractButton *>(u"qt_dockwidget_closebutton"_s))
+        fs::setPreviewState(close, u"hover"_s);
+    QDockWidget *preview = galleryDock(u"미리보기"_s, qtPage(u"사진_001.jpg"_s, tc));
+    QDockWidget *props = galleryDock(u"속성"_s, qtPage(u"크기 5.1 MB"_s, tc));
+    QDockWidget *jobs = galleryDock(u"작업 대기열"_s, qtPage(u"복사 · 3개 항목 — 37 %"_s, tc));
+    jobs->setFeatures(jobs->features() | QDockWidget::DockWidgetVerticalTitleBar);
+    mw->addDockWidget(Qt::LeftDockWidgetArea, folders);
+    mw->addDockWidget(Qt::RightDockWidgetArea, preview);
+    mw->tabifyDockWidget(preview, props);
+    preview->raise();
+    mw->addDockWidget(Qt::BottomDockWidgetArea, jobs);
+    mw->resizeDocks({folders, preview}, {130, 150}, Qt::Horizontal);
+    mw->setFixedHeight(280);
+    v->addWidget(mw);
+
+    v->addSpacing(6);
+    v->addWidget(caption(u"떠 있는 도크(사용자 제목 줄 · 자동 숨김 펼친 창의 틀) — 활성(닫기 마우스 올림) · 비활성, 분할선 마우스 올림"_s, tc));
+    auto *row = new QHBoxLayout;
+    row->setSpacing(14);
+    row->addWidget(new FloatingDockPreview(u"미리보기"_s, true, tc));
+    row->addWidget(new FloatingDockPreview(u"속성"_s, false, tc));
+    row->addWidget(new DockSeparatorPreview);
+    row->addStretch(1);
+    v->addLayout(row);
+    return box;
+}
+
+// 끌어 놓기 표시 — 끄는 동안만 보이므로 같은 그리기 도우미로 그린다: 바깥 가장자리 넷, 오른쪽 도크의 십자,
+// 십자의 오른쪽에 마우스를 올렸을 때의 놓일 자리 미리보기.
+class DropIndicatorsPreview : public QWidget
+{
+public:
+    DropIndicatorsPreview() { setFixedHeight(190); }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        using fs::DropSpot;
+        QPainter p(this);
+        const fs::ThemeColors &tc = fs::themeColorsFor(this);
+        const QRect content = rect().adjusted(0, 0, -1, -1);
+        p.fillRect(content, tc[fs::Token::Win]);
+        const QRect dockRect(content.right() - 230, content.top() + 8, 222, content.height() - 16);
+        p.fillRect(dockRect, tc[fs::Token::Surface]);
+        p.setPen(tc[fs::Token::Line]);
+        p.drawRect(content);
+        p.drawRect(dockRect);
+        p.setPen(tc[fs::Token::Fg3]);
+        p.drawText(dockRect.adjusted(8, 6, 0, 0), Qt::AlignLeft | Qt::AlignTop, u"미리보기"_s);
+        fs::paintDropPreview(&p, QRect(dockRect.center().x(), dockRect.top(), dockRect.width() / 2, dockRect.height()), tc);
+        const int s = fs::kDropIndicatorSize;
+        const QPoint mid = content.center();
+        const struct { DropSpot spot; QRect r; } outer[] = {
+            {DropSpot::OuterLeft, QRect(content.left() + 10, mid.y() - s / 2, s, s)},
+            {DropSpot::OuterTop, QRect(mid.x() - s / 2, content.top() + 10, s, s)},
+            {DropSpot::OuterRight, QRect(content.right() - 10 - s + 1, mid.y() - s / 2, s, s)},
+            {DropSpot::OuterBottom, QRect(mid.x() - s / 2, content.bottom() - 10 - s + 1, s, s)},
+        };
+        for (const auto &o : outer)
+            fs::paintDropIndicator(&p, o.r, o.spot, false, tc);
+        const QPoint c = dockRect.center();
+        const int gap = 4;
+        const struct { DropSpot spot; QPoint at; } cross[] = {
+            {DropSpot::Center, c},
+            {DropSpot::Left, c - QPoint(s + gap, 0)},
+            {DropSpot::Right, c + QPoint(s + gap, 0)},
+            {DropSpot::Top, c - QPoint(0, s + gap)},
+            {DropSpot::Bottom, c + QPoint(0, s + gap)},
+        };
+        for (const auto &x : cross)
+            fs::paintDropIndicator(&p, QRect(x.at.x() - s / 2, x.at.y() - s / 2, s, s), x.spot, x.spot == DropSpot::Right, tc);
+    }
+};
+
+// 도킹 관리자(fmdock — KDDockWidgets의 기능을 옮김): 사용자 제목 줄(압정 · 떼어 내기 · 닫기), 활성 도크, 탭 닫기 단추,
+// 자동 숨김 사이드바와 펼친 창, 끌어 놓기 표시.
+QWidget *qtDockManagerSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"도킹 관리자 (fmdock)"_s);
+    auto *v = new QVBoxLayout(box);
+    v->setContentsMargins(14, 12, 14, 14);
+    v->setSpacing(6);
+
+    v->addWidget(caption(u"사용자 제목 줄 · 활성 도크(폴더) · 도크 탭 닫기 단추 · 왼쪽 사이드바의 자동 숨김 도크 '로그'를 펼친 모습"_s, tc));
+    auto *mw = new QMainWindow;
+    mw->setWindowFlags(Qt::Widget);
+    auto *center = caption(u"  중앙 위젯"_s, tc);
+    center->setAutoFillBackground(true);
+    mw->setCentralWidget(center);
+    auto *manager = new fm::dock::DockManager(mw);
+    QDockWidget *folders = manager->addDock(u"folders"_s, u"폴더"_s, qtPage(u"C:\\  D:\\  E:\\"_s, tc), Qt::LeftDockWidgetArea);
+    QDockWidget *preview = manager->addDock(u"preview"_s, u"미리보기"_s, qtPage(u"사진_001.jpg"_s, tc), Qt::RightDockWidgetArea);
+    QDockWidget *props = manager->addDock(u"properties"_s, u"속성"_s, qtPage(u"크기 5.1 MB"_s, tc), Qt::RightDockWidgetArea);
+    manager->dropOnto(props, preview, fm::dock::DockManager::DropSide::Center);
+    manager->addDock(u"jobs"_s, u"작업 대기열"_s, qtPage(u"복사 · 3개 항목 — 37 %"_s, tc), Qt::BottomDockWidgetArea);
+    QDockWidget *log = manager->addDock(u"log"_s, u"로그"_s, qtPage(u"12:01  복사 시작 — D:\\Downloads"_s, tc),
+                                        Qt::LeftDockWidgetArea);
+    manager->setAutoHidden(log, true);
+    fs::setPaneActive(folders, true);
+    mw->resizeDocks({folders, preview}, {150, 170}, Qt::Horizontal);
+    mw->setFixedHeight(300);
+    v->addWidget(mw);
+    // 펼친 창은 배치가 끝난 뒤에 자리를 잡는다
+    QTimer::singleShot(100, mw, [manager, log] { manager->showAutoHidden(log); });
+
+    v->addSpacing(6);
+    v->addWidget(caption(u"끌어 놓기 표시 — 바깥 가장자리 넷과 도크 십자, 십자 오른쪽에 놓을 때의 미리보기"_s, tc));
+    v->addWidget(new DropIndicatorsPreview);
+    return box;
+}
+
 // --parts: 대화상자 부품 구역만 (목업 대조용)
 bool g_partsOnly = false;
-// --qt-widgets: Qt 표준 위젯 구역만
+// --qt-widgets: Qt 표준 위젯 구역만, --docks: 도크 구역만, --controls: 입력 · 단추 구역만
 bool g_qtWidgetsOnly = false;
+bool g_docksOnly = false;
+bool g_controlsOnly = false;
+bool g_layoutsOnly = false;  // --layouts: 배치 비교 구역만
 
 QWidget *buildTile(fs::Variant variant)
 {
@@ -1505,11 +2393,32 @@ QWidget *buildTile(fs::Variant variant)
         v->addStretch(1);
         return tile;
     }
+    if (g_docksOnly) {
+        v->addWidget(qtDocksSection(tc));
+        v->addWidget(qtDockManagerSection(tc));
+        v->addStretch(1);
+        return tile;
+    }
+    if (g_controlsOnly) {
+        v->addWidget(qtInputsSection(tc));
+        v->addWidget(qtButtonsSection(tc));
+        v->addStretch(1);
+        return tile;
+    }
+    if (g_layoutsOnly) {
+        v->addWidget(layoutsSection(tc));
+        v->addStretch(1);
+        return tile;
+    }
     if (g_qtWidgetsOnly) {
+        v->addWidget(qtInputsSection(tc));
+        v->addWidget(qtButtonsSection(tc));
         v->addWidget(qtTabsSection(tc));
         v->addWidget(qtRangesSection(tc));
         v->addWidget(qtWindowSection(tc));
         v->addWidget(qtItemViewsSection(tc));
+        v->addWidget(qtDocksSection(tc));
+        v->addWidget(qtDockManagerSection(tc));
         v->addStretch(1);
         return tile;
     }
@@ -1522,10 +2431,15 @@ QWidget *buildTile(fs::Variant variant)
     v->addWidget(chromeSection(tc));
     v->addWidget(graphSection(tc));
     v->addWidget(traceSection(tc));
+    v->addWidget(layoutsSection(tc));
+    v->addWidget(qtInputsSection(tc));
+    v->addWidget(qtButtonsSection(tc));
     v->addWidget(qtTabsSection(tc));
     v->addWidget(qtRangesSection(tc));
     v->addWidget(qtWindowSection(tc));
     v->addWidget(qtItemViewsSection(tc));
+    v->addWidget(qtDocksSection(tc));
+    v->addWidget(qtDockManagerSection(tc));
     v->addStretch(1);
     return tile;
 }
@@ -1547,12 +2461,18 @@ int main(int argc, char *argv[])
                                           u"name"_s, u"standard"_s);
     const QCommandLineOption partsOption(u"parts"_s, u"대화상자 부품 구역만 보입니다."_s);
     const QCommandLineOption qtWidgetsOption(u"qt-widgets"_s, u"Qt 표준 위젯 구역만 보입니다."_s);
+    const QCommandLineOption docksOption(u"docks"_s, u"도크 구역만 보입니다."_s);
+    const QCommandLineOption controlsOption(u"controls"_s, u"입력 · 단추 구역만 보입니다."_s);
+    const QCommandLineOption layoutsOption(u"layouts"_s, u"배치 비교(흐름 · 유연 상자 · 격자) 구역만 보입니다."_s);
     const QCommandLineOption toneOption(u"dark-tone"_s, u"다크 색조: gray · navy (시안2)."_s, u"tone"_s, u"gray"_s);
-    parser.addOptions({shotOption, accentOption, noFixOption, delayOption, designOption, partsOption, qtWidgetsOption,
-                       toneOption});
+    parser.addOptions({shotOption, accentOption, noFixOption, delayOption, designOption, partsOption, qtWidgetsOption, docksOption,
+                       controlsOption, layoutsOption, toneOption});
     parser.process(app);
     g_partsOnly = parser.isSet(partsOption);
     g_qtWidgetsOnly = parser.isSet(qtWidgetsOption);
+    g_docksOnly = parser.isSet(docksOption);
+    g_controlsOnly = parser.isSet(controlsOption);
+    g_layoutsOnly = parser.isSet(layoutsOption);
     if (parser.value(toneOption) == u"navy"_s)
         fs::ThemeManager::instance().setDarkTone(fs::ThemeManager::DarkTone::Navy);
 

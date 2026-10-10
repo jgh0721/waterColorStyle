@@ -10,16 +10,17 @@
 | 폴더 | 내용 |
 |---|---|
 | `src/fmstyle` | `Fm::style` — FmStyle, WatercolorStyle, 테마 토큰, ThemeManager, ThemeScope |
-| `src/fmwidgets` | `Fm::widgets` — 버튼 · 스위치 · 카드 등 기본 부품, 대화상자 · 설정 · 메인 창 부품, 떠 있는 알림(`Toast`) |
+| `src/fmwidgets` | `Fm::widgets` — 버튼 · 스위치 · 카드 등 기본 부품, 대화상자 · 설정 · 메인 창 부품, 떠 있는 알림(`Toast`), 웹 배치(`FlowLayout` · `FlexLayout`) |
 | `src/fmfilelist` | `Fm::filelist` — 파일 목록(Qtitan 1줄 · 2줄 밴드 보기), 섬네일(Qt 목록 · Qtitan 카드 두 구현), 모델 · 원본. Qtitan 없이 빌드하면 파일 목록은 자리 표시, 섬네일은 Qt 목록만 |
 | `src/fmdialogs` | `Fm::dialogs` — 파일 작업 · 관리자 권한 대화상자, 설정 창, 대화상자 변형 카탈로그 |
 | `src/fmsettings` | `Fm::settings` — 설정 모델 · 보관소(JSON) |
+| `src/fmdock` | `Fm::dock` — 도킹 관리자(`DockManager`): QMainWindow · QDockWidget 위에 끌어 놓기 표시 · 자동 숨김 사이드바 · 이름 붙인 배치 등을 얹는다(아래 [도크](#도크--fmdock)) |
 | `src/designer` | Qt Widgets Designer 플러그인 (`fmdesignerplugin`) |
-| `app/fmdemo` | 데모 앱 — 메인 창 · 대화상자 · 설정 · 도구 창(카탈로그 · 섬네일 비교) · 일괄 스냅숏 |
+| `app/fmdemo` | 데모 앱 — 메인 창 · 도크(폴더 트리 · 미리보기 · 속성 · 작업 대기열) · 대화상자 · 설정 · 도구 창(카탈로그 · 섬네일 비교) · 일괄 스냅숏 |
 | `third_party/QtitanDataGrid` | 저장소에 없음 — QtitanDataGrid 비공개 저장소를 두는 자리(아래 [QtitanDataGrid](#qtitandatagrid--상용-컴포넌트-선택)) |
 | `examples/designer` | Designer로 만든 `CopyDetails.ui`를 uic로 불러 쓰는 예제 |
 | `gallery` | 목업과 비교하는 위젯 갤러리 |
-| `tests` | Qt Test — 파일 목록 · 메인 창 · 대화상자 · 설정 · Designer 플러그인 |
+| `tests` | Qt Test — 파일 목록 · 메인 창 · 대화상자 · 설정 · Designer 플러그인 · 도크 · Qt 표준 위젯 스타일 · 웹 배치 |
 
 ## 빌드
 
@@ -80,7 +81,24 @@ tools\run.cmd build\release\fmdemo.exe --design watercolor --scheme navy
 | `--measure` | `--compare`와 함께 — 도착 흉내를 끄고 연결 · 스크롤을 재어 결과를 출력한 뒤 끝낸다 |
 | `--shot <file.png>` · `--shot-delay <ms>` | 지금 화면(`--open`이면 그 대화상자, `--catalog` · `--compare`면 그 창)을 찍고 끝낸다 |
 | `--shot <폴더>` · `--only <ids>` · `--themes <list>` | 일괄 스냅숏(아래) |
+| `--docks` | 도크 넷을 연 채로 시작한다(아래) |
 | `[폴더]` | 그 실제 폴더를 새 탭으로 연다. 설정 "창을 하나만 실행"(기본 켬)이면 이미 뜬 창에 넘기고 끝난다 |
+
+### 도크
+
+**보기 › 도크**에서 켜고 끈다. 처음에는 모두 닫혀 있어 메인 창은 보드 그대로다. 도크는 두 패널 영역에만 붙는다
+(아래 도크도 명령줄 · 기능 키 막대 위).
+
+| 도크 | 내용 |
+|---|---|
+| 폴더 트리(왼쪽) | 이 PC의 드라이브 · 폴더(폴더만). 누르면 활성 패널이 그 폴더로 가고, 활성 패널이 실제 폴더면 그 자리를 따라 펼친다 |
+| 미리보기(오른쪽) | 커서 항목 — 실제 그림 · 글 파일 앞부분, 샘플은 가짜 섬네일 · 종류 아이콘, 아래에 이름과 정보 줄 |
+| 속성(오른쪽, 미리보기와 탭 묶음) | 이름 · 종류 · 크기(바이트) · 날짜 · 속성 · 위치 · 원본, 실제 그림은 픽셀 크기 |
+| 작업 대기열(아래) | 진행 창마다 한 줄 — 작업 · 진행 막대(일시 중지 색) · 상태. 두 번 누르면 그 진행 창을 앞으로 |
+
+제목 줄을 끌면 끌어 놓기 표시가 나오고(가장자리 넷 · 도크 십자, Esc 취소), 압정으로 사이드바에 접는다.
+배치는 **보기 › 도크 › 배치**로 이름 붙여 저장하고, 지금 배치와 저장한 배치는 끝낼 때 설정 파일(`session.docks` ·
+`session.dockLayouts`)에 남아 다음 시작에 되살아난다(시작할 때 설정과 무관).
 
 ### 설정의 반영
 
@@ -101,14 +119,14 @@ tools\run.cmd build\release\fmdemo.exe --shot shots
 tools\run.cmd build\release\fmdemo.exe --shot shots --only main,copy,settings.keys --themes std-light,wc-navy
 ```
 
-- 메인 창(보드 기본 상태, 1440 × 900)과 대화상자 변형 76개, 모두 77화면을 테마 5개(`std-light` · `std-dark` ·
-  `wc-light` · `wc-dark` · `wc-navy`)로 찍는다. 화면에 띄우지 않고 1배율로 그리므로 화면 배율과 관계없이
-  목업 보드의 CSS 픽셀과 같은 크기가 된다.
+- 메인 창(보드 기본 상태, 1440 × 900), 도크 넷을 연 메인 창(`main.docks` — 제안), 대화상자 변형 76개, 모두 78화면을
+  테마 5개(`std-light` · `std-dark` · `wc-light` · `wc-dark` · `wc-navy`)로 찍는다. 화면에 띄우지 않고 1배율로 그리므로
+  화면 배율과 관계없이 목업 보드의 CSS 픽셀과 같은 크기가 된다.
 - 결과: `<폴더>/<테마>/<id>.png`(클라이언트 영역), `<폴더>/<테마>/framed/<id>.png`(목업식 제목 표시줄 틀 —
   시안1은 36 px 제목(메인 32) · 모서리 8, 시안2는 27 px 그라데이션 제목 · 3 px 틀), `<폴더>/index.html`
   (화면 × 테마 표, 틀 켜기 · 끄기와 미리보기 폭 조절, 구현 크기와 목업 크기 비교 — 다르면 빨간색).
-- `--only`는 화면 ID 접두어(쉼표 구분, `main` = 메인 창), `--themes`는 테마 ID다.
-  전체 770장은 debug 빌드에서 약 3분 걸린다.
+- `--only`는 화면 ID 접두어(쉼표 구분, `main` = 메인 창 둘), `--themes`는 테마 ID다.
+  전체 780장은 debug 빌드에서 약 3분 걸린다.
 
 ## Qt Widgets Designer 플러그인
 
@@ -199,7 +217,72 @@ theme.install(app);
   (화살표 · 창 단추 · 도구 모음 확장 · 새로 고침 — 그릴 때 테마 색을 정해 다크 · 실행 중 전환을 따른다),
   항목 보기(마우스 올림 · 끌어 놓기 표시 · 칸 편집기 테두리 · 가운데 맞춤 머리글의 정렬 표시 · 열 보기 화살표와
   손잡이, 시안2 트리 점선). 선택한 항목의 아이콘은 강조색으로 물들이지 않는다.
-  시안1은 Windows 11 컨트롤, 시안2는 XP 컨트롤을 토큰 색으로 옮겼다. 도크 제목 · 크기 조절 손잡이 · 컬러 표준
-  아이콘 등은 아직 Fusion이 팔레트로 그린다.
+  입력 · 단추의 Qt 기능도 두 디자인이 그린다 — 틀 없는 콤보 · 스핀 상자, 읽기 전용 입력 바탕(시안1 흐린 바탕 · 밑줄 없음,
+  시안2 XP처럼 창 바탕), 스핀 상자 ± 기호, 납작한 누름 단추, 켠 채 사용 안 함인 토글, 도구 단추 메뉴(분할 단추는 두 칸 ·
+  구분선, 바로 · 지연 메뉴는 오른쪽 꺾쇠), 그룹 상자 제목 정렬 · 납작(선만), 콤보 펼친 목록(시안1 메뉴처럼 둥근 겹침,
+  시안2 XP 드롭다운, 구분선 폭 전체). 항목 대리자가 그리는 진행 막대도 `styleObject`의 `fmProgress`로 일시 중지 · 오류 색을 낸다.
+  시안1은 Windows 11 컨트롤, 시안2는 XP 컨트롤을 토큰 색으로 옮겼다. 컬러 표준 아이콘 등은 아직 Fusion이 팔레트로 그린다.
+- **도크(QDockWidget)**: 제목 줄 · 단추 · 떠 있는 창 틀 · 분할선을 두 디자인이 그린다. 시안1은 `--win` 바탕 · 12 px 굵은 글자 ·
+  단추 22, 활성 도크는 위쪽 2 px 강조선. 시안2는 MDI 제목처럼 파란 그라데이션 · 흰 굵은 글자 · 캡션 단추 16, 떠 있는 창은
+  4 px 창 틀, 분할선은 마우스를 올리면 잡이 점. 세로 제목 줄(`DockWidgetVerticalTitleBar`)도 같다.
 - **확인**: `fmstyle_gallery --design watercolor` (창 위쪽 단추로 시안1 · 시안2 전환, 맨 아래 Qt 표준 위젯 구역),
-  `fmstyle_gallery --qt-widgets` (Qt 표준 위젯 구역만), `fm_designer_example --watercolor [--dark]`.
+  `fmstyle_gallery --qt-widgets` (Qt 표준 위젯 구역만), `fmstyle_gallery --controls` (입력 · 단추 · 묶음 · 글자 구역만),
+  `fmstyle_gallery --docks` (도크 · 도킹 관리자 구역만), `fmstyle_gallery --layouts` (배치 비교 구역만),
+  `fm_designer_example --watercolor [--dark]`.
+
+## 도크 — fmdock
+
+`Fm::dock`의 `fm::dock::DockManager`는 QMainWindow · QDockWidget을 그대로 쓰면서 KDDockWidgets의 기능을 옮겨 얹는다
+(코드는 가져오지 않고 동작을 다시 구현 — KDDockWidgets는 GPL). 모양은 `Fm::style`의 두 디자인이 그린다.
+
+```cpp
+auto *docks = new fm::dock::DockManager(mainWindow);
+QDockWidget *tree = docks->addDock(u"folders"_s, u"폴더"_s, new QTreeView, Qt::LeftDockWidgetArea);
+docks->addDock(u"log"_s, u"로그"_s, new QPlainTextEdit, Qt::BottomDockWidgetArea);
+docks->setAutoHidden(docks->dock(u"log"_s), true);   // 아래 사이드바 탭으로 접기
+docks->populateMenu(viewMenu->addMenu(u"도크"_s));   // 켜기 · 끄기 + 배치 저장 · 적용 · 삭제
+settings.setValue("docks", docks->saveState());       // restoreState로 되살린다(자동 숨김 포함)
+```
+
+| 기능 | 내용 |
+|---|---|
+| 제목 줄 | 압정(자동 숨김) · 떼어 내기 · 닫기 단추, 두 번 눌러 떼기 · 붙이기, 포커스가 들어 있는 도크를 활성으로 강조 |
+| 끌어 놓기 | 메인 창 가장자리 넷 + 마우스 아래 도크의 십자(왼 · 위 · 오른 · 아래 · 탭), 놓일 자리 미리보기, Esc 취소, 표시 밖에 놓으면 떠 있는 창. 마우스 없이 `dropOnto` · `dropToEdge` |
+| 자동 숨김 | 창 가장자리 사이드바의 탭, 누르면 내용 위로 펼침(바깥을 누르거나 Esc면 접힘), 펼친 창의 안쪽 가장자리로 폭 조절 |
+| 도크 탭 | 탭 묶음에 닫기 단추, 활성 도크 탭 강조 |
+| 상태 · 배치 | `saveState` · `restoreState`(판이 다르면 거절), 이름 붙인 배치(`saveLayout` · `applyLayout` · `layouts`) |
+
+## 웹 배치 — FlowLayout · FlexLayout
+
+`Fm::widgets`의 두 QLayout은 웹 문서의 배치 방식을 Qt로 옮겼다. QBoxLayout · QGridLayout처럼 아무 위젯에나 건다.
+
+```cpp
+// 태그 · 칩: 제 크기로 놓다가 줄이 차면 다음 줄
+auto *tags = new fm::ui::FlowLayout(6, 6, panel);   // 가로 · 세로 간격
+tags->setLineAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+for (const QString &name : names)
+    tags->addWidget(new fm::ui::Tag(name, fm::ui::Tag::Info));
+
+// 도구 줄: 찾기 칸이 남는 폭을 다 받고, 좁아지면 다음 줄로
+auto *bar = new fm::ui::FlexLayout(fm::ui::FlexLayout::Direction::Row, toolbar);
+bar->setWrap(fm::ui::FlexLayout::Wrap::Wrap);
+bar->setAlignItems(fm::ui::FlexLayout::Align::Center);
+bar->setGap(8);
+bar->addWidget(backButton);
+bar->addWidget(findBox, /*grow*/ 1, /*shrink*/ 1, /*basis*/ 200);
+bar->addWidget(settingsButton);
+```
+
+| | 흐름 `FlowLayout` | 유연 상자 `FlexLayout` | 격자 `QGridLayout` (Qt) |
+|---|---|---|---|
+| 웹에서 | 인라인 흐름(글줄) | CSS flexbox | CSS grid(일부) |
+| 축 | 1차원 — 줄 단위 | 1차원 — 주 축(가로 · 세로 · 거꾸로), 줄 바꿈하면 줄마다 따로 | 2차원 — 행과 열을 함께 |
+| 항목 크기 | sizeHint 그대로(늘이지 않음) | 기준(basis 또는 sizeHint)에서 남는 · 모자란 길이를 grow · shrink로 나눔, 최소 · 최대 고정 | 열 폭 · 행 높이를 칸 sizeHint · 늘이기 비율(stretch)로 정함 |
+| 줄 바꿈 | 늘 함 | 고를 수 있음(NoWrap · Wrap · WrapReverse) | 없음 — 좁으면 칸이 줄어든다 |
+| 정렬 | 줄 정렬(앞 · 가운데 · 뒤 · 양쪽) + 줄 안 세로 정렬 | justify-content 여섯 · align-items · align-self · align-content | 칸 안 정렬(Qt::Alignment) |
+| 같은 열 맞추기 | 안 됨 | 안 됨(줄마다 따로 나눔) | 됨 — 같은 열은 폭이, 같은 행은 높이가 같다 |
+| 칸 합치기 · 순서 | — · 넣은 순서 | — · `order` | row · column span · 칸 좌표 |
+| 높이 | 폭으로 정해짐(heightForWidth) | 가로 + 줄 바꿈이면 폭으로 정해짐 | 칸 높이의 합 |
+| 쓰임 | 태그 · 칩 · 필터 단추 묶음 | 도구 줄 · 카드 줄 · 대화상자 단추 줄 · 반응형 양식 | 설정 양식(이름 · 값 열) · 표 모양 배치 |
+
+`fmstyle_gallery --layouts`가 세 배치를 같은 항목 · 같은 폭으로 나란히 보인다.

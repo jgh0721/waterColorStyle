@@ -2,6 +2,7 @@
 // 설정 연결 · 디자인 전환, 도구 창(대화상자 카탈로그 · 섬네일 비교) · 일괄 스냅숏.
 
 #include "CatalogWindow.h"
+#include "DockPanes.h"
 #include "FilePanel.h"
 #include "MainWindow.h"
 #include "SingleInstance.h"
@@ -12,6 +13,8 @@
 #include <fmdialogs/ElevationDialog.h>
 #include <fmdialogs/ElevationFlow.h>
 #include <fmdialogs/ProgressDialog.h>
+#include <fmdialogs/ProgressSimulator.h>
+#include <fmdock/DockManager.h>
 #include <fmfilelist/FileListView.h>
 #include <fmfilelist/FileRoles.h>
 #include <fmfilelist/FileSortProxy.h>
@@ -30,8 +33,12 @@
 #include <QApplication>
 #include <QDialog>
 #include <QDir>
+#include <QDockWidget>
 #include <QFile>
 #include <QImage>
+#include <QMainWindow>
+#include <QMenu>
+#include <QMenuBar>
 #include <QPointer>
 #include <QScrollBar>
 #include <QSet>
@@ -43,6 +50,7 @@
 #include <QTest>
 #include <QTimer>
 #include <QTreeView>
+#include <QTreeWidget>
 
 #include <atomic>
 #include <thread>
@@ -75,6 +83,7 @@ private Q_SLOTS:
     void jobAndKeySettings();
     void generalSettings();
     void columnSetsInPanels();
+    void docks();
     void catalogWindow();
     void thumbnailCompare();
     void snapshots();
@@ -740,6 +749,145 @@ void TestMainWindow::columnSetsInPanels()
     QCOMPARE(right->columnSetName(), u"기본"_s);
     tabs->setCurrentIndex(0);
     QCOMPARE(right->columnSetName(), u"다운로드"_s);
+    m_window->loadBoardState();
+}
+
+void TestMainWindow::docks()
+{
+    // 도크(07 §6) — 처음에는 모두 닫힘(보드 그대로) · 보기 › 도크 · 아래 도크는 명령줄 위 · 미리보기 · 속성이 커서를 따름 ·
+    // 폴더 트리로 이동 · 작업 대기열 · 세션 저장 · 복원
+    namespace fd = fm::dialogs;
+    namespace st = fm::settings;
+    m_window->loadBoardState();
+    fm::dock::DockManager *docks = m_window->dockManager();
+    QVERIFY(docks);
+    auto *host = m_window->findChild<QMainWindow *>(u"dockHost"_s);
+    QVERIFY(host);
+    QCOMPARE(docks->window(), host);
+    const QStringList ids = {u"folderTree"_s, u"preview"_s, u"properties"_s, u"jobs"_s};
+    for (const QString &id : ids) {
+        QDockWidget *dock = docks->dock(id);
+        QVERIFY2(dock, qPrintable(id));
+        QVERIFY2(!dock->isVisible() && !dock->toggleViewAction()->isChecked(), qPrintable(id));
+    }
+    QCOMPARE(host->centralWidget()->width(), host->width());  // 닫힌 도크는 자리를 차지하지 않는다
+
+    // 보기 › 도크 — 켜기 · 끄기 넷과 배치 하위 메뉴
+    QMenu *dockMenu = nullptr;
+    for (QAction *a : m_window->menuBar()->actions()) {
+        if (a->text() != u"보기")
+            continue;
+        for (QAction *item : a->menu()->actions()) {
+            if (item->menu() && item->text() == u"도크(&D)")
+                dockMenu = item->menu();
+        }
+    }
+    QVERIFY(dockMenu);
+    QVERIFY(dockMenu->actions().contains(docks->dock(u"preview"_s)->toggleViewAction()));
+
+    QDockWidget *preview = docks->dock(u"preview"_s);
+    QDockWidget *properties = docks->dock(u"properties"_s);
+    QDockWidget *jobs = docks->dock(u"jobs"_s);
+    preview->toggleViewAction()->trigger();
+    jobs->toggleViewAction()->trigger();
+    QTRY_VERIFY(preview->isVisible() && jobs->isVisible());
+    QCOMPARE(host->dockWidgetArea(preview), Qt::RightDockWidgetArea);
+    // 아래 도크는 명령줄 · 기능 키 막대 위(패널 영역 안)
+    auto *commandLine = m_window->findChild<fm::ui::CommandLine *>();
+    QVERIFY(jobs->mapTo(m_window.get(), QPoint(0, jobs->height())).y() <= commandLine->mapTo(m_window.get(), QPoint()).y());
+
+    // 미리보기가 활성 패널의 커서를 따른다(샘플 — 가짜 섬네일 또는 종류 아이콘)
+    FilePanel *right = m_window->rightPanel();
+    m_window->setActivePanel(right);
+    m_window->updateDockPanes();
+    QVERIFY(right->cursorIndex().isValid());
+    QVERIFY(m_window->previewPane()->content() != u"empty");
+
+    // 속성 탭을 앞으로 — 보일 때 채운다
+    properties->toggleViewAction()->trigger();
+    properties->raise();
+    QTRY_VERIFY(m_window->propertiesPane()->isVisible());
+    QTRY_COMPARE(m_window->propertiesPane()->value(u"이름"_s), right->cursorIndex().data(fl::FullNameRole).toString());
+    QCOMPARE(m_window->propertiesPane()->value(u"원본"_s), u"샘플 데이터"_s);
+    const int next = right->cursorRow() + 1;
+    right->listView()->setCursorRow(next);
+    QTRY_COMPARE(m_window->propertiesPane()->value(u"이름"_s), nameAt(right, next));
+
+    // 작업 대기열 — 진행 창마다 한 줄, 두 번 누르면 진행 창을 앞으로
+    const int before = m_window->jobs().size();
+    const fd::ProgressDialog::Operation board = fd::ProgressDialog::boardCopy();  // 3.95 GB — 미리 돌리면 약 38 %
+    QPointer<fd::ProgressDialog> job =
+        m_window->startJob(fd::ProgressDialog::Copy, board.source, board.target, board.fileNames, board.fileSizes);
+    m_window->jobsPane()->refresh();
+    QTreeWidget *list = m_window->jobsPane()->list();
+    QCOMPARE(list->topLevelItemCount(), before + 1);
+    QCOMPARE(list->topLevelItem(before)->text(0), job->summaryText());
+    QVERIFY(!list->topLevelItem(before)->text(2).isEmpty());
+    // 일시 중지 — 상태 글자와 막대 색(대리자가 옵션의 styleObject로 fmProgress를 넘긴다)
+    job->applyVariant(u"progress.copy.detail.paused"_s);
+    m_window->jobsPane()->refresh();
+    QVERIFY(list->topLevelItem(before)->text(2).startsWith(u"일시 중지"_s));
+    QTRY_VERIFY(list->isVisible());
+    QVERIFY(job->simulator()->percent() > 20);
+    const QRect cell = list->visualRect(list->model()->index(before, 1));
+    const QColor bar = list->viewport()->grab().toImage().pixelColor(cell.left() + 6 + (cell.width() - 12) / 10,
+                                                                     cell.center().y() + 1);
+    const QColor paused = fm::style::themeColorsFor(list)[fm::style::Token::Paused];
+    QVERIFY2(qAbs(bar.red() - paused.red()) + qAbs(bar.green() - paused.green()) + qAbs(bar.blue() - paused.blue()) < 24,
+             qPrintable(bar.name() + u" ≠ "_s + paused.name()));
+    job->close();
+    QTRY_VERIFY(!job);
+    m_window->jobsPane()->refresh();
+    QCOMPARE(list->topLevelItemCount(), before);
+
+    // 폴더 트리 — 고른 실제 폴더로 활성 패널이 간다. 실제 파일은 미리보기가 열어 읽는다(글 · 그림), 속성에 그림 크기.
+    QTemporaryDir folder;
+    QVERIFY(folder.isValid());
+    {
+        QFile text(folder.filePath(u"notes.txt"_s));
+        QVERIFY(text.open(QIODevice::WriteOnly));
+        text.write("첫 줄\n둘째 줄\n");
+        QImage image(4, 3, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(folder.filePath(u"red.png"_s)));
+    }
+    const QString temp = QDir::toNativeSeparators(folder.path());
+    Q_EMIT m_window->folderTreePane()->folderActivated(temp);
+    QVERIFY(right->isLocal());
+    QCOMPARE(right->currentPath().compare(temp, Qt::CaseInsensitive), 0);
+    QTRY_VERIFY(rowOf(right, u"notes.txt"_s) >= 0 && rowOf(right, u"red.png"_s) >= 0);
+    preview->raise();
+    QTRY_VERIFY(m_window->previewPane()->isVisible());
+    right->listView()->setCursorRow(rowOf(right, u"notes.txt"_s));
+    m_window->updateDockPanes();
+    QCOMPARE(m_window->previewPane()->content(), u"text"_s);
+    right->listView()->setCursorRow(rowOf(right, u"red.png"_s));
+    m_window->updateDockPanes();
+    QCOMPARE(m_window->previewPane()->content(), u"image"_s);
+    properties->raise();
+    QTRY_COMPARE(m_window->propertiesPane()->value(u"그림 크기"_s), u"4 × 3 픽셀"_s);
+    QCOMPARE(m_window->propertiesPane()->value(u"원본"_s), u"이 PC (읽기 전용)"_s);
+    right->goBack();
+
+    // 세션 — 배치와 이름 붙인 배치가 설정 JSON을 거쳐 되살아난다
+    docks->saveLayout(u"검토"_s);
+    st::AppSettings settings;
+    settings.session = m_window->sessionState();
+    QVERIFY(!settings.session.docks.isEmpty());
+    const st::AppSettings loaded = st::AppSettings::fromJson(settings.toJson());
+    QCOMPARE(loaded.session.docks, settings.session.docks);
+    QCOMPARE(loaded.session.dockLayouts.keys(), QStringList{u"검토"_s});
+    for (QDockWidget *dock : docks->docks())
+        dock->hide();
+    docks->setLayouts({});
+    m_window->restoreDocks(loaded.session);
+    QTRY_VERIFY(preview->isVisible() || properties->isVisible());
+    QVERIFY(jobs->isVisible());
+    QCOMPARE(docks->layoutNames(), QStringList{u"검토"_s});
+
+    docks->setLayouts({});
+    for (QDockWidget *dock : docks->docks())
+        dock->hide();
     m_window->loadBoardState();
 }
 

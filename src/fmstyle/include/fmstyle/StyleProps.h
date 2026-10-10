@@ -27,6 +27,8 @@ inline constexpr char kHeader[] = "fmHeader";              // "flat" — 표 머
 inline constexpr char kInvalid[] = "fmInvalid";            // bool — 입력 · 콤보를 오류 모양으로
 inline constexpr char kBusyPhase[] = "fmBusyPhase";        // qreal 0 ~ 1 — 불확정 진행 막대의 위치(fm::ui::ProgressBar가 움직임)
 inline constexpr char kStyledFont[] = "fmStyledFont";      // bool — 스타일이 polish에서 준 글꼴(unpolish에서 되돌림)
+inline constexpr char kDockButton[] = "fmDockButton";      // "close" | "float" | "pin" | "unpin" | "menu" — 도크 제목 줄 단추
+inline constexpr char kDockExtraButtons[] = "fmDockExtraButtons";  // int — 사용자 제목 줄이 닫기 · 떼어 내기 밖에 둔 단추 수
 } // namespace props
 
 /// Link: 바탕 · 테두리 없는 글자 단추(강조 글자색) — 진행 창 '간단히 보기'.
@@ -88,5 +90,9 @@ void setProgressState(QWidget *progressBar, const QString &state);
 
 /// 미리보기 · 갤러리 전용. 마우스 올림, 누름, 키보드 포커스 등을 강제로 그린다.
 void setPreviewState(QWidget *widget, const QString &states);
+
+/// 도크 제목 줄 단추 — kind = "close" · "float" · "pin"(자동 숨김으로) · "unpin"(도크로) · "menu".
+/// 스타일이 단추 바탕과 기호를 함께 그린다(시안1 겹침 단추, 시안2 캡션 단추). QDockWidget 기본 단추는 스타일이 붙인다.
+void setDockButton(QWidget *button, const QString &kind);
 
 } // namespace fm::style

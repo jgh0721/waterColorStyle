@@ -12,6 +12,8 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/DialogWidgets.h
     include/fmwidgets/DriveButton.h
     include/fmwidgets/FindBox.h
+    include/fmwidgets/FlexLayout.h
+    include/fmwidgets/FlowLayout.h
     include/fmwidgets/FunctionKeyBar.h
     include/fmwidgets/Glyph.h
     include/fmwidgets/KeyChip.h
@@ -33,6 +35,8 @@ qt_add_library(fmwidgets STATIC
     DialogHeader.cpp
     DialogParts.cpp
     DialogWidgets.cpp
+    FlexLayout.cpp
+    FlowLayout.cpp
     Label.cpp
     LaneLadder.cpp
     MainBars.cpp

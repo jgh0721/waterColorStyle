@@ -1,8 +1,10 @@
-# 파일 관리자 UI 데모 — 메인 창(P4) · 설정(P7) · 대화상자 카탈로그 · 섬네일 비교 창 · 일괄 스냅숏(P9, PLAN §9).
+# 파일 관리자 UI 데모 — 메인 창(P4) · 설정(P7) · 대화상자 카탈로그 · 섬네일 비교 창 · 일괄 스냅숏(P9, PLAN §9) · 도크(P11).
 find_package(Qt6 REQUIRED COMPONENTS Network)  # 창 하나만 실행(QLocalServer)
 qt_add_executable(fmdemo WIN32
     CatalogWindow.cpp
     CatalogWindow.h
+    DockPanes.cpp
+    DockPanes.h
     FilePanel.cpp
     FilePanel.h
     MainWindow.cpp
@@ -19,6 +21,7 @@ qt_add_executable(fmdemo WIN32
 target_link_libraries(fmdemo
     PRIVATE
         Fm::dialogs
+        Fm::dock
         Fm::filelist
         Fm::widgets
         Fm::style

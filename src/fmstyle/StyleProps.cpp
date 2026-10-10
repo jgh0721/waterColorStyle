@@ -177,4 +177,9 @@ void setPreviewState(QWidget *widget, const QString &states)
                   false);
 }
 
+void setDockButton(QWidget *button, const QString &kind)
+{
+    setAndRefresh(button, props::kDockButton, kind.isEmpty() ? QVariant() : QVariant(kind), false);
+}
+
 } // namespace fm::style

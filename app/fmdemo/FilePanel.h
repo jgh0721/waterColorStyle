@@ -120,6 +120,8 @@ public:
     fm::filelist::FileSortProxy *model() const noexcept { return m_proxy; }
     /// 커서 행(보이는 보기 — 목록 또는 섬네일).
     int cursorRow() const;
+    /// 커서 항목(프록시 인덱스, 이름 열). 빈 폴더면 잘못된 인덱스.
+    QModelIndex cursorIndex() const;
     /// 파일 작업 대상 — 표시한 행, 없으면 커서 행(".." 제외). 프록시 인덱스(이름 열).
     QModelIndexList operationRows() const;
 
@@ -144,6 +146,8 @@ Q_SIGNALS:
     void locationChanged();
     /// 보이는 표시 방식이 바뀌었다(직접 · 자동 섬네일).
     void viewModeChanged();
+    /// 커서가 다른 항목으로 갔다(목록 · 섬네일) — 미리보기 · 속성 도크 갱신용. 경로가 바뀔 때도 따로 온다.
+    void cursorChanged();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
