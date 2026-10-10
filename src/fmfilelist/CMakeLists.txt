@@ -9,6 +9,8 @@ qt_add_library(fmfilelist STATIC
     include/fmfilelist/FileListView.h
     include/fmfilelist/FileRoles.h
     include/fmfilelist/FileSortProxy.h
+    include/fmfilelist/RecordPainting.h
+    include/fmfilelist/ListPresentation.h
     include/fmfilelist/ListAppearance.h
     include/fmfilelist/ListColumns.h
     include/fmfilelist/LocalFileSource.h
