@@ -12,9 +12,10 @@ class ThemeColors;
 /// 색은 테마 토큰(워터컬러 값) + 워터컬러 입체 색(WatercolorChrome)에서 가져온다.
 ///
 /// 직접 그리는 것: 입체 버튼(보통 · 기본 · 위험 · 투명 · 토글 묶음), 도구 버튼, 들어간 입력 · 콤보 · 스핀 상자,
-/// 체크 상자 · 라디오 · 스위치, 탭, 머리글, 목록 선택 · 점선 커서, 화살표 단추가 있는 스크롤 막대,
-/// 블록 진행 막대, 메뉴 · 메뉴 막대, 노란 도구 설명, 카드 · 그룹 상자 · 틀, 도구 모음, 상태 표시줄 칸,
-/// MDI 제목 표시줄. 나머지는 Fusion이 팔레트로 그린다.
+/// 체크 상자 · 라디오 · 스위치, 탭(네 방향 · 닫기 단추), 머리글, 목록 선택 · 점선 커서, 화살표 단추가 있는
+/// 스크롤 막대, 블록 진행 막대, 트랙 막대 · 다이얼, 도구 상자, 메뉴 · 메뉴 막대, 노란 도구 설명,
+/// 카드 · 그룹 상자 · 틀, 도구 모음, 상태 표시줄 칸, MDI 제목 표시줄 · 단추 묶음, 창 단추 · 화살표 표준 아이콘.
+/// 나머지는 Fusion이 팔레트로 그린다.
 ///
 /// 최상위 창의 제목 표시줄은 운영체제가 그린다 — ThemeManager가 Windows 11에서 제목 색을 입힌다.
 class WatercolorStyle : public QProxyStyle
@@ -81,6 +82,11 @@ private:
     void drawShapedFrame(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
     void drawScrollBar(const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const;
     void drawTitleBar(const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const;
+    void drawToolBoxTab(ControlElement element, const QStyleOption *option, QPainter *painter,
+                        const QWidget *widget) const;
+    void drawSlider(const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const;
+    void drawDial(const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const;
+    void drawMdiControls(const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const;
 
     void setAltDown(bool down, QObject *source);
 

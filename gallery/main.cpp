@@ -4,6 +4,7 @@
 //   fmstyle_gallery --shot gallery.png    스크린샷을 저장하고 끝냄 (QT_QPA_PLATFORM=offscreen 가능)
 //   fmstyle_gallery --accent "#0F7A6E"    강조색을 바꿔 파생 규칙 확인
 //   fmstyle_gallery --parts               대화상자 부품 구역만
+//   fmstyle_gallery --qt-widgets          Qt 표준 위젯 구역만 (탭 네 방향 · 슬라이더 · 다이얼 · 도구 상자 · 달력 · 도크 · MDI)
 //   fmstyle_gallery --dark-tone navy      시안2 다크를 남색으로
 
 #include <fmstyle/FmStyle.h>
@@ -27,9 +28,13 @@
 
 #include <QApplication>
 #include <QButtonGroup>
+#include <QCalendarWidget>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCommandLineParser>
+#include <QDateEdit>
+#include <QDial>
+#include <QDockWidget>
 #include <QFrame>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -37,6 +42,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMainWindow>
 #include <QMdiArea>
 #include <QMdiSubWindow>
 #include <QMenu>
@@ -47,13 +53,18 @@
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QRadioButton>
+#include <QScreen>
+#include <QScrollArea>
 #include <QScrollBar>
+#include <QSlider>
 #include <QSpinBox>
 #include <QStatusBar>
 #include <QStylePainter>
 #include <QTabBar>
+#include <QTabWidget>
 #include <QTimer>
 #include <QToolBar>
+#include <QToolBox>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -940,8 +951,342 @@ QWidget *dialogPartsSection(const fs::ThemeColors &tc)
     return box;
 }
 
+// =============================================================================================
+// Qt 표준 위젯 — 목업에 없는 기본 위젯을 모아 두 디자인의 모양을 확인한다. 아직 Fusion이 그리는 것(도크 제목 ·
+// 크기 조절 손잡이 · 떼어 내기 줄 · 컬러 표준 아이콘)도 같이 둔다.
+
+// 최대화한 MDI 창이 주 창 메뉴 막대 오른쪽에 두는 단추 묶음(CC_MdiControls). 주 창이 최상위 창일 때만
+// 생기므로 QMdiSubWindow의 ControllerWidget과 같은 방식으로 직접 그린다. 닫기 단추는 마우스 올림 모양.
+class MdiControlsPreview : public QWidget
+{
+public:
+    MdiControlsPreview() { setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed); }
+
+    QSize sizeHint() const override
+    {
+        QStyleOptionComplex opt;
+        initOption(&opt);
+        const int b = style()->pixelMetric(QStyle::PM_TitleBarButtonSize, &opt, this);
+        return style()->sizeFromContents(QStyle::CT_MdiControls, &opt, QSize(3 * b, b), this);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QStylePainter p(this);
+        QStyleOptionComplex opt;
+        initOption(&opt);
+        p.drawComplexControl(QStyle::CC_MdiControls, opt);
+    }
+
+private:
+    void initOption(QStyleOptionComplex *opt) const
+    {
+        opt->initFrom(this);
+        opt->subControls = QStyle::SC_MdiMinButton | QStyle::SC_MdiNormalButton | QStyle::SC_MdiCloseButton;
+        opt->activeSubControls = QStyle::SC_MdiCloseButton;
+        opt->state |= QStyle::State_MouseOver;
+    }
+};
+
+// 크기 조절 손잡이(CE_SizeGrip). QSizeGrip은 최상위 창 안의 위치로 모서리 방향을 정해 타일마다 방향이
+// 달라지므로 오른쪽 아래 방향으로 고정해 그린다.
+class SizeGripPreview : public QWidget
+{
+public:
+    SizeGripPreview() { setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed); }
+
+    QSize sizeHint() const override
+    {
+        QStyleOptionSizeGrip opt;
+        opt.initFrom(this);
+        opt.corner = Qt::BottomRightCorner;
+        return style()->sizeFromContents(QStyle::CT_SizeGrip, &opt, QSize(13, 13), this);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QStylePainter p(this);
+        QStyleOptionSizeGrip opt;
+        opt.initFrom(this);
+        opt.corner = Qt::BottomRightCorner;
+        p.drawControl(QStyle::CE_SizeGrip, opt);
+    }
+};
+
+// 표준 아이콘 하나. 그릴 때 스타일에 물어 타일의 ThemeScope를 따르게 한다.
+class StandardIconPreview : public QWidget
+{
+public:
+    StandardIconPreview(QStyle::StandardPixmap sp, int size)
+        : m_sp(sp)
+    {
+        setFixedSize(size, size);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        style()->standardIcon(m_sp, nullptr, this).paint(&p, rect());
+    }
+
+private:
+    QStyle::StandardPixmap m_sp;
+};
+
+QWidget *qtPage(const QString &text, const fs::ThemeColors &tc)
+{
+    auto *w = new QWidget;
+    auto *l = new QVBoxLayout(w);
+    l->setContentsMargins(10, 8, 10, 8);
+    l->addWidget(caption(text, tc));
+    l->addStretch(1);
+    return w;
+}
+
+QTabWidget *tabWidget(QTabWidget::TabPosition position, bool closable, const fs::ThemeColors &tc)
+{
+    auto *tabs = new QTabWidget;
+    tabs->setTabPosition(position);
+    tabs->setTabsClosable(closable);
+    for (const QString &t : {u"문서"_s, u"받은 파일"_s, u"C:\\"_s})
+        tabs->addTab(qtPage(t, tc), t);
+    tabs->setCurrentIndex(1);
+    return tabs;
+}
+
+QWidget *qtTabsSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"Qt 표준 위젯 — 탭 네 방향 · 닫기 단추 · 스크롤 화살표"_s);
+    auto *grid = new QGridLayout(box);
+    grid->setContentsMargins(14, 12, 14, 14);
+    grid->setHorizontalSpacing(14);
+    grid->setVerticalSpacing(6);
+
+    auto *north = tabWidget(QTabWidget::North, true, tc);
+    north->setFixedHeight(96);
+    if (QWidget *close = north->tabBar()->tabButton(2, QTabBar::RightSide))
+        fs::setPreviewState(close, u"hover"_s);
+    grid->addWidget(caption(u"위 (North) · 닫기 단추 — 세 번째 탭의 닫기 단추는 마우스 올림"_s, tc), 0, 0, 1, 2);
+    grid->addWidget(north, 1, 0, 1, 2);
+
+    auto *south = tabWidget(QTabWidget::South, false, tc);
+    south->setFixedHeight(96);
+    grid->addWidget(caption(u"아래 (South)"_s, tc), 2, 0, 1, 2);
+    grid->addWidget(south, 3, 0, 1, 2);
+
+    auto *west = tabWidget(QTabWidget::West, false, tc);
+    auto *east = tabWidget(QTabWidget::East, false, tc);
+    west->setFixedHeight(200);
+    east->setFixedHeight(200);
+    grid->addWidget(caption(u"왼쪽 (West)"_s, tc), 4, 0);
+    grid->addWidget(caption(u"오른쪽 (East)"_s, tc), 4, 1);
+    grid->addWidget(west, 5, 0);
+    grid->addWidget(east, 5, 1);
+
+    auto *scroll = new QTabBar;
+    scroll->setUsesScrollButtons(true);
+    scroll->setExpanding(false);
+    scroll->setDrawBase(true);
+    for (const QString &t : {u"문서"_s, u"받은 파일"_s, u"사진"_s, u"음악"_s, u"동영상"_s, u"바탕 화면"_s})
+        scroll->addTab(t);
+    scroll->setCurrentIndex(2);
+    scroll->setFixedWidth(240);
+    grid->addWidget(caption(u"넘친 탭 줄 — 스크롤 화살표"_s, tc), 6, 0, 1, 2);
+    grid->addWidget(scroll, 7, 0, 1, 2, Qt::AlignLeft);
+    grid->setColumnStretch(0, 1);
+    grid->setColumnStretch(1, 1);
+    return box;
+}
+
+QWidget *qtRangesSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"Qt 표준 위젯 — 슬라이더 · 다이얼 · 날짜 · 도구 상자 · 달력"_s);
+    auto *grid = new QGridLayout(box);
+    grid->setContentsMargins(14, 12, 14, 14);
+    grid->setHorizontalSpacing(14);
+    grid->setVerticalSpacing(6);
+
+    auto *ticks = new QSlider(Qt::Horizontal);
+    ticks->setRange(0, 100);
+    ticks->setValue(40);
+    ticks->setTickPosition(QSlider::TicksBelow);
+    ticks->setTickInterval(10);
+    auto *states = new QSlider(Qt::Horizontal);
+    states->setRange(0, 100);
+    states->setValue(55);
+    fs::setPreviewState(states, u"hover,focus"_s);
+    auto *disabled = new QSlider(Qt::Horizontal);
+    disabled->setRange(0, 100);
+    disabled->setValue(65);
+    disabled->setEnabled(false);
+    auto *vertical = new QSlider(Qt::Vertical);
+    vertical->setRange(0, 100);
+    vertical->setValue(70);
+    vertical->setTickPosition(QSlider::TicksRight);
+    vertical->setTickInterval(20);
+    vertical->setFixedHeight(110);
+    auto *dial = new QDial;
+    dial->setRange(0, 100);
+    dial->setValue(30);
+    dial->setNotchesVisible(true);
+    dial->setFixedSize(76, 76);
+    grid->addWidget(caption(u"가로 · 눈금"_s, tc), 0, 0);
+    grid->addWidget(caption(u"마우스 올림 · 키보드 포커스"_s, tc), 0, 1);
+    grid->addWidget(caption(u"세로"_s, tc), 0, 2);
+    grid->addWidget(caption(u"다이얼"_s, tc), 0, 3);
+    grid->addWidget(ticks, 1, 0);
+    grid->addWidget(states, 1, 1);
+    grid->addWidget(vertical, 1, 2, 5, 1, Qt::AlignHCenter | Qt::AlignTop);
+    grid->addWidget(dial, 1, 3, 5, 1, Qt::AlignTop);
+
+    auto *date = new QDateEdit(QDate(2026, 9, 27));
+    date->setCalendarPopup(true);
+    auto *plusMinus = new QSpinBox;
+    plusMinus->setRange(0, 10);
+    plusMinus->setValue(3);
+    plusMinus->setButtonSymbols(QAbstractSpinBox::PlusMinus);
+    grid->addWidget(caption(u"사용 안 함"_s, tc), 2, 0);
+    grid->addWidget(caption(u"날짜 (달력 팝업)"_s, tc), 2, 1);
+    grid->addWidget(disabled, 3, 0);
+    grid->addWidget(date, 3, 1);
+    grid->addWidget(caption(u"스핀 상자 (± 기호)"_s, tc), 4, 0);
+    grid->addWidget(plusMinus, 5, 0);
+
+    auto *toolBox = new QToolBox;
+    toolBox->addItem(qtPage(u"즐겨찾기 폴더 5개"_s, tc), u"즐겨찾기"_s);
+    toolBox->addItem(qtPage(u"최근 위치 12개"_s, tc), u"최근 위치"_s);
+    toolBox->addItem(qtPage(u"연결 안 됨"_s, tc), u"네트워크 (사용 안 함)"_s);
+    toolBox->setItemEnabled(2, false);
+    toolBox->setFixedHeight(200);
+    auto *calendar = new QCalendarWidget;
+    calendar->setSelectedDate(QDate(2026, 9, 27));
+    grid->addWidget(caption(u"도구 상자"_s, tc), 6, 0);
+    grid->addWidget(caption(u"달력 — 날짜 팝업과 같은 위젯"_s, tc), 6, 1, 1, 3);
+    grid->addWidget(toolBox, 7, 0);
+    grid->addWidget(calendar, 7, 1, 1, 3);
+    grid->setColumnStretch(0, 1);
+    grid->setColumnStretch(1, 1);
+    return box;
+}
+
+// 주 창 구성 — 도크 제목 · 단추, 최대화한 MDI 창, 넘친 도구 모음(확장 단추) · 손잡이, 상태 표시줄 · 크기 조절 손잡이.
+QWidget *qtMainWindow(const fs::ThemeColors &tc)
+{
+    auto *mw = new QMainWindow;
+    mw->setWindowFlags(Qt::Widget);
+    QMenuBar *menuBar = mw->menuBar();
+    menuBar->setNativeMenuBar(false);
+    for (const QString &t : {u"파일(&F)"_s, u"편집(&E)"_s, u"창(&W)"_s})
+        menuBar->addMenu(t);
+    menuBar->setCornerWidget(new MdiControlsPreview, Qt::TopRightCorner);
+
+    QToolBar *toolbar = mw->addToolBar(u"도구"_s);
+    toolbar->setMovable(true);
+    const QColor iconColor = tc[fs::Token::Fg2];
+    for (int i = 0; i < 4; ++i) {
+        for (const QString &k : {u"back"_s, u"forward"_s, u"up"_s, u"copy"_s, u"trash"_s})
+            toolbar->addAction(glyph(k, iconColor), k);
+    }
+
+    auto *mdi = new QMdiArea;
+    mdi->setBackground(tc[fs::Token::Grid]);
+    auto *doc = new QLabel(u"  최대화한 MDI 창"_s);
+    doc->setAutoFillBackground(true);
+    QMdiSubWindow *sub = mdi->addSubWindow(doc);
+    sub->setWindowTitle(u"복사 (F5)"_s);
+    sub->showMaximized();
+    mw->setCentralWidget(mdi);
+
+    auto *dock = new QDockWidget(u"폴더"_s);
+    dock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable
+                      | QDockWidget::DockWidgetFloatable);
+    dock->setWidget(qtPage(u"C:\\  D:\\  E:\\"_s, tc));
+    mw->addDockWidget(Qt::LeftDockWidgetArea, dock);
+
+    QStatusBar *status = mw->statusBar();
+    status->setSizeGripEnabled(false);
+    status->addWidget(new QLabel(u"항목 3개"_s), 1);
+    status->addPermanentWidget(new SizeGripPreview);
+    mw->setFixedHeight(240);
+    return mw;
+}
+
+QWidget *qtWindowSection(const fs::ThemeColors &tc)
+{
+    auto *box = section(u"Qt 표준 위젯 — 주 창 구성 · 떼어 내기 메뉴 · 표준 아이콘"_s);
+    auto *v = new QVBoxLayout(box);
+    v->setContentsMargins(14, 12, 14, 14);
+    v->setSpacing(6);
+
+    v->addWidget(caption(u"도크 · 최대화한 MDI 창과 메뉴 막대 단추 묶음 · 넘친 도구 모음 · 크기 조절 손잡이"_s, tc));
+    auto *row = new QHBoxLayout;
+    row->setSpacing(14);
+    row->addWidget(qtMainWindow(tc), 1);
+
+    auto *menu = new QMenu;
+    menu->setWindowFlags(Qt::Widget);
+    menu->setTearOffEnabled(true);
+    menu->addAction(u"이름"_s);
+    menu->addAction(u"크기"_s);
+    menu->addAction(u"수정한 날짜"_s);
+    menu->setFixedSize(menu->sizeHint());
+    auto *menuColumn = new QVBoxLayout;
+    menuColumn->addWidget(caption(u"떼어 내기 메뉴"_s, tc));
+    menuColumn->addWidget(menu);
+    menuColumn->addStretch(1);
+    row->addLayout(menuColumn);
+    v->addLayout(row);
+
+    v->addSpacing(6);
+    v->addWidget(caption(u"표준 아이콘 — 단색 아이콘(화살표 · 창 단추 · 확장 · 새로 고침)과 방패는 테마 색, 나머지는 Fusion"_s, tc));
+    auto *icons = new QGridLayout;
+    icons->setHorizontalSpacing(10);
+    icons->setVerticalSpacing(8);
+    struct Icon { QStyle::StandardPixmap sp; QString name; int size; };
+    const Icon list[] = {
+        {QStyle::SP_MessageBoxInformation, u"정보"_s, 32},
+        {QStyle::SP_MessageBoxWarning, u"경고"_s, 32},
+        {QStyle::SP_MessageBoxCritical, u"오류"_s, 32},
+        {QStyle::SP_MessageBoxQuestion, u"질문"_s, 32},
+        {QStyle::SP_DirIcon, u"폴더"_s, 16},
+        {QStyle::SP_FileIcon, u"파일"_s, 16},
+        {QStyle::SP_DriveHDIcon, u"드라이브"_s, 16},
+        {QStyle::SP_TrashIcon, u"휴지통"_s, 16},
+        {QStyle::SP_FileDialogNewFolder, u"새 폴더"_s, 16},
+        {QStyle::SP_FileDialogDetailedView, u"자세히"_s, 16},
+        {QStyle::SP_ArrowBack, u"뒤로"_s, 16},
+        {QStyle::SP_BrowserReload, u"새로 고침"_s, 16},
+        {QStyle::SP_DialogOkButton, u"확인"_s, 16},
+        {QStyle::SP_DialogCancelButton, u"취소"_s, 16},
+        {QStyle::SP_TitleBarCloseButton, u"제목 닫기"_s, 16},
+        {QStyle::SP_TitleBarNormalButton, u"제목 복원"_s, 16},
+        {QStyle::SP_DockWidgetCloseButton, u"도크 닫기"_s, 16},
+        {QStyle::SP_TabCloseButton, u"탭 닫기"_s, 16},
+        {QStyle::SP_LineEditClearButton, u"입력 지우기"_s, 16},
+        {QStyle::SP_ToolBarHorizontalExtensionButton, u"도구 모음 확장"_s, 16},
+        {QStyle::SP_VistaShield, u"방패 (바꿈)"_s, 16},
+    };
+    constexpr int kColumns = 7;
+    int i = 0;
+    for (const Icon &icon : list) {
+        auto *cell = new QVBoxLayout;
+        cell->setSpacing(3);
+        cell->addWidget(new StandardIconPreview(icon.sp, icon.size), 0, Qt::AlignHCenter | Qt::AlignBottom);
+        cell->addWidget(caption(icon.name, tc, 11), 0, Qt::AlignHCenter | Qt::AlignTop);
+        icons->addLayout(cell, i / kColumns, i % kColumns);
+        ++i;
+    }
+    v->addLayout(icons);
+    return box;
+}
+
 // --parts: 대화상자 부품 구역만 (목업 대조용)
 bool g_partsOnly = false;
+// --qt-widgets: Qt 표준 위젯 구역만
+bool g_qtWidgetsOnly = false;
 
 QWidget *buildTile(fs::Variant variant)
 {
@@ -964,6 +1309,13 @@ QWidget *buildTile(fs::Variant variant)
         v->addStretch(1);
         return tile;
     }
+    if (g_qtWidgetsOnly) {
+        v->addWidget(qtTabsSection(tc));
+        v->addWidget(qtRangesSection(tc));
+        v->addWidget(qtWindowSection(tc));
+        v->addStretch(1);
+        return tile;
+    }
     v->addWidget(buttonsSection(tc));
     v->addWidget(dialogPartsSection(tc));
     v->addWidget(inputsSection(tc));
@@ -973,6 +1325,9 @@ QWidget *buildTile(fs::Variant variant)
     v->addWidget(chromeSection(tc));
     v->addWidget(graphSection(tc));
     v->addWidget(traceSection(tc));
+    v->addWidget(qtTabsSection(tc));
+    v->addWidget(qtRangesSection(tc));
+    v->addWidget(qtWindowSection(tc));
     v->addStretch(1);
     return tile;
 }
@@ -993,10 +1348,13 @@ int main(int argc, char *argv[])
     const QCommandLineOption designOption(u"design"_s, u"시작 디자인: standard(시안1) · watercolor(시안2)."_s,
                                           u"name"_s, u"standard"_s);
     const QCommandLineOption partsOption(u"parts"_s, u"대화상자 부품 구역만 보입니다."_s);
+    const QCommandLineOption qtWidgetsOption(u"qt-widgets"_s, u"Qt 표준 위젯 구역만 보입니다."_s);
     const QCommandLineOption toneOption(u"dark-tone"_s, u"다크 색조: gray · navy (시안2)."_s, u"tone"_s, u"gray"_s);
-    parser.addOptions({shotOption, accentOption, noFixOption, delayOption, designOption, partsOption, toneOption});
+    parser.addOptions({shotOption, accentOption, noFixOption, delayOption, designOption, partsOption, qtWidgetsOption,
+                       toneOption});
     parser.process(app);
     g_partsOnly = parser.isSet(partsOption);
+    g_qtWidgetsOnly = parser.isSet(qtWidgetsOption);
     if (parser.value(toneOption) == u"navy"_s)
         fs::ThemeManager::instance().setDarkTone(fs::ThemeManager::DarkTone::Navy);
 
@@ -1056,19 +1414,34 @@ int main(int argc, char *argv[])
         TransferSimulator::instance().refreshReadouts();
     };
     rebuild();
-    outer->addWidget(tiles, 1);
+    const bool shot = parser.isSet(shotOption);
+    if (shot) {
+        // 스크린샷은 내용 전체 — 창이 내용 높이만큼 커진다.
+        outer->addWidget(tiles, 1);
+    } else {
+        auto *scroll = new QScrollArea;
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setWidgetResizable(true);
+        scroll->setWidget(tiles);
+        outer->addWidget(scroll, 1);
+    }
     QObject::connect(designGroup, &QButtonGroup::idClicked, &window, [&theme, rebuild](int id) {
         theme.setDesign(fs::Design(id));
         rebuild();
     });
-    window.resize(1480, 1700);
+    int height = 1700;
+    if (!shot) {
+        if (const QScreen *screen = QGuiApplication::primaryScreen())
+            height = std::min(height, screen->availableGeometry().height() - 40);
+    }
+    window.resize(1480, height);
     window.show();
 
     QTimer ticker;
     QObject::connect(&ticker, &QTimer::timeout, [] { TransferSimulator::instance().step(); });
     ticker.start(int(TransferSimulator::kStepMs));
 
-    if (parser.isSet(shotOption)) {
+    if (shot) {
         const QString file = parser.value(shotOption);
         QTimer::singleShot(parser.value(delayOption).toInt(), &window, [&window, file] {
             window.grab().save(file);

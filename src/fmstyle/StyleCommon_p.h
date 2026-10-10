@@ -96,6 +96,11 @@ inline void applyPreviewState(const QStyleOption *option, const QWidget *w)
         if (auto *tb = qstyleoption_cast<QStyleOptionToolButton *>(mutableOption))
             tb->activeSubControls |= QStyle::SC_ToolButton;
     }
+    // 슬라이더는 손잡이 위에 있을 때만 마우스 올림 · 누름 모양이다.
+    if ((forced & (QStyle::State_MouseOver | QStyle::State_Sunken)) && w->inherits("QSlider")) {
+        if (auto *sl = qstyleoption_cast<QStyleOptionSlider *>(mutableOption))
+            sl->activeSubControls |= QStyle::SC_SliderHandle;
+    }
 }
 
 // 그리기를 대신 맡은 숨은 위젯이면 보이는 가장 가까운 상위 위젯. Qtitan 그리드는 셀 · 행을 그릴 때

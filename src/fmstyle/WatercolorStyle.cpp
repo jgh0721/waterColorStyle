@@ -8,6 +8,7 @@
 
 #include "ColorMath_p.h"
 #include "StyleCommon_p.h"
+#include "StyleShared_p.h"
 
 #include <QAbstractItemView>
 #include <QAbstractSpinBox>
@@ -27,6 +28,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QScrollBar>
+#include <QSlider>
 #include <QStyleOption>
 #include <QTabBar>
 #include <QToolButton>
@@ -80,6 +82,11 @@ constexpr int kCaptionButtonH = 20;
 constexpr int kKeyChipGap = 7;            // 글자와 키 칩 사이 (시안2 간격 7)
 constexpr int kLinkHeight = 24;           // fmRole=link
 constexpr int kHeaderHeightFlat = 28;     // 대화상자 · 설정 표 머리글 — 시안2에서도 평면
+// Qt 표준 위젯 — 목업이 없어 XP 컨트롤을 워터컬러 입체 색으로 옮겼다.
+constexpr int kTabClose = 16;             // 탭 닫기 단추 자리 (입체 단추는 14)
+constexpr int kSliderLength = 11;         // 트랙 막대 손잡이: 진행 방향 11 × 가로지르는 방향 21
+constexpr int kSliderThickness = 21;
+constexpr int kSliderTrack = 4;           // 들어간 홈 두께
 // 세그먼트 높이는 메인 주소 줄만 24이고, 대화상자 · 설정은 시안1 높이를 쓴다(캔버스 워터컬러 보드).
 constexpr int kSegmentHeightDialog = 32;
 constexpr int kSegmentHeightSettings = 30;
@@ -493,6 +500,7 @@ void WatercolorStyle::polish(QWidget *widget)
         widget->setFont(f);
         widget->setProperty(props::kStyledFont, true);
     }
+    polishCalendarPart(widget);
 }
 
 void WatercolorStyle::unpolish(QWidget *widget)
@@ -502,6 +510,7 @@ void WatercolorStyle::unpolish(QWidget *widget)
         widget->setFont(QFont());
         widget->setAttribute(Qt::WA_SetFont, false);
     }
+    unpolishCalendarPart(widget);
     QProxyStyle::unpolish(widget);
 }
 
@@ -670,23 +679,13 @@ void WatercolorStyle::drawFocus(const QStyleOption *option, QPainter *p, const Q
 // ---------------------------------------------------------------------------------------------
 // 탭 · 머리글
 
-void WatercolorStyle::drawTabShape(const QStyleOption *option, QPainter *p, const QWidget *w) const
-{
-    const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
-    if (!tab)
-        return;
-    const bool north = tab->shape == QTabBar::RoundedNorth || tab->shape == QTabBar::TriangularNorth;
-    if (!north) {
-        QProxyStyle::drawControl(CE_TabBarTabShape, option, p, w);
-        return;
-    }
-    const ThemeColors &tc = colorsFor(w);
-    const X &x = watercolorChrome(tc.variant());
-    const bool selected = tab->state & State_Selected;
-    const bool hover = (tab->state & State_MouseOver) && (tab->state & State_Enabled);
-    const QRect r = tab->rect;
+namespace {
 
-    if (selected) {
+// 위쪽 탭 하나. r은 원점에서 시작하는 위쪽 기준 사각형(세로 0이 바깥).
+void drawNorthTab(QPainter *p, const QRect &r, const QStyleOptionTab &tab, bool hover, bool paneActive,
+                  const ThemeColors &tc, const X &x)
+{
+    if (tab.state & QStyle::State_Selected) {
         // 선택 탭: 창 바탕색, 26 px, 아래 선을 덮어 내용과 이어진다.
         p->fillRect(r, tc[T::Win]);
         hLine(p, r.left(), r.right(), r.top(), x.tabLine);
@@ -696,7 +695,7 @@ void WatercolorStyle::drawTabShape(const QStyleOption *option, QPainter *p, cons
         vLine(p, in.left(), in.top(), in.bottom(), x.tabHi);
         vLine(p, in.right(), in.top(), in.bottom(), x.tabHi);
         // 활성 패널: 안쪽 위 2 px 강조색 (목업 .pane.on .tab.is-on)
-        if (paneActiveProperty(w))
+        if (paneActive)
             p->fillRect(QRect(in.left(), in.top(), in.width(), 2), tc[T::Accent]);
         else
             hLine(p, in.left(), in.right(), in.top(), x.tabHi);
@@ -707,10 +706,28 @@ void WatercolorStyle::drawTabShape(const QStyleOption *option, QPainter *p, cons
     p->fillRect(box, hover ? x.tabHover : x.tab);
     hLine(p, box.left(), box.right(), box.top(), x.tabLine);
     // 이웃과 테두리를 겹친다 (CSS margin-right: -1px): 앞 탭이 선택이면 왼쪽 선은 선택 탭이 그린다.
-    if (tab->selectedPosition != QStyleOptionTab::PreviousIsSelected)
+    if (tab.selectedPosition != QStyleOptionTab::PreviousIsSelected)
         vLine(p, box.left(), box.top(), box.bottom(), x.tabLine);
-    if (tab->position == QStyleOptionTab::End || tab->position == QStyleOptionTab::OnlyOneTab)
+    if (tab.position == QStyleOptionTab::End || tab.position == QStyleOptionTab::OnlyOneTab)
         vLine(p, box.right(), box.top(), box.bottom(), x.tabLine);
+}
+
+} // namespace
+
+void WatercolorStyle::drawTabShape(const QStyleOption *option, QPainter *p, const QWidget *w) const
+{
+    const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
+    if (!tab)
+        return;
+    const ThemeColors &tc = colorsFor(w);
+    const X &x = watercolorChrome(tc.variant());
+    const bool hover = (tab->state & State_MouseOver) && (tab->state & State_Enabled);
+    // 위쪽 탭 모양으로 그리고 아래 · 왼쪽 · 오른쪽 탭은 좌표를 뒤집거나 돌린다(바깥 쪽으로 내려앉는다).
+    const TabSide side = tabSide(tab->shape);
+    p->save();
+    p->setTransform(tabTransform(side, tab->rect), true);
+    drawNorthTab(p, QRect(QPoint(0, 0), tabLocalSize(side, tab->rect)), *tab, hover, paneActiveProperty(w), tc, x);
+    p->restore();
 }
 
 void WatercolorStyle::drawHeaderSection(const QStyleOption *option, QPainter *p, const QWidget *w) const
@@ -1100,6 +1117,186 @@ void WatercolorStyle::drawTitleBar(const QStyleOptionComplex *option, QPainter *
     }
 }
 
+// 최대화한 MDI 창이 메뉴 막대에 두는 단추 묶음 — 제목 표시줄 단추와 같은 파란 입체 단추.
+void WatercolorStyle::drawMdiControls(const QStyleOptionComplex *option, QPainter *p, const QWidget *w) const
+{
+    const X &x = chromeFor(w);
+    const bool enabled = option->state & State_Enabled;
+    struct Btn { SubControl sc; Caption kind; };
+    const Btn buttons[] = {{SC_MdiMinButton, Caption::Minimize},
+                           {SC_MdiNormalButton, Caption::Restore},
+                           {SC_MdiCloseButton, Caption::Close}};
+    for (const Btn &b : buttons) {
+        if (!(option->subControls & b.sc))
+            continue;
+        const QRect r = proxy()->subControlRect(CC_MdiControls, option, b.sc, w);
+        if (r.isEmpty())
+            continue;
+        const bool on = enabled && (option->activeSubControls & b.sc);
+        captionButton(p, r, x, b.kind, enabled, on && (option->state & State_MouseOver),
+                      on && (option->state & State_Sunken));
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Qt 표준 위젯 — 목업이 없어 XP 컨트롤을 워터컬러 입체 색으로 옮겼다.
+
+// 도구 상자: 입체 머리(열린 칸은 굵은 글자), 왼쪽 채운 삼각형(열림 = 아래).
+void WatercolorStyle::drawToolBoxTab(ControlElement element, const QStyleOption *option, QPainter *p,
+                                     const QWidget *w) const
+{
+    const auto *tb = qstyleoption_cast<const QStyleOptionToolBox *>(option);
+    if (!tb)
+        return;
+    const ThemeColors &tc = colorsFor(w);
+    const X &x = watercolorChrome(tc.variant());
+    const QStyle::State s = tb->state;
+    const bool enabled = s & State_Enabled;
+    const bool selected = s & State_Selected;
+    const QRect r = tb->rect;
+
+    if (element == CE_ToolBoxTabShape) {
+        raised(p, r, x, lookOf(s), enabled ? x.out : x.disLine);
+        if (enabled && keyboardFocus(s))
+            dottedRect(p, r.adjusted(3, 3, -3, -3), tc[T::Focus]);
+        return;
+    }
+
+    const QColor fg = buttonTextColor(s, ButtonRole::Normal, tc, x);
+    const QRect arrow = visualRect(tb->direction, r, QRect(r.left() + 6, r.top(), 12, r.height()));
+    const Qt::ArrowType closed = tb->direction == Qt::RightToLeft ? Qt::LeftArrow : Qt::RightArrow;
+    triangle(p, QRectF(arrow).center(), 7, selected ? Qt::DownArrow : closed, fg);
+    int left = r.left() + 24;
+    if (!tb->icon.isNull()) {
+        const int icon = proxy()->pixelMetric(PM_SmallIconSize, tb, w);
+        const QRect ir = visualRect(tb->direction, r, QRect(left, r.top() + (r.height() - icon) / 2, icon, icon));
+        tb->icon.paint(p, ir, Qt::AlignCenter, enabled ? QIcon::Normal : QIcon::Disabled);
+        left += icon + 5;
+    }
+    const QRect textRect = visualRect(tb->direction, r, QRect(left, r.top(), r.right() - 6 - left, r.height()));
+    int flags = Qt::AlignVCenter | Qt::TextSingleLine | Qt::TextShowMnemonic
+              | (tb->direction == Qt::RightToLeft ? Qt::AlignRight : Qt::AlignLeft);
+    if (!proxy()->styleHint(SH_UnderlineShortcut, tb, w))
+        flags |= Qt::TextHideMnemonic;
+    p->save();
+    QFont f = p->font();
+    if (selected)
+        f.setWeight(QFont::Bold);
+    p->setFont(f);
+    p->setPen(fg);
+    p->drawText(textRect, flags, QFontMetrics(f).elidedText(tb->text, Qt::ElideRight, textRect.width()));
+    p->restore();
+}
+
+// 트랙 막대(XP): 들어간 4 px 홈, 11 × 21 입체 손잡이, 눈금은 보조 글자색. 키보드 포커스는 전체 점선.
+void WatercolorStyle::drawSlider(const QStyleOptionComplex *option, QPainter *p, const QWidget *w) const
+{
+    const auto *sl = qstyleoption_cast<const QStyleOptionSlider *>(option);
+    if (!sl)
+        return;
+    const ThemeColors &tc = colorsFor(w);
+    const X &x = watercolorChrome(tc.variant());
+    const bool enabled = sl->state & State_Enabled;
+    const bool horizontal = sl->orientation == Qt::Horizontal;
+    const QRect handle = proxy()->subControlRect(CC_Slider, sl, SC_SliderHandle, w);
+    const int handleLength = horizontal ? handle.width() : handle.height();
+    const QRect r = sl->rect;
+
+    if ((sl->subControls & SC_SliderTickmarks) && sl->tickPosition != QSlider::NoTicks) {
+        const QColor tick = enabled ? tc[T::Fg2] : x.disFg;
+        const bool mirrored = horizontal && sl->direction == Qt::RightToLeft;
+        for (const int pos : sliderTickPositions(sl, handleLength)) {
+            if (horizontal) {
+                const int xx = mirrored ? r.right() - pos : r.left() + pos;
+                if (sl->tickPosition & QSlider::TicksAbove)
+                    vLine(p, xx, handle.top() - 4, handle.top() - 2, tick);
+                if (sl->tickPosition & QSlider::TicksBelow)
+                    vLine(p, xx, handle.bottom() + 2, handle.bottom() + 4, tick);
+            } else {
+                const int y = r.top() + pos;
+                if (sl->tickPosition & QSlider::TicksLeft)
+                    hLine(p, handle.left() - 4, handle.left() - 2, y, tick);
+                if (sl->tickPosition & QSlider::TicksRight)
+                    hLine(p, handle.right() + 2, handle.right() + 4, y, tick);
+            }
+        }
+    }
+
+    // 홈: 손잡이 가운데가 움직이는 구간보다 양쪽으로 2 px 더
+    const int inset = handleLength / 2 - 2;
+    const QRect groove = horizontal
+        ? QRect(r.left() + inset, handle.top() + (handle.height() - kSliderTrack) / 2, r.width() - 2 * inset, kSliderTrack)
+        : QRect(handle.left() + (handle.width() - kSliderTrack) / 2, r.top() + inset, kSliderTrack, r.height() - 2 * inset);
+    sunken(p, groove, x, enabled ? x.trough : tc[T::Win]);
+
+    const bool active = sl->activeSubControls & SC_SliderHandle;
+    const Look look = !enabled                                      ? Look::Disabled
+                    : active && (sl->state & State_Sunken)          ? Look::Pressed
+                    : active && (sl->state & State_MouseOver)       ? Look::Hover
+                                                                    : Look::Normal;
+    raised(p, handle, x, look, enabled ? x.out : x.disLine);
+    if (enabled && keyboardFocus(sl->state))
+        dottedRect(p, r, tc[T::Focus]);
+}
+
+// 다이얼: 위가 밝은 입체 원 손잡이 + 값 위치의 강조색 점, 바깥 눈금. 키보드 포커스는 점선.
+void WatercolorStyle::drawDial(const QStyleOptionComplex *option, QPainter *p, const QWidget *w) const
+{
+    const auto *d = qstyleoption_cast<const QStyleOptionSlider *>(option);
+    if (!d)
+        return;
+    const ThemeColors &tc = colorsFor(w);
+    const X &x = watercolorChrome(tc.variant());
+    const bool enabled = d->state & State_Enabled;
+    const bool hover = enabled && (d->state & State_MouseOver);
+    const QRectF r(d->rect);
+    const QPointF c = r.center();
+    const bool notches = d->subControls & SC_DialTickmarks;
+    const qreal outer = std::min(r.width(), r.height()) / 2.0 - 1.0;
+    const qreal knob = outer - (notches ? 6.0 : 1.0);
+    if (knob < 5.0)
+        return;
+
+    p->save();
+    p->setRenderHint(QPainter::Antialiasing, true);
+    if (notches) {
+        p->setPen(QPen(enabled ? tc[T::Fg2] : x.disFg, 1.0));
+        for (const DialNotch &n : dialNotches(d)) {
+            const QPointF dir(std::cos(n.angle), -std::sin(n.angle));
+            p->drawLine(c + dir * (outer - (n.major ? 4.0 : 2.0)), c + dir * outer);
+        }
+    }
+    const QRectF body(c.x() - knob + 0.5, c.y() - knob + 0.5, 2 * knob - 1, 2 * knob - 1);
+    QLinearGradient g(body.topLeft(), body.bottomLeft());
+    if (enabled) {
+        g.setColorAt(0.0, hover ? x.h1 : x.g1);
+        g.setColorAt(0.5, hover ? x.h2 : x.g2);
+        g.setColorAt(1.0, hover ? x.h3 : x.g3);
+    } else {
+        g.setColorAt(0.0, x.g2);
+        g.setColorAt(1.0, x.g2);
+    }
+    p->setPen(QPen(enabled ? x.out : x.disLine, 1.0));
+    p->setBrush(g);
+    p->drawEllipse(body);
+    // 빗면: 위 · 왼쪽 반원은 밝게, 아래 · 오른쪽 반원은 어둡게
+    const QRectF bevelRect = body.adjusted(1, 1, -1, -1);
+    p->setBrush(Qt::NoBrush);
+    p->setPen(QPen(hover ? x.hoverHi : x.hi, 1.0));
+    p->drawArc(bevelRect, 45 * 16, 180 * 16);
+    p->setPen(QPen(hover ? x.hoverLo : x.lo, 1.0));
+    p->drawArc(bevelRect, 225 * 16, 180 * 16);
+    // 값 위치 표시: 들어간 점
+    const qreal angle = dialAngle(d);
+    const QPointF dot = c + QPointF(std::cos(angle), -std::sin(angle)) * (knob * 0.62);
+    p->setPen(QPen(x.lo, 1.0));
+    p->setBrush(enabled ? tc[T::Accent] : x.disFg);
+    p->drawEllipse(dot, 3.0, 3.0);
+    p->restore();
+    if (enabled && keyboardFocus(d->state))
+        dottedRect(p, d->rect, tc[T::Focus]);
+}
+
 // ---------------------------------------------------------------------------------------------
 // 체크 상자 · 라디오 · 스위치 · 입력 칸
 
@@ -1339,16 +1536,30 @@ void WatercolorStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
 
     case PE_FrameTabBarBase:
         if (const auto *tb = qstyleoption_cast<const QStyleOptionTabBarBase *>(option)) {
-            if (tb->shape == QTabBar::RoundedNorth || tb->shape == QTabBar::TriangularNorth) {
-                hLine(p, tb->rect.left(), tb->rect.right(), tb->rect.bottom(), x.tabLine);
-                return;
-            }
+            p->fillRect(tabBaseLine(tabSide(tb->shape), tb->rect), x.tabLine);
+            return;
         }
         break;
     case PE_FrameTabWidget:
         p->fillRect(option->rect, tc[T::Win]);
         outline(p, option->rect, x.tabLine);
         return;
+    case PE_IndicatorTabClose: {
+        // 탭 닫기 단추: 굵은 X, 마우스 올림 · 누름이면 14 px 입체 단추.
+        const QStyle::State s = option->state;
+        const bool enabled = s & State_Enabled;
+        const bool pressed = enabled && (s & State_Sunken);
+        const bool hover = enabled && (s & (State_Raised | State_MouseOver));
+        QRect box(0, 0, 14, 14);
+        box.moveCenter(option->rect.center());
+        if (pressed)
+            raised(p, box, x, Look::Pressed, x.out);
+        else if (hover)
+            raised(p, box, x, Look::Hover, x.out);
+        const QColor color = !enabled ? x.disFg : (pressed || hover) ? x.hoverFg : tc[T::Fg];
+        paintChromeGlyph(p, ChromeGlyph::Close, QRectF(box).adjusted(1, 1, -1, -1), color, true);
+        return;
+    }
     case PE_Frame:
         if (option->state & State_Sunken) {
             QStyleOptionFrame f;
@@ -1550,11 +1761,15 @@ void WatercolorStyle::drawControl(ControlElement element, const QStyleOption *op
             const QColor fg = (tab->state & State_Enabled) ? tc[T::Fg] : x.disFg;
             copy.palette.setColor(QPalette::WindowText, fg);
             copy.palette.setColor(QPalette::ButtonText, fg);
-            const bool north = tab->shape == QTabBar::RoundedNorth || tab->shape == QTabBar::TriangularNorth;
-            if (north && !(tab->state & State_Selected))
-                copy.rect.adjust(0, kTabDrop, 0, -1);  // 23 px 상자 가운데
+            if (!(tab->state & State_Selected))
+                copy.rect = adjustTabRect(tabSide(tab->shape), copy.rect, kTabDrop, 1);  // 23 px 상자 가운데
             QProxyStyle::drawControl(element, &copy, p, w);
         }
+        return;
+
+    case CE_ToolBoxTabShape:
+    case CE_ToolBoxTabLabel:
+        drawToolBoxTab(element, option, p, w);
         return;
 
     case CE_Header:
@@ -1735,6 +1950,15 @@ void WatercolorStyle::drawComplexControl(ComplexControl control, const QStyleOpt
 
     case CC_TitleBar:
         drawTitleBar(option, p, w);
+        return;
+    case CC_MdiControls:
+        drawMdiControls(option, p, w);
+        return;
+    case CC_Slider:
+        drawSlider(option, p, w);
+        return;
+    case CC_Dial:
+        drawDial(option, p, w);
         return;
 
     default:
@@ -2011,6 +2235,13 @@ QRect WatercolorStyle::subControlRect(ComplexControl control, const QStyleOption
         }
         break;
 
+    case CC_Slider:
+        if (const auto *sl = qstyleoption_cast<const QStyleOptionSlider *>(option)) {
+            if (const QRect res = sliderSubControlRect(sl, sc, kSliderLength, kSliderThickness); res.isValid())
+                return res;
+        }
+        break;
+
     default:
         break;
     }
@@ -2077,9 +2308,9 @@ QSize WatercolorStyle::sizeFromContents(ContentsType type, const QStyleOption *o
 
     case CT_TabBarTab:
         if (const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option)) {
-            const bool north = tab->shape == QTabBar::RoundedNorth || tab->shape == QTabBar::TriangularNorth;
-            if (north)
-                return QSize(cs.width(), kTabHeight);
+            if (isVerticalTab(tabSide(tab->shape)))
+                return QSize(kTabHeight, cs.height());
+            return QSize(cs.width(), kTabHeight);
         }
         break;
     case CT_HeaderSection: {
@@ -2200,8 +2431,18 @@ int WatercolorStyle::pixelMetric(PixelMetric metric, const QStyleOption *option,
         return 4;
     case PM_TitleBarHeight:
         return kTitleBarHeight;
+    case PM_TitleBarButtonSize:
+        return kCaptionButtonH;
     case PM_MdiSubWindowFrameWidth:
         return 4;
+    case PM_TabCloseIndicatorWidth:
+    case PM_TabCloseIndicatorHeight:
+        return kTabClose;
+    case PM_SliderThickness:
+    case PM_SliderControlThickness:
+        return kSliderThickness;
+    case PM_SliderLength:
+        return kSliderLength;
     default:
         break;
     }
@@ -2213,6 +2454,9 @@ QIcon WatercolorStyle::standardIcon(StandardPixmap standardIcon, const QStyleOpt
     // 관리자 권한 방패 — 목업의 두 색 방패(--shield / --shield-2)
     if (standardIcon == SP_VistaShield)
         return shieldIcon(colorsFor(w), 16);
+    // 화살표 · 창 단추 · 확장 단추 등 단색 아이콘은 테마 색으로 (Fusion 그림은 검은색이라 다크에서 안 보인다).
+    if (QIcon icon = themedStandardIcon(standardIcon, w, true); !icon.isNull())
+        return icon;
     return QProxyStyle::standardIcon(standardIcon, option, w);
 }
 

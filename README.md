@@ -194,5 +194,10 @@ theme.install(app);
   캔버스의 그라데이션 · 모자이크 제목 표시줄은 QMdiSubWindow에서 스타일이 그린다.
 - **위젯**: `fm::ui::*` 위젯은 두 디자인에서 그대로 쓴다. 속도 그래프도 워터컬러에서는 모서리가 네모나고
   도구 설명이 노란 칸이 된다. 위젯이 직접 그릴 때 색은 `fm::style::themeColorsFor(widget)`로 얻는다.
-- **확인**: `fmstyle_gallery --design watercolor` (창 위쪽 단추로 시안1 · 시안2 전환),
-  `fm_designer_example --watercolor [--dark]`.
+- **Qt 표준 위젯**: 목업에 없는 기본 위젯도 두 디자인이 직접 그린다 — 탭 네 방향 · 닫기 단추, 슬라이더 ·
+  다이얼, 도구 상자, 달력(내비게이션 줄 · 주말 글자), MDI 제목 표시줄 · 메뉴 막대 단추 묶음, 단색 표준 아이콘
+  (화살표 · 창 단추 · 도구 모음 확장 · 새로 고침 — 그릴 때 테마 색을 정해 다크 · 실행 중 전환을 따른다).
+  시안1은 Windows 11 컨트롤, 시안2는 XP 컨트롤을 토큰 색으로 옮겼다. 도크 제목 · 크기 조절 손잡이 · 컬러 표준
+  아이콘 등은 아직 Fusion이 팔레트로 그린다.
+- **확인**: `fmstyle_gallery --design watercolor` (창 위쪽 단추로 시안1 · 시안2 전환, 맨 아래 Qt 표준 위젯 구역),
+  `fmstyle_gallery --qt-widgets` (Qt 표준 위젯 구역만), `fm_designer_example --watercolor [--dark]`.
