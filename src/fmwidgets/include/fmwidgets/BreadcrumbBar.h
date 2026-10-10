@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <QStringList>
 #include <QWidget>
@@ -23,8 +23,12 @@ public:
     QStringList segments() const { return m_segments; }
     void setSegments(const QStringList &segments);
     /// 직접 입력할 때 처음 보일 전체 경로.
-    void setFullPath(const QString &path) { m_fullPath = path; }
+    void setFullPath(const QString &path) { m_fullPath = path; setToolTip(path); setAccessibleName(path); update(); }
 
+    void SetFullPathMode(bool Enabled) { fullPathMode_ = Enabled; update(); }
+    bool IsPaneActive() const { return paneActive_; }
+    void SetPaneActive(bool Active) { paneActive_ = Active; update(); }
+    void EditPath() { startEditing(); }
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
 
@@ -54,6 +58,8 @@ private:
     void startEditing();
     bool watercolor() const;
 
+    bool fullPathMode_ = false;
+    bool paneActive_ = false;
     QStringList m_segments;
     QString m_fullPath;
     QList<Crumb> m_crumbs;

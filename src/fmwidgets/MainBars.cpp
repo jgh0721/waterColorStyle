@@ -1,4 +1,4 @@
-// 메인 창 막대 — 명령줄 · 기능 키 · 찾기 상자 (01 §1.3 A3 · A5 · A6, 06 §4.13 · §4.15).
+﻿// 메인 창 막대 — 명령줄 · 기능 키 · 찾기 상자 (01 §1.3 A3 · A5 · A6, 06 §4.13 · §4.15).
 
 #include "fmwidgets/CommandLine.h"
 #include "fmwidgets/FindBox.h"
@@ -66,9 +66,14 @@ QString CommandLine::prompt() const
     return m_prompt->text();
 }
 
+void CommandLine::SetRunning(bool Running) { m_edit->setEnabled(!Running); }
+
 void CommandLine::setPrompt(const QString &path)
 {
-    m_prompt->setText(path.endsWith(u'>') ? path : path + u'>');
+    const auto Full = path.endsWith(u'>') ? path : path + u'>';
+    m_prompt->setToolTip(Full);
+    m_prompt->setMaximumWidth(320);
+    m_prompt->setText(m_prompt->fontMetrics().elidedText(Full, Qt::ElideMiddle, 320));
 }
 
 void CommandLine::applyFonts()
@@ -93,6 +98,9 @@ void CommandLine::applyMetrics()
     QPalette labelPalette = m_prompt->palette();
     labelPalette.setColor(QPalette::WindowText, tc[Token::Fg2]);
     m_prompt->setPalette(labelPalette);
+    // A product proxy style may repolish QLabel after the global palette changes.
+    // Keep the prompt's semantic foreground when switching schemes at runtime.
+    m_prompt->setStyleSheet(QStringLiteral("color: %1;").arg(tc[Token::Fg2].name()));
     setFixedHeight(wc ? 33 : 34);
     update();
 }

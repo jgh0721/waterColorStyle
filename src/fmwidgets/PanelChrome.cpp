@@ -1,4 +1,4 @@
-// 패널 부품 — 탭 줄 · 드라이브 단추 · 경로 이동 줄 · 상태 줄 (01 §1.3 · 06 §4.12 · §4.14 · §4.15).
+﻿// 패널 부품 — 탭 줄 · 드라이브 단추 · 경로 이동 줄 · 상태 줄 (01 §1.3 · 06 §4.12 · §4.14 · §4.15).
 
 #include "fmwidgets/BreadcrumbBar.h"
 #include "fmwidgets/DriveButton.h"
@@ -50,6 +50,7 @@ PanelTabStrip::PanelTabStrip(QWidget *parent)
     m_tabs->setDocumentMode(true);
     m_tabs->setDrawBase(false);
     m_tabs->setExpanding(false);
+    m_tabs->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
     m_tabs->setElideMode(Qt::ElideNone);
     m_tabs->setMovable(true);
     m_tabs->setUsesScrollButtons(true);
@@ -327,6 +328,14 @@ void BreadcrumbBar::paintEvent(QPaintEvent *)
         p.fillRect(QRect(r.left() + 1, r.top() + 1, 1, r.height() - 2), x.fieldInner);
         p.setClipRect(r.adjusted(2, 2, -2, -2));
     }
+    if (fullPathMode_) {
+        const auto TextRect = rect().adjusted(4, 2, -4, -2);
+        if (paneActive_) p.fillRect(TextRect, tc[Token::Accent]);
+        p.setPen(paneActive_ ? tc[Token::OnAccent] : tc[Token::Fg]);
+        p.setFont(fm::style::pixelFont(font(), 13));
+        p.drawText(TextRect, Qt::AlignVCenter, p.fontMetrics().elidedText(m_fullPath, Qt::ElideMiddle, TextRect.width()));
+        return;
+    }
     const QFont regular = fm::style::pixelFont(font(), 13);
     QFont bold = regular;
     if (!wc)
@@ -378,6 +387,7 @@ void BreadcrumbBar::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() != Qt::LeftButton)
         return;
+    if (fullPathMode_) return;
     m_pressed = crumbAt(event->position().toPoint());
     update();
     if (m_pressed == -1) {
@@ -391,7 +401,7 @@ void BreadcrumbBar::mousePressEvent(QMouseEvent *event)
 
 void BreadcrumbBar::mouseDoubleClickEvent(QMouseEvent *event)
 {
-    if (crumbAt(event->position().toPoint()) == -2)
+    if (fullPathMode_ || crumbAt(event->position().toPoint()) == -2)
         startEditing();
 }
 

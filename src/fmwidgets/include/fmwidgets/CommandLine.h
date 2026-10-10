@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <QStringList>
 #include <QWidget>
@@ -22,6 +22,8 @@ public:
     void setPrompt(const QString &path);
     QLineEdit *lineEdit() const noexcept { return m_edit; }
     QStringList history() const { return m_history; }
+    void SetHistory(const QStringList& History) { m_history = History.mid(0, 50); }
+    void SetRunning(bool Running);
 
     QSize sizeHint() const override;
 
