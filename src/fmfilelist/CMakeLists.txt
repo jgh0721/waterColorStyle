@@ -1,5 +1,6 @@
 # Fm::filelist — 파일 목록 모델(샘플 · 읽기 전용 실제 폴더), FileListView(Qtitan 밴드 보기), 섬네일 두 구현.
 qt_add_library(fmfilelist STATIC
+    include/fmfilelist/RecordPreview.h
     include/fmfilelist/ColumnSets.h
     include/fmfilelist/ColumnValues.h
     include/fmfilelist/FileGroups.h
