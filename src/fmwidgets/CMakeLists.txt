@@ -5,6 +5,8 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/BarListCard.h
     include/fmwidgets/WindowChrome.h
     include/fmwidgets/BreadcrumbBar.h
+    include/fmwidgets/WrapCheckBox.h
+    include/fmwidgets/WrapLayout.h
     include/fmwidgets/Button.h
     include/fmwidgets/Card.h
     include/fmwidgets/CommandLine.h
