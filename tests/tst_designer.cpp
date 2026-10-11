@@ -2,6 +2,11 @@
 // 프로젝트의 모든 .ui를 QUiLoader로 열어 사용자 위젯이 제 클래스로 만들어지는지.
 // FM_TEST_SHOTS=<폴더>를 주면 위젯 모음과 .ui마다 화면을 저장한다(Designer 미리보기와 같은 스타일 · 색).
 
+#if FM_TEST_DESIGNER_CORE
+#include <QtDesigner/QDesignerFormEditorInterface>
+#include <QtDesigner/QDesignerWidgetDataBaseInterface>
+#include <QtDesigner/qdesigner_components.h>
+#endif
 #include <QtUiPlugin/QDesignerCustomWidgetCollectionInterface>
 #include <QtUiPlugin/QDesignerCustomWidgetInterface>
 #include <QtUiTools/QUiLoader>
@@ -65,6 +70,8 @@ private Q_SLOTS:
     void createAll();
     void uiFiles_data();
     void uiFiles();
+    void layoutBoxForm();
+    void promotions();  // 마지막 — 플러그인을 Designer 안처럼 초기화한다
 
 private:
     QPluginLoader m_loader;
@@ -83,7 +90,7 @@ void TestDesigner::initTestCase()
 void TestDesigner::catalog()
 {
     // 기존 6종 + .ui에서 쓰는 위젯 · §6.3 부품 · 메인 창 부품 · 파일 목록 3종
-    QVERIFY2(m_widgets.size() >= 46, qPrintable(QString::number(m_widgets.size())));  // 기본 14 · 대화상자 12 · 설정 10 · 메인 창 7 · 파일 목록 3
+    QVERIFY2(m_widgets.size() >= 50, qPrintable(QString::number(m_widgets.size())));  // 기본 16 · 대화상자 13 · 설정 10 · 메인 창 8 · 파일 목록 3
     QSet<QString> names;
     QSet<QString> groups;
     const QStringList includeRoots = {u"fmstyle"_s, u"fmwidgets"_s, u"fmfilelist"_s, u"fmdialogs"_s, u"fmsettings"_s};
@@ -111,7 +118,7 @@ void TestDesigner::catalog()
         QCOMPARE(cls, name);
     }
     QCOMPARE(groups.size(), 5);
-    for (const char *container : {"fm::ui::Card", "fm::ui::SettingRow", "fm::ui::DialogFooter"}) {
+    for (const char *container : {"fm::ui::Card", "fm::ui::SettingRow", "fm::ui::DialogFooter", "fm::ui::FlowBox", "fm::ui::FlexBox"}) {
         const auto it = std::find_if(m_widgets.cbegin(), m_widgets.cend(), [&](auto *w) { return w->name() == QLatin1String(container); });
         QVERIFY2(it != m_widgets.cend() && (*it)->isContainer(), container);
     }
@@ -178,16 +185,74 @@ void TestDesigner::uiFiles()
     for (const QString &m : std::as_const(g_messages))
         QVERIFY2(!m.contains(u"property"_s, Qt::CaseInsensitive) && !m.contains(u"unknown"_s, Qt::CaseInsensitive), qPrintable(m));
 
+    // 승격 전용(위젯 상자에 없는) 메뉴 · 메뉴 막대는 QUiLoader가 기반 클래스로 만든다 — uic는 fm::ui 클래스로
+    const QHash<QString, QString> promotionOnly = {{u"fm::ui::MenuBar"_s, u"QMenuBar"_s}, {u"fm::ui::Menu"_s, u"QMenu"_s}};
     for (const auto &[name, cls] : customWidgetsIn(file)) {
         QWidget *w = form->objectName() == name ? form.get() : form->findChild<QWidget *>(name);
         QVERIFY2(w, qPrintable(name));
-        QVERIFY2(w->inherits(cls.toLatin1().constData()), qPrintable(name + u" : "_s + cls + u" ≠ "_s + QString::fromLatin1(w->metaObject()->className())));
+        const QString expected = promotionOnly.value(cls, cls);
+        QVERIFY2(w->inherits(expected.toLatin1().constData()), qPrintable(name + u" : "_s + cls + u" ≠ "_s + QString::fromLatin1(w->metaObject()->className())));
     }
     if (const QString dir = qEnvironmentVariable("FM_TEST_SHOTS"); !dir.isEmpty()) {
         form->show();
         QVERIFY(QTest::qWaitForWindowExposed(form.get()));
         form->grab().save(dir + u"/ui-"_s + QFileInfo(file).completeBaseName() + u".png"_s);
     }
+}
+
+void TestDesigner::layoutBoxForm()
+{
+    // QUiLoader: 배치 상자가 .ui의 자식을 스스로 배치 — itemOrder(문서가 맨 앞) · 자식 동적 속성 flexGrow(찾기 칸이 남는 폭)
+    QUiLoader loader;
+    loader.clearPluginPaths();
+    loader.addPluginPath(QFileInfo(QString::fromUtf8(FM_DESIGNER_PLUGIN_PATH)).absolutePath());
+    QFile f(QString::fromUtf8(FM_SOURCE_DIR) + u"/examples/designer/LayoutDemo.ui"_s);
+    QVERIFY(f.open(QIODevice::ReadOnly));
+    std::unique_ptr<QWidget> form(loader.load(&f));
+    QVERIFY2(form, qPrintable(loader.errorString()));
+    form->resize(560, 420);
+    form->show();
+    QVERIFY(QTest::qWaitForWindowExposed(form.get()));
+    QWidget *tags = form->findChild<QWidget *>(u"tags"_s);
+    QVERIFY(tags && tags->inherits("fm::ui::FlowBox"));
+    const QStringList order = tags->property("itemOrder").toStringList();
+    QCOMPARE(order.mid(0, 3), (QStringList{u"docsChip"_s, u"imagesChip"_s, u"codeChip"_s}));
+    QCOMPARE(order.size(), 5);
+    auto *docs = form->findChild<QWidget *>(u"docsChip"_s);
+    auto *images = form->findChild<QWidget *>(u"imagesChip"_s);
+    QVERIFY(docs->x() < images->x());
+    QWidget *find = form->findChild<QWidget *>(u"findEdit"_s);
+    QWidget *chip = form->findChild<QWidget *>(u"targetChip"_s);
+    QVERIFY2(find->width() > 2 * chip->width(), qPrintable(u"%1 · %2"_s.arg(find->width()).arg(chip->width())));
+}
+
+void TestDesigner::promotions()
+{
+#if !FM_TEST_DESIGNER_CORE
+    QSKIP("Qt6::DesignerComponentsPrivate 없음");
+#else
+    // 실제 Designer 코어 — 플러그인 초기화가 메뉴 · 메뉴 막대를 승격 대상으로 등록하고, 배치 상자는 디자인 모드로 만든다
+    QDesignerComponents::initializeResources();
+    QObject owner;
+    QDesignerFormEditorInterface *core = QDesignerComponents::createFormEditor(&owner);
+    QVERIFY(core);
+    for (QDesignerCustomWidgetInterface *w : std::as_const(m_widgets))
+        w->initialize(core);
+    QDesignerWidgetDataBaseInterface *db = core->widgetDataBase();
+    QVERIFY(db);
+    for (const auto &[cls, base] : {std::pair{u"fm::ui::MenuBar"_s, u"QMenuBar"_s}, std::pair{u"fm::ui::Menu"_s, u"QMenu"_s}}) {
+        const int index = db->indexOfClassName(cls);
+        QVERIFY2(index >= 0, qPrintable(cls));
+        QDesignerWidgetDataBaseItemInterface *item = db->item(index);
+        QVERIFY(item->isPromoted());
+        QCOMPARE(item->extends(), base);
+        QCOMPARE(item->includeFile(), u"fmwidgets/Menu.h"_s);
+    }
+    const auto flow = std::find_if(m_widgets.cbegin(), m_widgets.cend(), [](auto *w) { return w->name() == u"fm::ui::FlowBox"; });
+    QVERIFY(flow != m_widgets.cend());
+    std::unique_ptr<QWidget> box((*flow)->createWidget(nullptr));
+    QVERIFY(box->property("designMode").toBool());
+#endif
 }
 
 QTEST_MAIN(TestDesigner)

@@ -4,13 +4,16 @@
 //   fm_designer_example --dark          다크 테마로
 //   fm_designer_example --watercolor    시안2(워터컬러) 디자인으로
 //   fm_designer_example --shot a.png    잠깐 돌린 뒤 스크린샷을 저장하고 끝냄
+//   fm_designer_example --layouts       LayoutDemo.ui(배치 상자 · 승격한 메뉴 막대)를 띄움
 
 #include "ui_CopyDetails.h"
+#include "ui_LayoutDemo.h"
 
 #include <fmstyle/ThemeManager.h>
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QMainWindow>
 #include <QRandomGenerator>
 #include <QTimer>
 
@@ -100,7 +103,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption darkOption(u"dark"_s, u"다크 테마로 띄움"_s);
     const QCommandLineOption watercolorOption(u"watercolor"_s, u"시안2(워터컬러) 디자인으로 띄움"_s);
     const QCommandLineOption shotOption(u"shot"_s, u"스크린샷을 저장하고 끝냄"_s, u"file"_s);
-    parser.addOptions({darkOption, watercolorOption, shotOption});
+    const QCommandLineOption layoutsOption(u"layouts"_s, u"LayoutDemo.ui(배치 상자 · 승격한 메뉴 막대)를 띄움"_s);
+    parser.addOptions({darkOption, watercolorOption, shotOption, layoutsOption});
     parser.process(app);
 
     auto &theme = fm::style::ThemeManager::instance();
@@ -109,6 +113,22 @@ int main(int argc, char *argv[])
     theme.install(app);
     if (parser.isSet(darkOption))
         theme.setScheme(fm::style::ThemeManager::Scheme::Dark);
+
+    if (parser.isSet(layoutsOption)) {
+        // 배치 상자는 uic가 만든 자식을 스스로 배치하고(itemOrder · flexGrow 따름), 메뉴 막대 · 메뉴는 fm::ui로 승격돼 있다
+        QMainWindow demo;
+        Ui::LayoutDemo ui;
+        ui.setupUi(&demo);
+        demo.show();
+        if (parser.isSet(shotOption)) {
+            const QString file = parser.value(shotOption);
+            QTimer::singleShot(600, &demo, [&demo, file] {
+                demo.grab().save(file);
+                QApplication::quit();
+            });
+        }
+        return app.exec();
+    }
 
     CopyDetails window;
     window.show();

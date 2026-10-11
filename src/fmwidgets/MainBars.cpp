@@ -154,6 +154,11 @@ void CommandLine::showHistory()
 
 // ---------------------------------------------------------------- FunctionKeyButton
 
+FunctionKeyButton::FunctionKeyButton(QWidget *parent)
+    : FunctionKeyButton(QString(), QString(), parent)
+{
+}
+
 FunctionKeyButton::FunctionKeyButton(const QString &keys, const QString &text, QWidget *parent)
     : QPushButton(text, parent)
     , m_keys(keys)

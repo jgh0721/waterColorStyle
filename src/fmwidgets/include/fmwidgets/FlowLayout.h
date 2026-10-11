@@ -23,6 +23,8 @@ public:
 
     /// 위젯을 index 자리에 넣는다(범위 밖이면 끝).
     void insertWidget(int index, QWidget *widget);
+    /// 항목을 index 자리에 넣는다(takeAt으로 뺀 항목을 옮길 때).
+    void insertItem(int index, QLayoutItem *item);
 
     int horizontalSpacing() const;
     void setHorizontalSpacing(int spacing);

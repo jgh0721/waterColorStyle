@@ -19,6 +19,7 @@
 #include <fmwidgets/FunctionKeyBar.h>
 #include <fmwidgets/KeyChip.h>
 #include <fmwidgets/Label.h>
+#include <fmwidgets/LayoutBoxes.h>
 #include <fmwidgets/PanelStatusBar.h>
 #include <fmwidgets/PanelTabStrip.h>
 #include <fmwidgets/ProgressBar.h>
@@ -384,6 +385,15 @@ QList<WidgetInfo> widgetCatalog()
          dom(u"fm::ui::Banner"_s, u"banner"_s, u"배너"_s,
              geometry(420, 36) + prop(u"text"_s, u"휴지통에서 언제든 원래 위치로 복원할 수 있습니다."_s)),
          glyphIcon(fs::Glyph::Info), false, plain<Banner>()});
+    // 배치 상자 — Designer에는 사용자 QLayout을 넣을 수 없어 레이아웃을 품은 컨테이너로 등록한다
+    add({u"fm::ui::FlowBox"_s, kBase, u"fmwidgets/LayoutBoxes.h"_s, u"흐름 상자(FlowLayout — 줄이 차면 다음 줄)"_s,
+         u"끌어 넣은 위젯이 제 크기로 한 줄에 놓이다 넘치면 다음 줄로. lineAlignment(앞 · 가운데 · 뒤 · 양쪽) · 간격 · margin. "
+         u"자식을 다른 자식 위로 끌어 놓으면 차례가 바뀌고 itemOrder로 저장됩니다. 상자에 Designer 레이아웃은 걸지 마세요."_s,
+         dom(u"fm::ui::FlowBox"_s, u"flowBox"_s, u"흐름 상자"_s, geometry(320, 80)), textIcon(u"⇉"_s), true, plain<FlowBox>()});
+    add({u"fm::ui::FlexBox"_s, kBase, u"fmwidgets/LayoutBoxes.h"_s, u"유연 상자(FlexLayout — CSS flexbox)"_s,
+         u"direction · wrap · justifyContent · alignItems · alignContent · rowGap · columnGap · margin. 항목별 값은 자식의 "
+         u"동적 속성(속성 창 +): flexGrow · flexShrink(실수), flexBasis · flexOrder(정수), flexAlignSelf(start · end · center · stretch)."_s,
+         dom(u"fm::ui::FlexBox"_s, u"flexBox"_s, u"유연 상자"_s, geometry(320, 80)), textIcon(u"⇔"_s), true, plain<FlexBox>()});
 
     // ================================================================ 대화상자
     add({u"fm::ui::DialogHeader"_s, kDialog, u"fmwidgets/DialogHeader.h"_s, u"대화상자 머리(배지 · 제목 · 부제)"_s,
@@ -402,6 +412,10 @@ QList<WidgetInfo> widgetCatalog()
          dom(u"fm::ui::RecentTargetsBar"_s, u"recentTargets"_s, u"최근 대상"_s,
              geometry(420, 28) + listProp(u"targets"_s, {u"D:\\Backup"_s, u"E:\\Archive"_s, u"\\\\nas01\\share"_s})),
          glyphIcon(fs::Glyph::Clock), false, plain<RecentTargetsBar>()});
+    add({u"fm::ui::ChipButton"_s, kDialog, u"fmwidgets/DialogWidgets.h"_s, u"칩 단추([키 칩][폴더][경로])"_s,
+         u"text에 경로, keyHint에 키 칩(예: 1), glyph로 아이콘, monospace로 고정폭 글꼴. 최근 대상 칩 줄의 칸 하나."_s,
+         dom(u"fm::ui::ChipButton"_s, u"chipButton"_s, u"칩 단추"_s, prop(u"text"_s, u"D:\\Backup"_s) + prop(u"keyHint"_s, u"1"_s)),
+         glyphIcon(fs::Glyph::FolderOutline), false, plain<ChipButton>()});
     add({u"fm::ui::ChoiceCard"_s, kDialog, u"fmwidgets/DialogWidgets.h"_s, u"고르는 카드(라디오 · 파일 종류 아이콘 · 설명)"_s,
          u"text · detail · keyHint · fileKind. 같은 부모의 카드끼리 하나만 고릅니다."_s,
          dom(u"fm::ui::ChoiceCard"_s, u"choiceCard"_s, u"고르는 카드"_s,
@@ -522,6 +536,11 @@ QList<WidgetInfo> widgetCatalog()
              }
              return w;
          }});
+    add({u"fm::ui::FunctionKeyButton"_s, kMain, u"fmwidgets/FunctionKeyBar.h"_s, u"기능 키 칸 하나"_s,
+         u"keys(\"F5\")와 text(\"복사\"). 기능 키 막대 밖에서 따로 쓸 때 — 시안1 키 칩 + 글, 시안2 입체 단추."_s,
+         dom(u"fm::ui::FunctionKeyButton"_s, u"functionKeyButton"_s, u"기능 키 칸"_s,
+             geometry(120, 32) + prop(u"keys"_s, u"F5"_s) + prop(u"text"_s, u"복사"_s)),
+         textIcon(u"F5"_s), false, plain<FunctionKeyButton>()});
     add({u"fm::ui::FindBox"_s, kMain, u"fmwidgets/FindBox.h"_s, u"현재 폴더 찾기 상자"_s, u"돋보기 · 자리표시 · Ctrl+F 칩."_s,
          dom(u"fm::ui::FindBox"_s, u"findBox"_s, u"찾기 상자"_s), glyphIcon(fs::Glyph::Search), false, plain<FindBox>()});
     add({u"fm::ui::BreadcrumbBar"_s, kMain, u"fmwidgets/BreadcrumbBar.h"_s, u"경로 이동 줄"_s,

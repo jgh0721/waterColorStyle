@@ -55,6 +55,14 @@ void FlowLayout::insertWidget(int index, QWidget *widget)
     invalidate();
 }
 
+void FlowLayout::insertItem(int index, QLayoutItem *item)
+{
+    if (index < 0 || index > m_items.size())
+        index = int(m_items.size());
+    m_items.insert(index, item);
+    invalidate();
+}
+
 int FlowLayout::horizontalSpacing() const
 {
     return m_hSpacing;

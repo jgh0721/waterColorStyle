@@ -20,6 +20,7 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/KeyChip.h
     include/fmwidgets/Label.h
     include/fmwidgets/LaneLadder.h
+    include/fmwidgets/LayoutBoxes.h
     include/fmwidgets/Menu.h
     include/fmwidgets/PairedTimeline.h
     include/fmwidgets/PanelStatusBar.h
@@ -44,6 +45,7 @@ qt_add_library(fmwidgets STATIC
     FlowLayout.cpp
     Label.cpp
     LaneLadder.cpp
+    LayoutBoxes.cpp
     MainBars.cpp
     Menu.cpp
     PairedTimeline.cpp

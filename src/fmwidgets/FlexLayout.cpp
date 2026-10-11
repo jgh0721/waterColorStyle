@@ -235,6 +235,14 @@ void FlexLayout::insertWidget(int index, QWidget *widget, const Item &item)
     invalidate();
 }
 
+void FlexLayout::insertItem(int index, QLayoutItem *item, const Item &flex)
+{
+    if (index < 0 || index > m_entries.size())
+        index = int(m_entries.size());
+    m_entries.insert(index, Entry{item, flex});
+    invalidate();
+}
+
 FlexLayout::Entry *FlexLayout::entryFor(const QWidget *widget)
 {
     for (Entry &e : m_entries) {

@@ -18,7 +18,7 @@
 | `src/designer` | Qt Widgets Designer 플러그인 (`fmdesignerplugin`) |
 | `app/fmdemo` | 데모 앱 — 메인 창 · 도크(폴더 트리 · 미리보기 · 속성 · 작업 대기열) · 대화상자 · 설정 · 도구 창(카탈로그 · 섬네일 비교) · 일괄 스냅숏 |
 | `third_party/QtitanDataGrid` | 저장소에 없음 — QtitanDataGrid 비공개 저장소를 두는 자리(아래 [QtitanDataGrid](#qtitandatagrid--상용-컴포넌트-선택)) |
-| `examples/designer` | Designer로 만든 `CopyDetails.ui`를 uic로 불러 쓰는 예제 |
+| `examples/designer` | Designer로 만든 `CopyDetails.ui` · `LayoutDemo.ui`(배치 상자 · 승격한 메뉴 막대)를 uic로 불러 쓰는 예제 |
 | `gallery` | 목업과 비교하는 위젯 갤러리 |
 | `tests` | Qt Test — 파일 목록 · 메인 창 · 대화상자 · 설정 · Designer 플러그인 · 도크 · Qt 표준 위젯 스타일 · 웹 배치 · 떠 있는 위젯 |
 
@@ -130,19 +130,48 @@ tools\run.cmd build\release\fmdemo.exe --shot shots --only main,copy,settings.ke
 
 ## Qt Widgets Designer 플러그인
 
-위젯 상자에 **FmStyle — …** 묶음 다섯 개로 46개 위젯이 들어간다. 프로젝트의 모든 .ui(설정 9페이지 · 파일 작업 대화상자 ·
+위젯 상자에 **FmStyle — …** 묶음 다섯 개로 50개 위젯이 들어간다. 프로젝트의 모든 .ui(설정 9페이지 · 파일 작업 대화상자 ·
 예제)가 쓰는 위젯을 모두 포함하므로, 어느 .ui든 Designer에서 열면 앱과 같은 모양으로 보인다.
 
 | 묶음 | 위젯 |
 |---|---|
-| 기본 | `Button`, `Switch`, `SegmentedControl`, `Card`(컨테이너), `ProgressBar`, `ProgressRing`, `TransferGraph`, `BarListCard`, `LaneLadder`, `PairedTimeline`, `Label`, `Tag`, `KeyChip`, `Banner` |
-| 대화상자 | `DialogHeader`, `DialogFooter`(컨테이너), `PathEdit`, `RecentTargetsBar`, `ChoiceCard`, `TokenButton`, `FileSummaryList`, `FolderPlanView`, `KeyValueCard`, `ItemListCard`, `ActionCard`, `OptionRadio` |
+| 기본 | `Button`, `Switch`, `SegmentedControl`, `Card`(컨테이너), `ProgressBar`, `ProgressRing`, `TransferGraph`, `BarListCard`, `LaneLadder`, `PairedTimeline`, `Label`, `Tag`, `KeyChip`, `Banner`, `FlowBox`(컨테이너), `FlexBox`(컨테이너) |
+| 대화상자 | `DialogHeader`, `DialogFooter`(컨테이너), `PathEdit`, `RecentTargetsBar`, `ChipButton`, `ChoiceCard`, `TokenButton`, `FileSummaryList`, `FolderPlanView`, `KeyValueCard`, `ItemListCard`, `ActionCard`, `OptionRadio` |
 | 설정 | `SettingRow`(컨테이너 — 넣은 위젯은 오른쪽 컨트롤 칸으로 옮겨진다), `SearchField`, `ThemeModeCard`, `ColorSwatchButton`, `AccentPicker`, `HexColorEdit`, `ToggleChip`, `ColorPickButton`, `CheckListCombo`, `KeyCaptureEdit` |
-| 메인 창 | `CommandLine`, `FunctionKeyBar`, `FindBox`, `BreadcrumbBar`, `DriveButton`, `PanelStatusBar`, `PanelTabStrip` |
+| 메인 창 | `CommandLine`, `FunctionKeyBar`, `FunctionKeyButton`, `FindBox`, `BreadcrumbBar`, `DriveButton`, `PanelStatusBar`, `PanelTabStrip` |
+| 승격 대상 | `MenuBar`(← QMenuBar), `Menu`(← QMenu) — 위젯 상자가 아니라 메뉴 막대 · 메뉴를 오른쪽 클릭 → **승격 대상**에 바로 보인다 |
 | 파일 목록 | `fm::filelist::FileListView`, `fm::filelist::ThumbnailView`, `fm::dialogs::RenamePreviewView` — Qtitan을 정적 링크하므로 DLL을 더 배포하지 않는다(Qtitan 없는 빌드는 자리 표시) |
 
 표에서는 클래스 이름 앞의 `fm::ui::`를 줄였다. Designer 안에서는 목록 · 그래프 · 기능 키 막대 등에 예시 데이터를 넣어
 모양을 볼 수 있게 한다(앱이 QUiLoader로 .ui를 읽을 때는 넣지 않는다).
+
+### 배치 상자 — Designer에서 FlowLayout · FlexLayout 쓰기
+
+Designer에는 **사용자 QLayout을 넣을 길이 없다**. 레이아웃 도구 모음은 가로 · 세로 · 격자 · 양식 · 분할기로 고정이고,
+플러그인 인터페이스(QDesignerCustomWidgetInterface)는 위젯만 만든다. 그래서 레이아웃을 품은 컨테이너 위젯 둘을 등록했다.
+
+- `FlowBox`(FlowLayout) · `FlexBox`(FlexLayout)를 놓고 그 안에 위젯을 끌어 넣으면 상자가 스스로 배치한다.
+  Designer는 상자 안 배치를 "자기가 관리하지 않는 레이아웃"으로 보아 자유 배치처럼 다루고, 상자가 자리를 정한다.
+- 상자 속성: `FlowBox` — `horizontalSpacing` · `verticalSpacing` · `lineAlignment` · `margin`,
+  `FlexBox` — `direction` · `wrap` · `justifyContent` · `alignItems` · `alignContent` · `rowGap` · `columnGap` · `margin`.
+- 항목별 flex 값은 자식 위젯의 **동적 속성**(속성 창 + 단추)으로 준다: `flexGrow` · `flexShrink`(실수),
+  `flexBasis` · `flexOrder`(정수), `flexAlignSelf`(문자열 start · end · center · stretch).
+- 차례: 자식을 다른 자식 위로 끌어 놓으면 그 자리로 옮겨지고(되돌리기 가능), 차례는 `itemOrder`(자식 이름 목록)로 .ui에 남는다.
+- 상자에 Designer 레이아웃(가로 · 세로 · 격자)을 걸지 않는다. 상자 바깥(상자를 놓는 부모)에는 평소처럼 건다.
+- 디자인 중에는 상자에 점선 테두리가 보이고(실행 중에는 없음), uic · QUiLoader 모두 같은 배치를 만든다
+  (예제 `examples/designer/LayoutDemo.ui`, `fm_designer_example --layouts`).
+
+### 승격 — 메뉴 · 메뉴 막대
+
+`fm::ui::MenuBar` · `fm::ui::Menu`(그림자 판 · 글리프 아이콘)는 위젯 상자에 넣지 않는다 — Designer가 메뉴 막대 · 메뉴를
+자기 편집기로 다루기 때문이다. 대신 플러그인이 둘을 **승격 대상으로 미리 등록**해 두므로, 메뉴 막대나 메뉴를 오른쪽 클릭 →
+승격 대상 → `fm::ui::MenuBar` / `fm::ui::Menu`를 고르면 된다(헤더를 손으로 적지 않는다). 메뉴는 Designer에서 그대로 편집하고,
+uic가 만든 앱에서는 fm::ui 클래스로 만들어진다(QUiLoader는 기반 클래스 QMenuBar · QMenu로 만든다 — 모양은 스타일이 같게 그린다).
+등록은 Designer 비공개 API(Qt6::DesignerPrivate)를 쓰며, 그 모듈이 없는 설치에서는 등록만 건너뛴다(승격 대화상자에서 직접 추가).
+
+`ToolTip` · `Toast`(떠 있는 창) · `ContentDialog`(대화상자 자체)는 놓는 위젯이 아니라 등록하지 않는다. 도구 설명은
+위젯의 toolTip 속성을 Designer에서 적고 앱에서 `ToolTip::installGlobal(app)`을 부르면 이 모양으로 뜬다. ContentDialog의 내용은
+보통 위젯 폼으로 만들어 `setContentWidget`으로 넣는다.
 
 ### 미리보기 디자인 · 변형
 

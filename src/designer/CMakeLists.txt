@@ -33,6 +33,17 @@ if(TARGET Fm::filelist AND TARGET Fm::dialogs)
     target_compile_definitions(fmdesignerplugin PRIVATE FM_DESIGNER_WITH_FILELIST)
 endif()
 
+# 메뉴 · 메뉴 막대를 승격 대상으로 미리 등록한다(qdesigner_internal::appendDerived — Designer 비공개 API).
+# 플러그인은 어차피 Designer와 같은 Qt 판으로 빌드해야 한다. 비공개 헤더가 없는 설치면 등록만 건너뛴다.
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
+find_package(Qt6 QUIET COMPONENTS DesignerPrivate)
+if(TARGET Qt6::DesignerPrivate)
+    target_link_libraries(fmdesignerplugin PRIVATE Qt6::DesignerPrivate)
+    target_compile_definitions(fmdesignerplugin PRIVATE FM_DESIGNER_PROMOTIONS=1)
+else()
+    target_compile_definitions(fmdesignerplugin PRIVATE FM_DESIGNER_PROMOTIONS=0)
+endif()
+
 fm_set_compile_options(fmdesignerplugin)
 
 # <build>/plugins/designer — set QT_PLUGIN_PATH=<build>/plugins to try it without installing.

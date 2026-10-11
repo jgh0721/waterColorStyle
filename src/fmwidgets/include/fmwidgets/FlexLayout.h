@@ -76,6 +76,8 @@ public:
     /// flex: grow shrink basis 줄임꼴.
     void addWidget(QWidget *widget, qreal grow, qreal shrink = 1, int basis = -1);
     void insertWidget(int index, QWidget *widget, const Item &item = {});
+    /// 항목을 index 자리에 넣는다(takeAt으로 뺀 항목을 옮길 때 — flex 값은 다시 준다).
+    void insertItem(int index, QLayoutItem *item, const Item &flex = {});
     /// 넣은 위젯의 flex 값(없으면 기본값).
     Item flexItem(const QWidget *widget) const;
     bool setFlexItem(const QWidget *widget, const Item &item);

@@ -4,9 +4,11 @@
 
 #include <fmwidgets/FlexLayout.h>
 #include <fmwidgets/FlowLayout.h>
+#include <fmwidgets/LayoutBoxes.h>
 
 #include <QApplication>
 #include <QLabel>
+#include <QSignalSpy>
 #include <QTest>
 
 using namespace Qt::StringLiterals;
@@ -19,8 +21,9 @@ namespace {
 class Box : public QWidget
 {
 public:
-    explicit Box(QSize hint, QSize min = {}, QSize max = {})
-        : m_hint(hint)
+    explicit Box(QSize hint, QSize min = {}, QSize max = {}, QWidget *parent = nullptr)
+        : QWidget(parent)
+        , m_hint(hint)
         , m_min(min.isValid() ? min : QSize(0, 0))
     {
         if (max.isValid())
@@ -369,6 +372,92 @@ private Q_SLOTS:
         QCOMPARE(f.layout->minimumSize(), QSize(30 + 10 + 40, 10));
         f.layout->setWrap(FlexLayout::Wrap::Wrap);
         QCOMPARE(f.layout->minimumSize(), QSize(40, 10));  // 줄 바꿈이면 가장 큰 항목 하나
+    }
+
+    // ------------------------------------------------------------------ 배치 상자(Designer용)
+
+    void boxAdoptsChildren()
+    {
+        // 자식을 부모만 주고 만들어도(uic · Designer) 상자가 스스로 배치에 넣는다 — 크기를 물으면 바로
+        fm::ui::FlowBox box;
+        box.flowLayout()->setSpacing(10);
+        for (int i = 0; i < 3; ++i)
+            new Box(QSize(40, 20), QSize(40, 20), {}, &box);
+        QCOMPARE(box.sizeHint(), QSize(3 * 40 + 2 * 10, 20));
+        QCOMPARE(box.flowLayout()->count(), 3);
+        box.setFixedWidth(100);
+        box.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&box));
+        QCOMPARE(box.layout()->itemAt(2)->widget()->geometry().topLeft(), QPoint(0, 30));
+    }
+
+    void boxItemOrderBeforeChildren()
+    {
+        // .ui · uic는 상자 속성(itemOrder)을 자식보다 먼저 준다 — 자식이 들어올 때 그 차례를 따른다
+        fm::ui::FlowBox box;
+        box.setItemOrder({u"c"_s, u"a"_s, u"b"_s});
+        for (const QString &name : {u"a"_s, u"b"_s, u"c"_s}) {
+            auto *w = new Box(QSize(30, 20), {}, {}, &box);
+            w->setObjectName(name);
+        }
+        box.syncChildren();
+        QCOMPARE(box.itemOrder(), (QStringList{u"c"_s, u"a"_s, u"b"_s}));
+        // 나중에 바꿔도 따른다
+        box.setItemOrder({u"b"_s, u"c"_s, u"a"_s});
+        QCOMPARE(box.itemOrder(), (QStringList{u"b"_s, u"c"_s, u"a"_s}));
+    }
+
+    void flexBoxDynamicProperties()
+    {
+        fm::ui::FlexBox box;
+        box.setColumnGap(0);
+        box.setMargin(0);
+        auto *a = new Box(QSize(50, 20), {}, {}, &box);
+        auto *b = new Box(QSize(50, 20), {}, {}, &box);
+        b->setProperty(fm::ui::FlexBox::kGrow, 1.0);  // Designer 속성 창의 동적 속성
+        box.syncChildren();
+        box.resize(300, 20);
+        box.layout()->activate();
+        QCOMPARE(b->width(), 250);
+        a->setProperty(fm::ui::FlexBox::kOrder, 1);  // 뒤로
+        box.layout()->activate();
+        QCOMPARE(b->x(), 0);
+        QCOMPARE(a->x(), 250);
+        QCOMPARE(box.direction(), fm::ui::FlexBox::Row);
+        box.setDirection(fm::ui::FlexBox::Column);
+        QCOMPARE(box.flexLayout()->direction(), FlexLayout::Direction::Column);
+    }
+
+    void boxDesignModeReorder()
+    {
+        // Designer: 자식을 다른 자식 위에 놓으면 그 자리로, 차례 신호가 나간다. 디자인 모드가 아니면 제자리로 돌아간다.
+        fm::ui::FlowBox box;
+        box.flowLayout()->setSpacing(10);
+        QList<Box *> items;
+        for (const QString &name : {u"a"_s, u"b"_s, u"c"_s}) {
+            auto *w = new Box(QSize(40, 20), QSize(40, 20), {}, &box);
+            w->setObjectName(name);
+            items.append(w);
+        }
+        box.resize(300, 40);
+        box.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&box));
+        QSignalSpy spy(&box, &fm::ui::LayoutBox::itemOrderChanged);
+
+        items[2]->move(items[0]->pos());  // 디자인 모드가 아니면 차례는 그대로(다음 배치에서 제자리)
+        QTest::qWait(20);
+        QCOMPARE(spy.count(), 0);
+        QCOMPARE(box.itemOrder(), (QStringList{u"a"_s, u"b"_s, u"c"_s}));
+        box.layout()->invalidate();
+        box.layout()->activate();
+        QCOMPARE(items[2]->pos(), QPoint(100, 0));
+
+        box.setDesignMode(true);
+        items[2]->move(items[0]->pos() + QPoint(5, 0));  // c를 a 위로
+        QTRY_COMPARE(spy.count(), 1);
+        QCOMPARE(box.itemOrder(), (QStringList{u"c"_s, u"a"_s, u"b"_s}));
+        QTRY_COMPARE(items[2]->pos(), QPoint(0, 0));
+        QCOMPARE(items[0]->pos(), QPoint(50, 0));
     }
 
     void flexHeightForWidthItems()
