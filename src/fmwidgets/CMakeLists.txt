@@ -3,6 +3,7 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/RenameComparisonView.h
     include/fmwidgets/Banner.h
     include/fmwidgets/BarListCard.h
+    include/fmwidgets/ReorderList.h
     include/fmwidgets/WindowChrome.h
     include/fmwidgets/BreadcrumbBar.h
     include/fmwidgets/WrapCheckBox.h
@@ -55,6 +56,7 @@ qt_add_library(fmwidgets STATIC
     Menu.cpp
     PairedTimeline.cpp
     PanelChrome.cpp
+    ReorderList.cpp
     WindowChrome.cpp
     ProgressRing.cpp
     SegmentedControl.cpp

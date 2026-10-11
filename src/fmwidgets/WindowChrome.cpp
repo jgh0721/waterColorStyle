@@ -16,13 +16,14 @@
 #endif
 
 namespace fm::ui {
-WindowChrome::WindowChrome(QWidget* Window, QWidget* Parent)
-    : QWidget(Parent), window_(Window)
+WindowChrome::WindowChrome(QWidget* Window, QWidget* Parent, WindowChromeOptions Options)
+    : QWidget(Parent), window_(Window), options_(Options)
 {
     Window->setWindowFlag(Qt::FramelessWindowHint);
     Window->installEventFilter(this);
+    installEventFilter(this);
     qApp->installNativeEventFilter(this);
-    setFixedHeight(28);
+    setFixedHeight(qMax(28, fontMetrics().height() + 10));
     auto* Layout = new QHBoxLayout(this);
     Layout->setContentsMargins(4, 3, 4, 3);
     Layout->setSpacing(2);
@@ -30,12 +31,14 @@ WindowChrome::WindowChrome(QWidget* Window, QWidget* Parent)
     const auto Add = [this, Layout](const QString& Name, const QString& Text) {
         auto* Button = new QToolButton(this);
         Button->setObjectName(Name); Button->setAccessibleName(Text); Button->setToolTip(Text);
-        Button->setFixedSize(22, 22); Button->setFocusPolicy(Qt::NoFocus);
+        Button->setFixedSize(22, 22); Button->setFocusPolicy(Qt::StrongFocus);
         Layout->addWidget(Button); return Button;
     };
     minimize_ = Add("fm.window.minimize", tr("최소화"));
     maximize_ = Add("fm.window.maximize", tr("최대화 / 복원"));
     close_ = Add("fm.window.close", tr("닫기"));
+    minimize_->setVisible(options_.minimizeButton);
+    maximize_->setVisible(options_.maximizeButton);
     connect(minimize_, &QToolButton::clicked, Window, &QWidget::showMinimized);
     connect(maximize_, &QToolButton::clicked, this, &WindowChrome::toggleMaximized);
     connect(close_, &QToolButton::clicked, Window, &QWidget::close);
@@ -69,14 +72,14 @@ void WindowChrome::paintEvent(QPaintEvent*)
     Gradient.setColorAt(1, Active ? Chrome.titleCap : Chrome.titleInactiveHi);
     Painter.fillRect(rect(), Gradient);
     Painter.setPen(Chrome.titleEdge); Painter.drawRect(rect().adjusted(0, 0, -1, -1));
-    fm::style::paintGlyph(&Painter, fm::style::Glyph::App, QRectF(6, 6, 16, 16), Qt::white);
-    Painter.setFont(fm::style::pixelFont(font(), 13, QFont::DemiBold)); Painter.setPen(Qt::white);
-    const QRect Text(28, 0, std::max(0, width() - 108), height());
+    fm::style::paintGlyph(&Painter, fm::style::Glyph::App, QRectF(6, (height() - 16) / 2, 16, 16), Qt::white);
+    auto TitleFont = font(); TitleFont.setWeight(QFont::DemiBold); Painter.setFont(TitleFont); Painter.setPen(Qt::white);
+    const QRect Text(28, 0, std::max(0, width() - (28 + layout()->minimumSize().width())), height());
     Painter.drawText(Text, Qt::AlignVCenter, Painter.fontMetrics().elidedText(window_ ? window_->windowTitle() : QString{}, Qt::ElideMiddle, Text.width()));
 }
 void WindowChrome::toggleMaximized()
 {
-    if (!window_) return;
+    if (!window_ || !options_.maximizeButton) return;
     window_->isMaximized() ? window_->showNormal() : window_->showMaximized();
 }
 void WindowChrome::systemMenu(const QPoint& Point)
@@ -86,7 +89,7 @@ void WindowChrome::systemMenu(const QPoint& Point)
     const auto Handle = reinterpret_cast<HWND>(window_->winId());
     const auto Menu = GetSystemMenu(Handle, FALSE);
     EnableMenuItem(Menu, SC_RESTORE, MF_BYCOMMAND | (window_->isMaximized() ? MF_ENABLED : MF_GRAYED));
-    EnableMenuItem(Menu, SC_MAXIMIZE, MF_BYCOMMAND | (window_->isMaximized() ? MF_GRAYED : MF_ENABLED));
+    EnableMenuItem(Menu, SC_MAXIMIZE, MF_BYCOMMAND | (!options_.maximizeButton || window_->isMaximized() ? MF_GRAYED : MF_ENABLED));
     const auto Scale = window_->devicePixelRatioF();
     const auto Local = window_->mapFromGlobal(Point);
     POINT Native{qRound(Local.x() * Scale), qRound(Local.y() * Scale)};
@@ -109,12 +112,13 @@ void WindowChrome::mouseDoubleClickEvent(QMouseEvent* Event)
 }
 bool WindowChrome::eventFilter(QObject* Object, QEvent* Event)
 {
+    if (Object == this && Event->type() == QEvent::FontChange) setFixedHeight(qMax(28, fontMetrics().height() + 10));
     if (Object == window_) {
 #ifdef Q_OS_WIN
         if (Event->type() == QEvent::Show || Event->type() == QEvent::WinIdChange) {
             const auto Handle = reinterpret_cast<HWND>(window_->winId());
             const auto Flags = GetWindowLongPtrW(Handle, GWL_STYLE);
-            SetWindowLongPtrW(Handle, GWL_STYLE, Flags | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+            SetWindowLongPtrW(Handle, GWL_STYLE, (Flags | WS_THICKFRAME | WS_SYSMENU) | (options_.minimizeButton ? WS_MINIMIZEBOX : 0) | (options_.maximizeButton ? WS_MAXIMIZEBOX : 0));
             SetWindowPos(Handle, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
         }
 #endif
@@ -144,7 +148,7 @@ bool WindowChrome::nativeEventFilter(const QByteArray&, void* Message, qintptr* 
         const auto Scale = window_->devicePixelRatioF();
         const QPoint Local(qRound(Client.x / Scale), qRound(Client.y / Scale));
         const auto MaxRect = QRect(maximize_->mapTo(window_, QPoint()), maximize_->size());
-        if (MaxRect.contains(Local)) { if (Result) *Result = HTMAXBUTTON; return true; }
+        if (options_.maximizeButton && MaxRect.contains(Local)) { if (Result) *Result = HTMAXBUTTON; return true; }
     }
     // The dispatcher passes no result pointer for queued mouse messages.
     // Synchronous hit-test calls do supply one. Both paths reach this filter.
