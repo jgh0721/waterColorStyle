@@ -429,11 +429,22 @@ QJsonObject AppSettings::toJson() const
                                      {u"modeSet"_s, t.modeSet}});
         return array;
     };
+    QJsonObject se;
     if (!session.isEmpty()) {
-        root[u"session"_s] = QJsonObject{{u"left"_s, tabsToJson(session.left)}, {u"right"_s, tabsToJson(session.right)},
-                                         {u"leftCurrent"_s, session.leftCurrent}, {u"rightCurrent"_s, session.rightCurrent},
-                                         {u"rightActive"_s, session.rightActive}};
+        se = QJsonObject{{u"left"_s, tabsToJson(session.left)}, {u"right"_s, tabsToJson(session.right)},
+                         {u"leftCurrent"_s, session.leftCurrent}, {u"rightCurrent"_s, session.rightCurrent},
+                         {u"rightActive"_s, session.rightActive}};
     }
+    if (!session.docks.isEmpty())
+        se[u"docks"_s] = QString::fromLatin1(session.docks.toBase64());
+    if (!session.dockLayouts.isEmpty()) {
+        QJsonObject layouts;
+        for (auto it = session.dockLayouts.cbegin(); it != session.dockLayouts.cend(); ++it)
+            layouts[it.key()] = QString::fromLatin1(it.value().toBase64());
+        se[u"dockLayouts"_s] = layouts;
+    }
+    if (!se.isEmpty())
+        root[u"session"_s] = se;
     return root;
 }
 
@@ -575,6 +586,12 @@ AppSettings AppSettings::fromJson(const QJsonObject &root)
     s.session.leftCurrent = intOr(se, "leftCurrent", 0);
     s.session.rightCurrent = intOr(se, "rightCurrent", 0);
     s.session.rightActive = boolOr(se, "rightActive", true);
+    s.session.docks = QByteArray::fromBase64(se.value(u"docks"_s).toString().toLatin1());
+    const QJsonObject layouts = se.value(u"dockLayouts"_s).toObject();
+    for (auto it = layouts.constBegin(); it != layouts.constEnd(); ++it) {
+        if (const QByteArray state = QByteArray::fromBase64(it.value().toString().toLatin1()); !state.isEmpty())
+            s.session.dockLayouts.insert(it.key(), state);
+    }
     return s;
 }
 

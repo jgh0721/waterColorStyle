@@ -11,6 +11,7 @@
 #include <cstdint>
 
 class QPainter;
+class QWidget;
 
 namespace fm::style {
 
@@ -78,6 +79,11 @@ struct GlyphStateColors
     QColor on;        // 켜짐(QIcon::On) — 세그먼트 · 토글
 };
 QIcon glyphIcon(Glyph glyph, const GlyphStateColors &colors, int px = 16);
+
+/// 그릴 때 색을 정하는 아이콘 — 위젯(없으면 앱)의 테마 색으로: 보통 Fg2, 마우스 올림 · 선택 Fg, 사용 안 함 Fg3.
+/// 디자인 · 라이트 · 다크를 바꿔도 다시 만들 필요가 없다(메뉴 · 도구 설명 · 도구 단추의 단색 아이콘).
+/// 방패는 늘 방패 두 색.
+QIcon themedGlyphIcon(Glyph glyph, const QWidget *widget = nullptr);
 
 /// 방패 아이콘(--shield / --shield-2). QStyle::SP_VistaShield로도 얻는다.
 QIcon shieldIcon(const ThemeColors &colors, int px = 16);

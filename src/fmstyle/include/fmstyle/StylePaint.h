@@ -83,4 +83,22 @@ void paintBadge(QPainter *painter, const QRectF &rect, Tone tone, const ThemeCol
 /// 배너 바탕(모서리 6). Info는 테두리 없음, Warn · Danger는 1 px 테두리.
 void paintBannerFrame(QPainter *painter, const QRectF &rect, Tone tone, const ThemeColors &colors);
 
+// ------------------------------------------------------------------------------------- 도킹
+
+/// 도크 끌어 놓기 표시(KDDockWidgets의 classic 방식을 옮김) — 놓을 자리 하나의 단추.
+/// Outer*는 메인 창 가장자리(그 변의 도크 영역), 나머지는 마우스 아래 도크 기준(Center = 탭으로 묶기).
+enum class DropSpot : std::uint8_t { Left, Top, Right, Bottom, Center, OuterLeft, OuterTop, OuterRight, OuterBottom };
+
+/// 표시 단추 한 변(32).
+inline constexpr int kDropIndicatorSize = 32;
+
+/// 시안1: 둥근 카드 단추 + 창 모양 안에 놓일 쪽을 강조색으로. 시안2: 입체 단추 + 파란 제목 띠가 있는 창 모양.
+void paintDropIndicator(QPainter *painter, const QRectF &rect, DropSpot spot, bool hover, const ThemeColors &colors);
+
+/// 놓일 자리 미리보기 — 강조색 반투명 채움 + 2 px 테두리(시안1 둥근 4, 시안2 네모).
+void paintDropPreview(QPainter *painter, const QRectF &rect, const ThemeColors &colors);
+
+/// 자동 숨김 사이드바 바탕 — 창 바탕 + 안쪽(내용과 맞닿는) 변 1 px 선.
+void paintDockSideBar(QPainter *painter, const QRect &rect, Qt::Edge innerEdge, const ThemeColors &colors);
+
 } // namespace fm::style

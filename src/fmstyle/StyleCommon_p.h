@@ -4,7 +4,10 @@
 
 #include "fmstyle/StyleProps.h"
 
+#include <QAbstractItemView>
 #include <QAbstractScrollArea>
+#include <QApplication>
+#include <QDockWidget>
 #include <QRegularExpression>
 #include <QCheckBox>
 #include <QRectF>
@@ -13,6 +16,8 @@
 #include <QStyleOption>
 #include <QVariant>
 #include <QWidget>
+
+#include <algorithm>
 
 namespace fm::style::detail {
 
@@ -23,9 +28,31 @@ inline QString stringProp(const QWidget *w, const char *name)
     return w ? w->property(name).toString() : QString();
 }
 
+/// 콤보 상자의 펼친 목록(QComboBoxListView) — 커서 테두리 없이 메뉴처럼 그린다.
+inline bool isComboPopupView(const QWidget *w)
+{
+    return w && w->inherits("QComboBoxListView");
+}
+
+/// 옵션의 styleObject에 있으면 그 값, 없으면 위젯 값 — 항목 대리자처럼 위젯 없이 그리는 쪽이 상태를 넘긴다.
+inline QString stringProp(const QStyleOption *opt, const QWidget *w, const char *name)
+{
+    if (opt && opt->styleObject && opt->styleObject != w) {
+        if (const QVariant v = opt->styleObject->property(name); v.isValid())
+            return v.toString();
+    }
+    return stringProp(w, name);
+}
+
 inline bool boolProp(const QWidget *w, const char *name)
 {
     return w && w->property(name).toBool();
+}
+
+inline int intProp(const QWidget *w, const char *name, int fallback = 0)
+{
+    const QVariant v = w ? w->property(name) : QVariant();
+    return v.isValid() ? v.toInt() : fallback;
 }
 
 inline bool isSmall(const QWidget *w) { return stringProp(w, props::kSize) == u"small"; }
@@ -96,6 +123,11 @@ inline void applyPreviewState(const QStyleOption *option, const QWidget *w)
         if (auto *tb = qstyleoption_cast<QStyleOptionToolButton *>(mutableOption))
             tb->activeSubControls |= QStyle::SC_ToolButton;
     }
+    // 슬라이더는 손잡이 위에 있을 때만 마우스 올림 · 누름 모양이다.
+    if ((forced & (QStyle::State_MouseOver | QStyle::State_Sunken)) && w->inherits("QSlider")) {
+        if (auto *sl = qstyleoption_cast<QStyleOptionSlider *>(mutableOption))
+            sl->activeSubControls |= QStyle::SC_SliderHandle;
+    }
 }
 
 // 그리기를 대신 맡은 숨은 위젯이면 보이는 가장 가까운 상위 위젯. Qtitan 그리드는 셀 · 행을 그릴 때
@@ -138,6 +170,56 @@ inline bool paneActive(const QStyleOption *option, const QWidget *w)
         return true;
     const QWidget *painting = paintingWidget(w);
     return painting->hasFocus() || painting->isAncestorOf(painting->window()->focusWidget());
+}
+
+/// 도크 활성 — 위젯에서 도크까지 걸린 fmPaneActive(도킹 관리자가 건다), 없으면 도크 안에 키보드 포커스가 있는지.
+/// 제목 줄 · 제목 줄 단추 · 떠 있는 틀이 같은 판단을 쓴다.
+inline bool dockActive(const QWidget *w)
+{
+    const QDockWidget *dock = nullptr;
+    for (const QWidget *p = w; p; p = p->parentWidget()) {
+        const QVariant v = p->property(props::kPaneActive);
+        if (v.isValid())
+            return v.toBool();
+        if ((dock = qobject_cast<const QDockWidget *>(p)) || p->isWindow())
+            break;
+    }
+    if (!dock)
+        return false;
+    const QWidget *focus = QApplication::focusWidget();
+    return focus && (focus == dock || dock->isAncestorOf(focus));
+}
+
+/// 도크 제목 줄 단추(fmDockButton)인지 — 값은 "close" · "float" · "pin" · "unpin" · "menu".
+inline QString dockButtonKind(const QWidget *w) { return stringProp(w, props::kDockButton); }
+
+/// 항목 보기의 마우스 올림을 그릴 위젯 — 보이는 Qt 항목 보기만. Qtitan 그리드는 숨은 대리 보기를 넘기고
+/// 마우스 올림을 따로 그리므로 제외한다.
+inline bool itemHover(const QStyleOption *option, const QWidget *w)
+{
+    return (option->state & QStyle::State_MouseOver) && (option->state & QStyle::State_Enabled)
+        && qobject_cast<const QAbstractItemView *>(w) && !w->isHidden();
+}
+
+/// 항목 보기의 칸 편집기(위임자가 만든 테두리 없는 입력) — 부모가 보기의 viewport.
+inline bool isItemViewEditor(const QWidget *w)
+{
+    const QWidget *parent = w ? w->parentWidget() : nullptr;
+    const auto *view = parent ? qobject_cast<const QAbstractItemView *>(parent->parentWidget()) : nullptr;
+    return view && view->viewport() == parent;
+}
+
+/// 머리글 정렬 표시 자리 — 이름 바로 뒤(가운데 맞춤이면 가운데 놓인 이름 뒤), 오른쪽 맞춤이면 이름 앞.
+inline QRect headerArrowRect(const QStyleOptionHeader *h, int margin, int height)
+{
+    const int textWidth = h->fontMetrics.horizontalAdvance(h->text);
+    const QRect r = h->rect;
+    if (h->textAlignment & Qt::AlignRight)
+        return QRect(r.right() - margin - textWidth - 14, r.top(), 10, height);
+    int textRight = r.left() + margin + textWidth;
+    if (h->textAlignment & Qt::AlignHCenter)
+        textRight = r.left() + margin + (r.width() - 2 * margin + textWidth) / 2;
+    return QRect(std::min(textRight + 4, r.right() - 12), r.top(), 10, height);
 }
 
 inline QRectF crisp(const QRect &r, qreal width = 1.0)

@@ -15,6 +15,7 @@
 #include <QJsonObject>
 #include <QKeySequence>
 #include <QList>
+#include <QMap>
 #include <QString>
 #include <QStringList>
 
@@ -221,7 +222,12 @@ struct SessionState
     int leftCurrent = 0;
     int rightCurrent = 0;
     bool rightActive = true;
+    /// 도크 배치(fm::dock::DockManager::saveState) — 시작할 때 설정과 무관하게 되살린다.
+    QByteArray docks;
+    /// 이름 붙인 도크 배치(보기 › 도크 › 배치).
+    QMap<QString, QByteArray> dockLayouts;
 
+    /// 탭이 없는지 — 도크 배치는 따지지 않는다(마지막 탭과 폴더 복원 여부).
     bool isEmpty() const noexcept { return left.isEmpty() && right.isEmpty(); }
     bool operator==(const SessionState &) const = default;
 };

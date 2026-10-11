@@ -11,11 +11,13 @@ qt_add_library(fmstyle STATIC
     include/fmstyle/WatercolorStyle.h
     ColorMath_p.h
     StyleCommon_p.h
+    StyleShared_p.h
     ColorScheme.cpp
     FmStyle.cpp
     Glyphs.cpp
     StylePaint.cpp
     StyleProps.cpp
+    StyleShared.cpp
     ThemeColors.cpp
     ThemeManager.cpp
     ThemeTokens.cpp

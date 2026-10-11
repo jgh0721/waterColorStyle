@@ -3,6 +3,7 @@
 #include "MainWindow.h"
 
 #include <fmdialogs/DialogCatalog.h>
+#include <fmdialogs/ProgressDialog.h>
 #include <fmstyle/StylePaint.h>
 #include <fmstyle/ThemeManager.h>
 #include <fmstyle/WatercolorChrome.h>
@@ -81,10 +82,23 @@ QImage renderClient(QWidget *w)
 
 QWidget *createScreen(const QString &id)
 {
-    if (id == u"main") {
+    if (id == u"main" || id == u"main.docks") {
         auto *w = new MainWindow;
         w->loadBoardState();
         w->resize(1440, 900);
+        if (id == u"main.docks") {
+            // 도크 넷(07 §6) + 작업 대기열 두 줄 — 일시 정지한 복사(목업 정적 값) · 그 뒤에 대기열에 넣은 이동
+            w->openAllDocks();
+            const fm::dialogs::ProgressDialog::Operation board = fm::dialogs::ProgressDialog::boardCopy();
+            fm::dialogs::ProgressDialog *copy = w->startJob(fm::dialogs::ProgressDialog::Copy, board.source, board.target,
+                                                            board.fileNames, board.fileSizes);
+            copy->hide();
+            copy->applyVariant(u"progress.copy.detail.paused"_s);
+            fm::dialogs::ProgressDialog *move = w->startJob(fm::dialogs::ProgressDialog::Move, u"D:\\Work\\fm-core\\build"_s,
+                                                            u"E:\\Archive\\build-2026-09"_s, {u"build"_s}, {qint64(1'900'000'000)},
+                                                            {}, true);
+            move->hide();
+        }
         return w;
     }
     return fm::dialogs::createDialog(id);
@@ -274,6 +288,8 @@ int runSnapshots(const SnapshotOptions &options)
     QList<Screen> screens;
     if (selected(u"main"_s, options.only))
         screens.append({u"main"_s, u"메인 창"_s, u"Main 보드 기본 상태"_s, true, QSize(1440, 900)});
+    if (selected(u"main.docks"_s, options.only))
+        screens.append({u"main.docks"_s, u"메인 창"_s, u"도크 넷 — 폴더 트리 · 미리보기/속성 · 작업 대기열"_s, false, QSize()});
     for (const fm::dialogs::DialogVariant &v : fm::dialogs::dialogVariants()) {
         if (selected(v.id, options.only))
             screens.append({v.id, fm::dialogs::dialogGroupLabel(v.dialog), v.label, v.fromMockup, v.client});
@@ -309,7 +325,8 @@ int runSnapshots(const SnapshotOptions &options)
             }
             w->setAttribute(Qt::WA_DontShowOnScreen);  // 화면에 띄우지 않고 배치 · 그리기만
             w->show();
-            settle(s.id.startsWith(u"settings") || s.id == u"main" ? options.settleMs * 2 : options.settleMs);
+            const bool mainWindow = s.id == u"main" || s.id.startsWith(u"main.");
+            settle(s.id.startsWith(u"settings") || mainWindow ? options.settleMs * 2 : options.settleMs);
             if (!w)
                 continue;
             const QImage client = renderClient(w);
@@ -317,7 +334,7 @@ int runSnapshots(const SnapshotOptions &options)
                 s.actual = w->size();
             const QString base = root.filePath(themeDir + u'/' + s.id);
             client.save(base + u".png"_s);
-            mockFrame(client, w->windowTitle(), w->windowIcon(), s.id == u"main").save(root.filePath(themeDir + u"/framed/"_s + s.id + u".png"_s));
+            mockFrame(client, w->windowTitle(), w->windowIcon(), mainWindow).save(root.filePath(themeDir + u"/framed/"_s + s.id + u".png"_s));
             ++saved;
             w->close();
             settle(0);

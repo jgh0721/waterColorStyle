@@ -15,6 +15,8 @@ class FunctionKeyButton : public QPushButton
     Q_PROPERTY(QString keys READ keys WRITE setKeys)
 
 public:
+    /// uic · Designer용 — 키 · 글은 keys · text 속성으로.
+    explicit FunctionKeyButton(QWidget *parent = nullptr);
     explicit FunctionKeyButton(const QString &keys, const QString &text, QWidget *parent = nullptr);
 
     QString keys() const { return m_keys; }

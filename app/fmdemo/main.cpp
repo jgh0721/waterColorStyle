@@ -161,10 +161,11 @@ int main(int argc, char *argv[])
     const QCommandLineOption measureOption(u"measure"_s, u"--compare와 함께: 연결 · 스크롤을 재고 결과를 출력한 뒤 끝낸다."_s);
     const QCommandLineOption onlyOption(u"only"_s, u"--shot <폴더>: 찍을 화면 ID 접두어(쉼표, main = 메인 창)."_s, u"ids"_s);
     const QCommandLineOption themesOption(u"themes"_s, u"--shot <폴더>: std-light,std-dark,wc-light,wc-dark,wc-navy 중 일부."_s, u"list"_s);
+    const QCommandLineOption docksOption(u"docks"_s, u"도크 넷(폴더 트리 · 미리보기 · 속성 · 작업 대기열)을 연 채로 시작한다."_s);
     parser.addOptions({designOption, schemeOption, leftModeOption, rightModeOption, activeOption, sep1Option, sep2Option,
                        nameBelowOption, invCursorOption, invSelOption, sizeOption, shotOption, delayOption, openOption,
                        listOption, flowOption, settingsOption, catalogOption, compareOption, measureOption, onlyOption,
-                       themesOption});
+                       themesOption, docksOption});
     parser.addPositionalArgument(u"folder"_s, u"열 실제 폴더(창 하나만 실행이면 이미 뜬 창의 새 탭으로)"_s, u"[folder]"_s);
     parser.process(app);
 
@@ -310,6 +311,7 @@ int main(int argc, char *argv[])
             sections |= S::Appearance | S::Theme;
         window.applySettings(sections);
         window.applyStartup();  // 시작할 때 — 마지막 탭과 폴더 · 홈 폴더 · 지정한 폴더
+        window.restoreDocks(store.settings().session);  // 도크 배치는 시작할 때 설정과 무관하게
     } else {
         // 설정 파일이 없으면 지금 창 상태(보드)가 첫 설정 — 적용할 때까지 파일은 만들지 않는다
         const QString path = store.filePath();
@@ -320,6 +322,8 @@ int main(int argc, char *argv[])
 
     const QStringList wh = parser.value(sizeOption).split(u'x');
     window.resize(wh.value(0).toInt() > 0 ? wh.value(0).toInt() : 1440, wh.value(1).toInt() > 0 ? wh.value(1).toInt() : 900);
+    if (parser.isSet(docksOption))
+        window.openAllDocks();
     window.show();
     if (!folderPath.isEmpty())
         window.openInNewTab(folderPath);

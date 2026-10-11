@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>LayoutDemo</class>
+ <widget class="QMainWindow" name="LayoutDemo">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>560</width>
+    <height>420</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>배치 상자 · 승격한 메뉴</string>
+  </property>
+  <widget class="QWidget" name="central">
+   <layout class="QVBoxLayout" name="rootLayout">
+    <property name="spacing">
+     <number>10</number>
+    </property>
+    <item>
+     <widget class="fm::ui::Label" name="flowCaption">
+      <property name="text">
+       <string>흐름 상자 — 줄이 차면 다음 줄 (itemOrder로 차례: 문서가 맨 앞)</string>
+      </property>
+      <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+     </widget>
+    </item>
+    <item>
+     <widget class="fm::ui::FlowBox" name="tags">
+      <property name="itemOrder">
+       <stringlist>
+        <string>docsChip</string>
+        <string>imagesChip</string>
+        <string>codeChip</string>
+       </stringlist>
+      </property>
+      <property name="horizontalSpacing">
+       <number>6</number>
+      </property>
+      <property name="verticalSpacing">
+       <number>6</number>
+      </property>
+      <widget class="QPushButton" name="imagesChip">
+       <property name="text">
+        <string>이미지 · 128</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="codeChip">
+       <property name="text">
+        <string>소스 코드 · 42</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="docsChip">
+       <property name="text">
+        <string>문서 · 17</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="archiveChip">
+       <property name="text">
+        <string>압축 파일 · 6</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="otherChip">
+       <property name="text">
+        <string>기타 · 3</string>
+       </property>
+      </widget>
+     </widget>
+    </item>
+    <item>
+     <widget class="fm::ui::Label" name="flexCaption">
+      <property name="text">
+       <string>유연 상자 — 찾기 칸이 남는 폭을 다 받는다(flexGrow 1)</string>
+      </property>
+      <property name="textRole"><enum>fm::ui::Label::FieldLabel</enum></property>
+     </widget>
+    </item>
+    <item>
+     <widget class="fm::ui::FlexBox" name="toolbar">
+      <property name="alignItems">
+       <enum>fm::ui::FlexBox::ItemsCenter</enum>
+      </property>
+      <property name="columnGap">
+       <number>8</number>
+      </property>
+      <widget class="fm::ui::ChipButton" name="targetChip">
+       <property name="text">
+        <string>D:\Backup</string>
+       </property>
+       <property name="keyHint">
+        <string>1</string>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="findEdit">
+       <property name="placeholderText">
+        <string>현재 폴더에서 찾기</string>
+       </property>
+       <property name="flexGrow" stdset="0">
+        <double>1.000000</double>
+       </property>
+      </widget>
+      <widget class="fm::ui::ProgressRing" name="busyRing">
+       <property name="minimumSize">
+        <size>
+         <width>24</width>
+         <height>24</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>24</width>
+         <height>24</height>
+        </size>
+       </property>
+       <property name="busy">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="fm::ui::FunctionKeyButton" name="copyKey">
+       <property name="keys">
+        <string>F5</string>
+       </property>
+       <property name="text">
+        <string>복사</string>
+       </property>
+       <property name="flexBasis" stdset="0">
+        <number>110</number>
+       </property>
+      </widget>
+     </widget>
+    </item>
+    <item>
+     <widget class="fm::ui::FlexBox" name="cards">
+      <property name="wrap">
+       <enum>fm::ui::FlexBox::Wrap</enum>
+      </property>
+      <property name="justifyContent">
+       <enum>fm::ui::FlexBox::SpaceBetween</enum>
+      </property>
+      <property name="rowGap">
+       <number>8</number>
+      </property>
+      <widget class="fm::ui::ProgressRing" name="ring1">
+       <property name="value">
+        <number>35</number>
+       </property>
+      </widget>
+      <widget class="fm::ui::ProgressRing" name="ring2">
+       <property name="value">
+        <number>72</number>
+       </property>
+      </widget>
+      <widget class="fm::ui::ProgressRing" name="ring3">
+       <property name="value">
+        <number>100</number>
+       </property>
+      </widget>
+     </widget>
+    </item>
+    <item>
+     <spacer name="bottomSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+     </spacer>
+    </item>
+   </layout>
+  </widget>
+  <widget class="fm::ui::MenuBar" name="menuBar">
+   <widget class="fm::ui::Menu" name="menuFile">
+    <property name="title">
+     <string>파일(&amp;F)</string>
+    </property>
+    <addaction name="actionCopy"/>
+    <addaction name="separator"/>
+    <addaction name="actionQuit"/>
+   </widget>
+   <widget class="fm::ui::Menu" name="menuView">
+    <property name="title">
+     <string>보기(&amp;V)</string>
+    </property>
+    <addaction name="actionHidden"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuView"/>
+  </widget>
+  <action name="actionCopy">
+   <property name="text">
+    <string>복사</string>
+   </property>
+   <property name="shortcut">
+    <string>F5</string>
+   </property>
+  </action>
+  <action name="actionQuit">
+   <property name="text">
+    <string>끝내기</string>
+   </property>
+  </action>
+  <action name="actionHidden">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>숨김 파일 보기</string>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>fm::ui::Label</class>
+   <extends>QLabel</extends>
+   <header>fmwidgets/Label.h</header>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::FlowBox</class>
+   <extends>QWidget</extends>
+   <header>fmwidgets/LayoutBoxes.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::FlexBox</class>
+   <extends>QWidget</extends>
+   <header>fmwidgets/LayoutBoxes.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::ChipButton</class>
+   <extends>QPushButton</extends>
+   <header>fmwidgets/DialogWidgets.h</header>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::ProgressRing</class>
+   <extends>QWidget</extends>
+   <header>fmwidgets/ProgressRing.h</header>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::FunctionKeyButton</class>
+   <extends>QPushButton</extends>
+   <header>fmwidgets/FunctionKeyBar.h</header>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::MenuBar</class>
+   <extends>QMenuBar</extends>
+   <header>fmwidgets/Menu.h</header>
+  </customwidget>
+  <customwidget>
+   <class>fm::ui::Menu</class>
+   <extends>QMenu</extends>
+   <header>fmwidgets/Menu.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

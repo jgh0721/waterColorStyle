@@ -128,6 +128,8 @@ FilePanel::FilePanel(QWidget *parent)
     connect(m_thumbs, &fl::ThumbnailView::activated, this, &FilePanel::activate);
     connect(m_list, &fl::FileListView::upRequested, this, &FilePanel::goUp);
     connect(m_thumbs, &fl::ThumbnailView::upRequested, this, &FilePanel::goUp);
+    connect(m_list, &fl::FileListView::cursorRowChanged, this, &FilePanel::cursorChanged);
+    connect(m_thumbs, &fl::ThumbnailView::cursorRowChanged, this, &FilePanel::cursorChanged);
     connect(m_list, &fl::FileListView::paneActivated, this, [this] { Q_EMIT activateRequested(this); });
     connect(m_thumbs, &fl::ThumbnailView::paneActivated, this, [this] { Q_EMIT activateRequested(this); });
     connect(m_list, &fl::FileListView::sortChanged, this, [this](int column, Qt::SortOrder order) {
@@ -477,6 +479,12 @@ void FilePanel::setTabOptions(const TabOptions &options)
 int FilePanel::cursorRow() const
 {
     return m_stack->currentWidget() == m_thumbs ? m_thumbs->cursorRow() : m_list->cursorRow();
+}
+
+QModelIndex FilePanel::cursorIndex() const
+{
+    const int row = cursorRow();
+    return row >= 0 && row < m_proxy->rowCount() ? m_proxy->index(row, fl::NameColumn) : QModelIndex();
 }
 
 QModelIndexList FilePanel::operationRows() const
