@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <QList>
 #include <QString>
@@ -10,7 +10,7 @@ namespace fm::ui {
 
 /// 진행 창 '자세히'의 처리 속도 그래프.
 ///
-/// - 가로축: 진행률(0 ~ 100 %, 남은 부분은 비어 있음) 또는 경과 시간(전체 기록을 폭에 맞춰 압축)
+/// - 가로축: 진행률(0 ~ 100 %, 남은 부분은 비어 있음) 또는 경과 시간(최근 60초의 이동 구간, 설정 가능)
 /// - 세로축: 평활한 속도. 눈금은 값에 맞춰 자동으로 바뀌고 부드럽게 움직인다.
 /// - 가로선: 현재 속도(실선, 오른쪽 값 표시)가 속도에 따라 위아래로 움직인다.
 ///   평균 속도(점선)와 속도 제한(경고색 점선)도 함께 그린다.
@@ -21,6 +21,7 @@ class TransferGraph : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(Axis axis READ axis WRITE setAxis)
+    Q_PROPERTY(qint64 timeWindowMs READ timeWindowMs WRITE setTimeWindowMs)
     Q_PROPERTY(QString title READ title WRITE setTitle)
     Q_PROPERTY(bool showAverage READ showAverage WRITE setShowAverage)
     Q_PROPERTY(bool framed READ isFramed WRITE setFramed)
@@ -56,6 +57,10 @@ public:
     double speedLimit() const noexcept { return m_limit; }
 
     void setAxis(Axis axis);
+    void setTimeWindowMs(qint64 Window);
+    qint64 timeWindowMs() const noexcept { return timeWindowMs_; }
+    qint64 timeWindowStartMs() const noexcept;
+    qint64 timeWindowEndMs() const noexcept;
     Axis axis() const noexcept { return m_axis; }
 
     void setTitle(const QString &title);
@@ -134,6 +139,7 @@ private:
     bool m_framed = true;
     bool m_headerVisible = true;
     Axis m_axis = Axis::Progress;
+    qint64 timeWindowMs_ = 60'000;
     Unit m_unit = Unit::Bytes;
     QString m_title;
     QString m_countSuffix;

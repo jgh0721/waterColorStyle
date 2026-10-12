@@ -1,4 +1,4 @@
-#include "fmwidgets/TransferGraph.h"
+﻿#include "fmwidgets/TransferGraph.h"
 
 #include <fmstyle/ThemeColors.h>
 #include <fmstyle/ThemeManager.h>
@@ -216,6 +216,22 @@ void TransferGraph::setAxis(Axis axis)
     update();
 }
 
+void TransferGraph::setTimeWindowMs(qint64 Window)
+{
+    timeWindowMs_ = std::max(kMinTimeWindowMs, Window);
+    update();
+}
+
+qint64 TransferGraph::timeWindowStartMs() const noexcept
+{
+    return std::max<qint64>(0, (m_samples.isEmpty() ? 0 : m_samples.constLast().ms) - timeWindowMs_);
+}
+
+qint64 TransferGraph::timeWindowEndMs() const noexcept
+{
+    return timeWindowStartMs() + timeWindowMs_;
+}
+
 void TransferGraph::setTitle(const QString &title)
 {
     m_title = title;
@@ -317,8 +333,7 @@ double TransferGraph::xFraction(const Sample &s) const
 {
     if (effectiveAxis() == Axis::Progress)
         return std::clamp(double(s.bytes) / double(m_total), 0.0, 1.0);
-    const qint64 span = std::max(kMinTimeWindowMs, m_samples.isEmpty() ? 0 : m_samples.constLast().ms);
-    return std::clamp(double(s.ms) / double(span), 0.0, 1.0);
+    return double(s.ms - timeWindowStartMs()) / double(timeWindowMs_);
 }
 
 void TransferGraph::decimate()
@@ -389,7 +404,9 @@ int TransferGraph::sampleNear(qreal x) const
     int best = -1;
     double bestDist = 1e9;
     for (qsizetype i = 0; i < m_samples.size(); ++i) {
-        const double d = std::abs(xFraction(m_samples.at(i)) - f);
+        const auto Fraction=xFraction(m_samples.at(i));
+        if (Fraction<0 || Fraction>1) continue;
+        const double d = std::abs(Fraction - f);
         if (d < bestDist) {
             bestDist = d;
             best = int(i);
@@ -514,6 +531,8 @@ void TransferGraph::paintEvent(QPaintEvent *)
 
     const auto xOf = [&](const Sample &s) { return plot.left() + xFraction(s) * plot.width(); };
 
+    p.save();
+    p.setClipRect(plot);
     // 일시 정지 구간
     for (qsizetype i = 1; i < m_samples.size(); ++i) {
         if (!m_samples.at(i).paused)
@@ -556,6 +575,7 @@ void TransferGraph::paintEvent(QPaintEvent *)
         p.drawLine(QPointF(x, plot.top()), QPointF(x, plot.bottom()));
     }
 
+    p.restore();
     QList<QRectF> taken;  // 글자가 차지한 자리
 
     // 속도 제한
