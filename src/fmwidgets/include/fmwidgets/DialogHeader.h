@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "fmwidgets/Glyph.h"
 
@@ -56,7 +56,7 @@ private:
     void refreshAccessibility();
     QFont titleFont() const;
     QFont subtitleFont() const;
-    int textLeft() const { return 40 + 14; }
+    int textLeft() const { return m_glyph == glyph::None ? 0 : 40 + 14; }
 
     QString m_title;
     QString m_titleTo;

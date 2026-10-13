@@ -1,4 +1,4 @@
-#include "fmwidgets/DialogHeader.h"
+﻿#include "fmwidgets/DialogHeader.h"
 
 #include <fmstyle/StylePaint.h>
 #include <fmstyle/ThemeManager.h>
@@ -90,6 +90,7 @@ void DialogHeader::setSubtitle(const QString &subtitle)
 void DialogHeader::setGlyph(glyph::Glyph glyph)
 {
     m_glyph = glyph;
+    updateGeometry();
     update();
 }
 
@@ -160,8 +161,8 @@ void DialogHeader::paintEvent(QPaintEvent *)
     // 배지
     const QRectF badge(0, 0, kBadge, kBadge);
     const fs::Tone tone = toStyleTone(m_tone);
-    fs::paintBadge(&p, badge, tone, tc);
     if (m_glyph != glyph::None) {
+        fs::paintBadge(&p, badge, tone, tc);
         const fs::Glyph g = glyph::toStyle(m_glyph);
         // 권한 배지: 방패 24(두 색), 위험 삼각형 22, 나머지 20 (docs/specs/03 §1)
         const qreal px = g == fs::Glyph::Shield ? 24 : (g == fs::Glyph::Warning || g == fs::Glyph::LockKeyhole) ? 22 : 20;
