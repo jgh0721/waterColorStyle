@@ -4,6 +4,7 @@
 
 #include <QPainter>
 #include <QWidget>
+#include <cmath>
 
 namespace fm::filelist::detail {
 
@@ -248,8 +249,22 @@ void paintRecordCursor(QPainter *p, const QRect &record, const RecordGeometry &g
         p->drawRoundedRect(g.block(record).adjusted(0.5, 0.5, -0.5, -0.5), g.radius, g.radius);
     } else {
         p->setRenderHint(QPainter::Antialiasing, false);
-        const QRect r = g.block(record).toRect();
-        p->drawRect(r.adjusted(0, 0, -1, -1));
+        const auto transform = p->deviceTransform();
+        bool invertible = false;
+        const auto inverse = transform.inverted(&invertible);
+        if (pen.isCosmetic() && invertible && transform.m12() == 0 && transform.m21() == 0) {
+            // Cosmetic dots occupy device pixels. A logical row boundary can
+            // land between them at fractional scaling, where clipping removes
+            // an entire edge. Keep all four stroke centers inside the row.
+            const auto bounds = transform.mapRect(g.block(record));
+            const QRectF aligned(QPointF(std::ceil(bounds.left()) + 0.5, std::ceil(bounds.top()) + 0.5),
+                                 QPointF(std::floor(bounds.right()) - 0.5, std::floor(bounds.bottom()) - 0.5));
+            if (aligned.width() > 0 && aligned.height() > 0)
+                p->drawRect(inverse.mapRect(aligned));
+        } else {
+            const QRect r = g.block(record).toRect();
+            p->drawRect(r.adjusted(0, 0, -1, -1));
+        }
     }
     p->restore();
 }
