@@ -356,7 +356,7 @@ void TransferGraph::decimate()
 double TransferGraph::targetScale() const
 {
     const bool count = m_unit == Unit::Count;
-    double top = std::max({m_peak, m_current, m_limit, count ? 10.0 : 1024.0 * 1024.0});
+    double top = std::max({m_peak, m_current, m_limit, m_showAverage ? averageSpeed() : 0.0, count ? 10.0 : 1024.0 * 1024.0});
     top *= 1.15;
     const double step = gridStep(top, count);
     return std::ceil(top / step) * step;
@@ -596,15 +596,15 @@ void TransferGraph::paintEvent(QPaintEvent *)
     const double avg = averageSpeed();
     const qreal yLine = yOf(m_lineShown);
     if (m_showAverage && avg > 0) {
-        const qreal y = std::round(yOf(avg)) + 0.5;
+        const qreal y = std::clamp(std::round(yOf(avg)) + 0.5, plot.top() + 0.5, plot.bottom() - 0.5);
         QPen pen(tc[Token::Fg2], 1.0);
         pen.setDashPattern({3.0, 3.0});
         p.setPen(pen);
         p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
         // 현재 속도 선과 겹치면 글자를 선 아래로
-        const bool below = std::abs(y - yLine) < 16 && y >= yLine;
-        const QRectF label = below ? QRectF(plot.left() + 2, y + 1, 200, 14)
-                                   : QRectF(plot.left() + 2, y - 15, 200, 14);
+        const bool below = y - 15 < plot.top() || (std::abs(y - yLine) < 16 && y >= yLine);
+        const auto labelY = std::clamp(below ? y + 1 : y - 15, plot.top() + 1, std::max(plot.top() + 1, plot.bottom() - 14));
+        const QRectF label(plot.left() + 2, labelY, 200, 14);
         const QString avgText = tr("평균 %1").arg(formatValue(avg));
         haloText(label, Qt::AlignLeft | (below ? Qt::AlignTop : Qt::AlignBottom), avgText, tc[Token::Fg2]);
         taken.append(QRectF(label.left(), label.top(), QFontMetricsF(small).horizontalAdvance(avgText) + 4,

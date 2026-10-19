@@ -1,4 +1,4 @@
-#include "fmstyle/WatercolorStyle.h"
+﻿#include "fmstyle/WatercolorStyle.h"
 
 #include "fmstyle/Glyphs.h"
 #include "fmstyle/StylePaint.h"
@@ -981,10 +981,13 @@ void WatercolorStyle::drawProgress(ControlElement element, const QStyleOption *o
     int from = 0;
     int to = 0;
     if (pb->minimum == pb->maximum) {
-        // 진행률을 알 수 없음 — 가운데에 블록 세 개 (움직임은 다음 단계)
+        // ProgressBar supplies a timer-driven phase; ordinary QProgressBar
+        // keeps the centered fallback when no animation phase is available.
         const int span = 3 * (kChunk + kChunkGap) - kChunkGap;
-        from = std::max(0, (length - span) / 2);
-        to = std::min(length, from + span);
+        const QVariant phase = w ? w->property(props::kBusyPhase) : QVariant();
+        from = phase.isValid() ? int(std::lround(-span + (length + span) * std::clamp(phase.toReal(), 0.0, 1.0)))
+                               : std::max(0, (length - span) / 2);
+        to = from + span;
     } else {
         const double range = double(pb->maximum) - double(pb->minimum);
         const double fraction = std::clamp((double(pb->progress) - double(pb->minimum)) / range, 0.0, 1.0);
