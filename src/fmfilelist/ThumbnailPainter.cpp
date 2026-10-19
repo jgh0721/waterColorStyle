@@ -368,8 +368,28 @@ void paintTile(QPainter *p, const QRect &rect, const QModelIndex &index, const T
     p->setPen(nameColor);
     int y = caption.top() + 1;
     const int maxLines = nameLineCount(a);
+    const auto Highlights = index.data(SearchHighlightRole).toList();
+    int NameOffset = 0;
     for (int i = 0; i < lines.size() && i < maxLines; ++i) {
-        p->drawText(QRect(caption.left() + 4, y, textWidth, kNameLine), Qt::AlignHCenter | Qt::AlignVCenter, lines.at(i));
+        const QRect TextRect(caption.left() + 4, y, textWidth, kNameLine);
+        if (Highlights.isEmpty()) p->drawText(TextRect, Qt::AlignHCenter | Qt::AlignVCenter, lines.at(i));
+        else {
+            QTextLayout Layout(lines.at(i), nameFont);
+            QList<QTextLayout::FormatRange> Formats;
+            const int VisibleLength = int(lines.at(i).size()) - (lines.at(i).endsWith(QChar(0x2026)) ? 1 : 0);
+            for (const auto &Value : Highlights) {
+                const auto Range = Value.toList(); if (Range.size() != 2) continue;
+                const int Start = std::max(0, Range[0].toInt() - NameOffset);
+                const int End = std::min(VisibleLength, Range[0].toInt() + Range[1].toInt() - NameOffset);
+                if (End <= Start) continue;
+                QTextLayout::FormatRange Format; Format.start = Start; Format.length = End - Start;
+                Format.format.setBackground(QColor("#ffd86b")); Format.format.setForeground(QColor("#171717")); Formats.append(Format);
+            }
+            Layout.setFormats(Formats); Layout.beginLayout(); auto Line = Layout.createLine();
+            if (Line.isValid()) Line.setLineWidth(textWidth); Layout.endLayout();
+            if (Line.isValid()) Layout.draw(p, QPointF(TextRect.left() + (textWidth - Line.naturalTextWidth()) / 2, y + (kNameLine - Line.height()) / 2));
+        }
+        NameOffset += int(lines.at(i).size());
         y += kNameLine;
     }
     const QString info = infoText(index, a.info);

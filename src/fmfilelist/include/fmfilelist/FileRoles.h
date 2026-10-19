@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // 파일 목록 모델 규약 — 샘플 원본(FileListModel)과 실제 폴더 원본(FileSystemListProxy)이 같은 열 · 역할을 준다.
 // 목록(FileListView) · 섬네일(ThumbnailView)은 원본을 구분하지 않고 이 규약만 읽는다.
@@ -49,6 +49,7 @@ enum Role {
     PreviewStateRole,             // int(PreviewState 조합) — 미리보기가 행마다 상태를 정한다(설정 › 테마 색상의 행 상태)
     SizeTextRole,                 // QString — 크기 글자(모델의 표시 형식), 폴더는 빈 문자열
     DateTextRole,                 // QString — 날짜만(모델의 표시 형식에서 시각을 뺀 것) — 섬네일 정보 줄
+    SearchHighlightRole,          // QVariantList of { UTF-16 start, length } pairs in FullNameRole.
 };
 
 /// 종류 — 아이콘 모양과 종류 띠 색(--k-*)을 정한다.
