@@ -281,7 +281,8 @@ private Q_SLOTS:
         const QRect check = subRect(rtl, QStyle::SC_GroupBoxCheckBox);
         const QRect rtlLabel = subRect(rtl, QStyle::SC_GroupBoxLabel);
         QVERIFY(check.left() > rtlLabel.left());
-        QCOMPARE(check.right(), rtl->rect().right());
+        // 시안3은 제목 띠 안쪽 14 px에서 끝난다
+        QCOMPARE(check.right(), rtl->rect().right() - (design == int(fs::Design::PaperFluent) ? 14 : 0));
         // 납작: 안쪽 영역이 좌우 끝까지
         QCOMPARE(subRect(flat, QStyle::SC_GroupBoxContents).left(), 0);
     }

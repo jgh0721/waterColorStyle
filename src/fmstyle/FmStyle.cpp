@@ -109,6 +109,7 @@ constexpr int kDockSeparator = 5;
 constexpr qreal kPaperRadius = 6.0;        // 단추 · 입력 · 콤보
 constexpr qreal kPaperCardRadius = 8.0;    // 카드 · 메뉴 · 팝업
 constexpr qreal kPaperSmallRadius = 4.0;   // 커서 · 탭 위쪽 · 도구 설명
+constexpr int kSoftListInset = 10;         // 연한 선택 목록: 지시 막대(2 + 3) 뒤 글자까지 띄움
 constexpr int kPaperButtonHeight = 28;
 constexpr int kPaperButtonHeightSmall = 24;
 constexpr int kPaperButtonHeightSmallDialog = 26;
@@ -521,7 +522,17 @@ void drawPaperButton(QPainter *p, const QRectF &rect, QStyle::State s, ButtonRol
 /// 시안3의 트리(폴더 트리 · 탐색)는 연한 강조 선택 — 파일 목록 · 표의 강조 채움과 구분한다.
 bool softSelection(const QWidget *w, const ThemeColors &tc)
 {
-    return tc.isPaperFluent() && qobject_cast<const QTreeView *>(w);
+    // 가지가 있는 탐색 트리만 — 가지 없는 트리(작업 목록 같은 표)는 강조 채움 선택
+    const auto *tree = qobject_cast<const QTreeView *>(w);
+    return tc.isPaperFluent() && ((tree && tree->rootIsDecorated()) || boolProp(w, props::kSoftSelection));
+}
+
+/// 시안3 제목 띠 높이 — 제목 글자 + 위아래 여백(보드의 .pf-card h3: 13 px semibold, 10 px 위아래).
+constexpr int kPaperCardHeader = 36;
+
+bool paperTitledGroup(const QStyleOptionGroupBox *gb, const ThemeColors &tc)
+{
+    return tc.isPaperFluent() && !(gb->features & QStyleOptionFrame::Flat) && !gb->text.isEmpty();
 }
 
 QColor itemSelectionColor(const QStyleOption *opt, const QWidget *w, const ThemeColors &tc)
@@ -1687,6 +1698,14 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
                 return;
             }
             if (v->state & State_Selected) {
+                if (softSelection(w, tc) && !qobject_cast<const QTreeView *>(w)) {
+                    // 시안3 범주 목록: 연한 강조 둥근 바탕 + 앞쪽 3 px 강조 막대(트리는 행 전체를 칠한다)
+                    const QRectF r = QRectF(v->rect).adjusted(2, 1, -2, -1);
+                    fillRounded(p, r, kPaperSmallRadius, itemSelectionColor(v, w, tc));
+                    if (paneActive(v, w))
+                        fillRounded(p, QRectF(v->direction == Qt::RightToLeft ? r.right() - 3 : r.left(), r.top() + 4, 3, r.height() - 8), 1.5, tc[T::Accent]);
+                    return;
+                }
                 p->fillRect(v->rect, itemSelectionColor(v, w, tc));
                 return;
             }
@@ -2244,6 +2263,42 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
         return;
 
     case CC_GroupBox:
+        if (const auto *gb = qstyleoption_cast<const QStyleOptionGroupBox *>(option); gb && paperTitledGroup(gb, tc)) {
+            // 시안3: 카드(모서리 8) 안 위쪽에 제목 띠 — --alt → --surface 워시 + 아래 1 px 그리드 선
+            const QRectF card = crisp(gb->rect);
+            fillRounded(p, card, kPaperCardRadius, tc[T::Surface]);
+            p->save();
+            QPainterPath clip;
+            clip.addRoundedRect(card, kPaperCardRadius, kPaperCardRadius);
+            p->setClipPath(clip);
+            const QRectF band(card.left(), card.top(), card.width(), kPaperCardHeader);
+            QLinearGradient wash(band.topLeft(), band.bottomLeft());
+            wash.setColorAt(0, tc[T::Alt]);
+            wash.setColorAt(1, tc[T::Surface]);
+            p->fillRect(band, wash);
+            p->fillRect(QRectF(card.left(), card.top() + kPaperCardHeader - 1, card.width(), 1), tc[T::Grid]);
+            p->restore();
+            strokeRounded(p, card, kPaperCardRadius, tc[T::Line]);
+            const QRect lr = proxy()->subControlRect(CC_GroupBox, gb, SC_GroupBoxLabel, w);
+            int flags = Qt::AlignLeft | Qt::AlignVCenter | Qt::TextShowMnemonic | Qt::TextSingleLine;
+            if (!proxy()->styleHint(SH_UnderlineShortcut, gb, w))
+                flags |= Qt::TextHideMnemonic;
+            p->save();
+            QFont f = p->font();
+            f.setPixelSize(13);
+            f.setWeight(QFont::DemiBold);
+            p->setFont(f);
+            p->setPen((gb->state & State_Enabled) ? tc[T::Fg] : tc[T::Fg3]);
+            p->drawText(lr, flags, gb->text);
+            p->restore();
+            if (gb->subControls & SC_GroupBoxCheckBox) {
+                QStyleOptionButton box;
+                box.QStyleOption::operator=(*gb);
+                box.rect = proxy()->subControlRect(CC_GroupBox, gb, SC_GroupBoxCheckBox, w);
+                drawCheckIndicator(p, box.rect, box.state, tc);
+            }
+            return;
+        }
         if (const auto *gb = qstyleoption_cast<const QStyleOptionGroupBox *>(option)) {
             if (gb->subControls & SC_GroupBoxFrame) {
                 const QRect fr = proxy()->subControlRect(CC_GroupBox, gb, SC_GroupBoxFrame, w);
@@ -2372,6 +2427,18 @@ QRect FmStyle::subElementRect(SubElement element, const QStyleOption *option, co
         const int margin = proxy()->pixelMetric(PM_HeaderMargin, option, w);
         return option->rect.adjusted(margin, 0, -margin, 0);
     }
+    case SE_ItemViewItemText:
+    case SE_ItemViewItemDecoration:
+    case SE_ItemViewItemCheckIndicator:
+        // 시안3 연한 선택 목록: 왼쪽 3 px 지시 막대(left+2) 뒤로 내용을 띄워 글자와 붙지 않게
+        if (const auto *v = qstyleoption_cast<const QStyleOptionViewItem *>(option);
+            v && !qobject_cast<const QTreeView *>(w) && softSelection(w, colors(w))) {
+            QStyleOptionViewItem inset(*v);
+            inset.rect = v->direction == Qt::RightToLeft ? v->rect.adjusted(0, 0, -kSoftListInset, 0)
+                                                         : v->rect.adjusted(kSoftListInset, 0, 0, 0);
+            return QProxyStyle::subElementRect(element, &inset, w);
+        }
+        break;
     case SE_DockWidgetCloseButton:
     case SE_DockWidgetFloatButton:
     case SE_DockWidgetTitleBarText:
@@ -2483,6 +2550,25 @@ QRect FmStyle::subControlRect(ComplexControl control, const QStyleOptionComplex 
         break;
 
     case CC_GroupBox:
+        if (const auto *gb = qstyleoption_cast<const QStyleOptionGroupBox *>(option); gb && paperTitledGroup(gb, colors(w))) {
+            const QRect r = gb->rect;
+            switch (sc) {
+            case SC_GroupBoxCheckBox:
+            case SC_GroupBoxLabel: {
+                // 띠 안 왼쪽 14, 세로 가운데. 굵은 13 px 제목이 들어가도록 글자 여유 16
+                QStyleOptionGroupBox band = *gb;
+                const int lineHeight = gb->fontMetrics.height();
+                band.rect = QRect(r.left() + 14, r.top() + (kPaperCardHeader - lineHeight) / 2, r.width() - 28, lineHeight);
+                return groupBoxTitleRect(&band, sc, kIndicator, 8, 16);
+            }
+            case SC_GroupBoxFrame:
+                return r;
+            case SC_GroupBoxContents:
+                return r.adjusted(1, kPaperCardHeader, -1, -1);
+            default:
+                break;
+            }
+        }
         if (const auto *gb = qstyleoption_cast<const QStyleOptionGroupBox *>(option)) {
             const QRect r = gb->rect;
             const int lineHeight = gb->fontMetrics.height();
@@ -2654,6 +2740,8 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
     case CT_ItemViewItem: {
         QSize s = QProxyStyle::sizeFromContents(type, option, cs, w);
         s.setHeight(std::max(s.height(), paper() ? kPaperItemMinHeight : kItemMinHeight));
+        if (!qobject_cast<const QTreeView *>(w) && softSelection(w, colors(w)))
+            s.rwidth() += kSoftListInset;
         return s;
     }
 

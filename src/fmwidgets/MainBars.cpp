@@ -88,11 +88,13 @@ void CommandLine::applyMetrics()
 {
     const fm::style::ThemeColors &tc = fm::style::themeColorsFor(this);
     const bool wc = tc.isWatercolor();
+    const bool paper = tc.isPaperFluent();
     // 시안1: 34 · 좌우 12 · 틀 없는 입력(바탕 = 줄 바탕) / 시안2: 33 · 좌우 8 · 들어간 입력 25
-    layout()->setContentsMargins(wc ? 8 : 12, wc ? 0 : 1, wc ? 8 : 12, 0);
-    m_edit->setFrame(wc);
+    // 시안3: 36 · 좌우 8 · 둥근 입력 칸 28(창 바탕 위)
+    layout()->setContentsMargins(wc || paper ? 8 : 12, wc ? 0 : paper ? 4 : 1, wc || paper ? 8 : 12, paper ? 4 : 0);
+    m_edit->setFrame(wc || paper);
     QPalette palette = m_edit->palette();
-    palette.setColor(QPalette::Base, wc ? tc[Token::Field] : tc[Token::Surface]);
+    palette.setColor(QPalette::Base, wc || paper ? tc[Token::Field] : tc[Token::Surface]);
     m_edit->setPalette(palette);
     m_edit->setFixedHeight(wc ? 25 : 28);
     QPalette labelPalette = m_prompt->palette();
@@ -101,13 +103,14 @@ void CommandLine::applyMetrics()
     // A product proxy style may repolish QLabel after the global palette changes.
     // Keep the prompt's semantic foreground when switching schemes at runtime.
     m_prompt->setStyleSheet(QStringLiteral("color: %1;").arg(tc[Token::Fg2].name()));
-    setFixedHeight(wc ? 33 : 34);
+    setFixedHeight(wc ? 33 : paper ? 36 : 34);
     update();
 }
 
 QSize CommandLine::sizeHint() const
 {
-    return QSize(480, fm::style::themeColorsFor(this).isWatercolor() ? 33 : 34);
+    const fm::style::ThemeColors &tc = fm::style::themeColorsFor(this);
+    return QSize(480, tc.isWatercolor() ? 33 : tc.isPaperFluent() ? 36 : 34);
 }
 
 void CommandLine::paintEvent(QPaintEvent *)
@@ -116,6 +119,9 @@ void CommandLine::paintEvent(QPaintEvent *)
     QPainter p(this);
     if (tc.isWatercolor()) {
         p.fillRect(rect(), tc[Token::Win]);
+    } else if (tc.isPaperFluent()) {
+        p.fillRect(rect(), tc[Token::Win]);
+        p.fillRect(QRect(0, 0, width(), 1), tc[Token::Grid]);
     } else {
         p.fillRect(rect(), tc[Token::Surface]);
         p.fillRect(QRect(0, 0, width(), 1), tc[Token::Line]);
@@ -188,9 +194,10 @@ QSize FunctionKeyButton::sizeHint() const
     const bool wc = fm::style::themeColorsFor(this).isWatercolor();
     const QFont font = fm::style::pixelFont(this->font(), 12);
     const int textWidth = QFontMetrics(font).horizontalAdvance(text());
-    const int keyWidth = wc ? QFontMetrics(fm::style::pixelFont(this->font(), 12, QFont::Bold)).horizontalAdvance(m_keys + u' ')
-                            : fm::style::keyChipSize(m_keys).width() + 8;
-    return QSize(12 + keyWidth + textWidth, wc ? 28 : 31);
+    const bool paper = fm::style::themeColorsFor(this).isPaperFluent();
+    const int keyWidth = wc || paper ? QFontMetrics(fm::style::pixelFont(this->font(), 12, QFont::Bold)).horizontalAdvance(m_keys + u' ')
+                                     : fm::style::keyChipSize(m_keys).width() + 8;
+    return QSize(12 + keyWidth + textWidth, wc ? 28 : paper ? 26 : 31);
 }
 
 QSize FunctionKeyButton::minimumSizeHint() const
@@ -203,6 +210,29 @@ void FunctionKeyButton::paintEvent(QPaintEvent *)
     const fm::style::ThemeColors &tc = fm::style::themeColorsFor(this);
     const bool wc = tc.isWatercolor();
     const QFont font = fm::style::pixelFont(this->font(), 12);
+    if (tc.isPaperFluent()) {
+        // 시안3: 워시 단추(스타일) + 메타 색 굵은 키 + 글자, 가운데
+        QStylePainter sp(this);
+        QStyleOptionButton option;
+        initStyleOption(&option);
+        option.text.clear();
+        sp.drawControl(QStyle::CE_PushButtonBevel, option);
+        const QFont boldFont = fm::style::pixelFont(this->font(), 11, QFont::DemiBold);
+        const QString keyText = m_keys + u' ';
+        const int keyWidth = QFontMetrics(boldFont).horizontalAdvance(keyText);
+        const int textWidth = QFontMetrics(font).horizontalAdvance(text());
+        const QRect r = rect().adjusted(0, 0, 0, -1);  // 아래 1 px은 그림자
+        const int left = r.left() + std::max(6, (r.width() - keyWidth - textWidth) / 2);
+        sp.setPen(isEnabled() ? tc[Token::Fg3] : tc[Token::BtnLine]);
+        sp.setFont(boldFont);
+        sp.drawText(QRect(left, r.top(), keyWidth, r.height()), Qt::AlignLeft | Qt::AlignVCenter, keyText);
+        sp.setFont(font);
+        sp.setPen(isEnabled() ? tc[Token::Fg] : tc[Token::Fg3]);
+        sp.drawText(QRect(left + keyWidth, r.top(), r.right() - left - keyWidth - 5, r.height()),
+                    Qt::AlignLeft | Qt::AlignVCenter,
+                    QFontMetrics(font).elidedText(text(), Qt::ElideRight, r.right() - left - keyWidth - 5));
+        return;
+    }
     if (wc) {
         // 입체 누름 단추 + 굵은 키 + 글자
         QStylePainter sp(this);
@@ -268,13 +298,15 @@ FunctionKeyButton *FunctionKeyBar::addKey(const QString &keys, const QString &te
 
 void FunctionKeyBar::applyMetrics()
 {
-    const bool wc = fm::style::themeColorsFor(this).isWatercolor();
-    // 시안1: 32 · 위 1 px 선 · 칸 사이 1 px 선 / 시안2: 36 · 간격 4 · 안쪽 2 4 6
-    m_layout->setContentsMargins(wc ? 4 : 0, wc ? 2 : 1, wc ? 4 : 0, wc ? 6 : 0);
-    m_layout->setSpacing(wc ? 4 : 1);
-    setFixedHeight(wc ? 36 : 32);
+    const fm::style::ThemeColors &tc = fm::style::themeColorsFor(this);
+    const bool wc = tc.isWatercolor();
+    const bool paper = tc.isPaperFluent();
+    // 시안1: 32 · 위 1 px 선 · 칸 사이 1 px 선 / 시안2: 36 · 간격 4 · 안쪽 2 4 6 / 시안3: 38 · 간격 4 · 안쪽 6 8, 단추 26
+    m_layout->setContentsMargins(wc ? 4 : paper ? 8 : 0, wc ? 2 : paper ? 6 : 1, wc ? 4 : paper ? 8 : 0, wc ? 6 : paper ? 6 : 0);
+    m_layout->setSpacing(wc || paper ? 4 : 1);
+    setFixedHeight(wc ? 36 : paper ? 38 : 32);
     for (FunctionKeyButton *b : std::as_const(m_buttons)) {
-        b->setFixedHeight(wc ? 28 : 31);
+        b->setFixedHeight(wc ? 28 : paper ? 26 : 31);
         b->update();
     }
     update();
@@ -282,13 +314,20 @@ void FunctionKeyBar::applyMetrics()
 
 QSize FunctionKeyBar::sizeHint() const
 {
-    return QSize(720, fm::style::themeColorsFor(this).isWatercolor() ? 36 : 32);
+    const fm::style::ThemeColors &tc = fm::style::themeColorsFor(this);
+    return QSize(720, tc.isWatercolor() ? 36 : tc.isPaperFluent() ? 38 : 32);
 }
 
 void FunctionKeyBar::paintEvent(QPaintEvent *)
 {
     const fm::style::ThemeColors &tc = fm::style::themeColorsFor(this);
     QPainter p(this);
+    if (tc.isPaperFluent()) {
+        // 시안3: --foot 바탕 + 위 1 px 구분선, 단추 사이는 간격
+        p.fillRect(rect(), tc[Token::Foot]);
+        p.fillRect(QRect(0, 0, width(), 1), tc[Token::Line]);
+        return;
+    }
     p.fillRect(rect(), tc[Token::Win]);
     if (tc.isWatercolor())
         return;

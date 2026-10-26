@@ -11,6 +11,8 @@
 #include <fmstyle/WatercolorChrome.h>
 
 #include <QEvent>
+#include <QPainter>
+#include <QPainterPath>
 #include <QTimer>
 
 using namespace Qt::StringLiterals;
@@ -171,6 +173,121 @@ Card::Card(QWidget *parent)
     setFrameShape(QFrame::StyledPanel);
     setLineWidth(1);
     fs::setCard(this);
+}
+
+Card::Card(const QString &title, QWidget *parent)
+    : Card(parent)
+{
+    setTitle(title);
+}
+
+void Card::setTitle(const QString &title)
+{
+    if (m_title == title)
+        return;
+    m_title = title;
+    applyTitleMargins();
+    update();
+}
+
+// QFrame은 틀 두께가 바뀔 때(스타일 적용 · 글꼴 변경) 내용 여백을 틀 두께로 다시 쓴다 — 그 뒤에 띠 높이를 다시 건다.
+void Card::applyTitleMargins()
+{
+    const int f = frameWidth();
+    if (m_title.isEmpty())
+        setContentsMargins(f, f, f, f);
+    else
+        setContentsMargins(f, kHeaderHeight, f, f);
+}
+
+bool Card::event(QEvent *event)
+{
+    const bool handled = QFrame::event(event);
+    switch (event->type()) {
+    case QEvent::Polish:
+    case QEvent::StyleChange:
+    case QEvent::FontChange:
+    case QEvent::Show:
+        if (!m_title.isEmpty())
+            applyTitleMargins();
+        break;
+    default:
+        break;
+    }
+    return handled;
+}
+
+void Card::setMeta(const QString &meta)
+{
+    m_meta = meta;
+    update();
+}
+
+void Card::setHeaderWidget(QWidget *widget)
+{
+    m_headerWidget = widget;
+    if (widget) {
+        widget->setParent(this);
+        widget->show();
+        placeHeaderWidget();
+    }
+}
+
+void Card::placeHeaderWidget()
+{
+    if (!m_headerWidget)
+        return;
+    // 제목 오른쪽 남는 폭을 모두 쓸 수 있다(보조 글자는 그 사이에서 줄어든다)
+    const int titleWidth = QFontMetrics(fs::pixelFont(font(), 13, QFont::DemiBold)).horizontalAdvance(m_title);
+    const QSize s = m_headerWidget->sizeHint().boundedTo(QSize(std::max(0, width() - 14 - titleWidth - 20), kHeaderHeight - 4));
+    m_headerWidget->setGeometry(width() - 10 - s.width(), (kHeaderHeight - s.height()) / 2, s.width(), s.height());
+}
+
+void Card::resizeEvent(QResizeEvent *event)
+{
+    QFrame::resizeEvent(event);
+    if (!m_title.isEmpty())
+        applyTitleMargins();
+    placeHeaderWidget();
+}
+
+void Card::paintEvent(QPaintEvent *event)
+{
+    QFrame::paintEvent(event);
+    if (m_title.isEmpty())
+        return;
+    const fs::ThemeColors &tc = fs::themeColorsFor(this);
+    QPainter p(this);
+    const QRectF card = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+    const QRectF band(card.left(), card.top(), card.width(), kHeaderHeight);
+    if (tc.isPaperFluent()) {
+        p.save();
+        p.setRenderHint(QPainter::Antialiasing, true);
+        QPainterPath clip;
+        clip.addRoundedRect(card.adjusted(0.5, 0.5, -0.5, -0.5), 7.5, 7.5);
+        p.setClipPath(clip);
+        QLinearGradient wash(band.topLeft(), band.bottomLeft());
+        wash.setColorAt(0, tc[T::Alt]);
+        wash.setColorAt(1, tc[T::Surface]);
+        p.fillRect(band.adjusted(1, 1, -1, 0), wash);
+        p.restore();
+    }
+    p.fillRect(QRectF(1, kHeaderHeight - 1, width() - 2, 1), tc[T::Grid]);
+    const int right = m_headerWidget ? m_headerWidget->x() - 8 : width() - 14;
+    QFont f = fs::pixelFont(font(), 13, QFont::DemiBold);
+    p.setFont(f);
+    p.setPen(isEnabled() ? tc[T::Fg] : tc[T::Fg3]);
+    const QFontMetrics tm(f);
+    const int titleWidth = std::min(tm.horizontalAdvance(m_title), std::max(0, right - 14));
+    p.drawText(QRect(14, 0, titleWidth, kHeaderHeight - 1), Qt::AlignLeft | Qt::AlignVCenter, tm.elidedText(m_title, Qt::ElideRight, titleWidth));
+    if (!m_meta.isEmpty()) {
+        const QFont mf = fs::pixelFont(font(), 11.5);
+        p.setFont(mf);
+        p.setPen(tc[T::Fg3]);
+        const int left = 14 + titleWidth + 12;
+        p.drawText(QRect(left, 0, std::max(0, right - left), kHeaderHeight - 1), (m_headerWidget ? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignVCenter,
+                   QFontMetrics(mf).elidedText(m_meta, Qt::ElideRight, std::max(0, right - left)));
+    }
 }
 
 // ---------------------------------------------------------------------------------------------

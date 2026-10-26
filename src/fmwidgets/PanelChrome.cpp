@@ -17,6 +17,7 @@
 #include <QLineEdit>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QShortcut>
 #include <QStyleOptionButton>
 #include <QStylePainter>
@@ -35,6 +36,44 @@ namespace {
 bool isWatercolor(const QWidget *w)
 {
     return fm::style::themeColorsFor(w).isWatercolor();
+}
+
+/// 시안3 경로 칸 — 둥근 입력 바탕(모서리 6), 활성 패널은 강조 1 px 테두리 + 아래 2 px 강조선.
+void paintPaperField(QPainter *p, const QRect &rect, const fm::style::ThemeColors &tc, bool active)
+{
+    p->save();
+    p->setRenderHint(QPainter::Antialiasing, true);
+    const QRectF r = QRectF(rect).adjusted(0.5, 0.5, -0.5, -0.5);
+    p->setPen(QPen(active ? tc[Token::Accent] : tc[Token::BtnLine], 1.0));
+    p->setBrush(tc[Token::Field]);
+    p->drawRoundedRect(r, 6, 6);
+    if (active) {
+        QPainterPath clip;
+        clip.addRoundedRect(QRectF(rect), 6, 6);
+        p->setClipPath(clip);
+        p->fillRect(QRectF(rect.left(), rect.bottom() - 1.0, rect.width(), 2.0), tc[Token::Accent]);
+    }
+    p->restore();
+}
+
+/// 전체 경로를 조각으로 — "C:\Users\a" → {"C:", "Users", "a"}, UNC는 \\서버\공유를 한 조각으로.
+QStringList pathPieces(const QString &path)
+{
+    QString normal = path;
+    normal.replace(u'/', u'\\');
+    QStringList pieces;
+    if (normal.startsWith(u"\\\\"_s)) {
+        const int server = normal.indexOf(u'\\', 2);
+        const int share = server < 0 ? -1 : normal.indexOf(u'\\', server + 1);
+        pieces.append(share < 0 ? normal : normal.left(share));
+        if (share >= 0)
+            normal = normal.mid(share + 1);
+        else
+            normal.clear();
+    }
+    for (const QString &piece : normal.split(u'\\', Qt::SkipEmptyParts))
+        pieces.append(piece);
+    return pieces;
 }
 
 } // namespace
@@ -237,7 +276,7 @@ void BreadcrumbBar::setSegments(const QStringList &segments)
 
 QSize BreadcrumbBar::sizeHint() const
 {
-    return QSize(240, watercolor() ? 24 : 26);
+    return QSize(240, watercolor() ? 24 : fm::style::themeColorsFor(this).isPaperFluent() ? 28 : 26);
 }
 
 QSize BreadcrumbBar::minimumSizeHint() const
@@ -327,6 +366,35 @@ void BreadcrumbBar::paintEvent(QPaintEvent *)
         p.fillRect(QRect(r.left() + 1, r.top() + 1, r.width() - 2, 1), x.fieldInner);
         p.fillRect(QRect(r.left() + 1, r.top() + 1, 1, r.height() - 2), x.fieldInner);
         p.setClipRect(r.adjusted(2, 2, -2, -2));
+    }
+    if (fullPathMode_ && tc.isPaperFluent()) {
+        // 시안3: 입력 칸 안에 앞 조각(보조 글자) › … › 마지막 조각(굵게)
+        paintPaperField(&p, rect(), tc, paneActive_);
+        const QRect area = rect().adjusted(10, 1, -10, -1);
+        const QStringList pieces = pathPieces(m_fullPath);
+        if (pieces.isEmpty())
+            return;
+        const QFont regular = fm::style::pixelFont(font(), 13);
+        QFont bold = regular;
+        bold.setWeight(QFont::DemiBold);
+        const QFontMetrics rm(regular), bm(bold);
+        const QString sep = u"  \u203A  "_s;
+        const QString last = pieces.last();
+        const int lastWidth = std::min(area.width(), bm.horizontalAdvance(last));
+        int x = area.left();
+        if (pieces.size() > 1) {
+            const QString head = pieces.mid(0, pieces.size() - 1).join(sep) + sep;
+            const QString shown = rm.elidedText(head, Qt::ElideMiddle, std::max(0, area.width() - lastWidth));
+            p.setFont(regular);
+            p.setPen(tc[Token::Fg2]);
+            p.drawText(QRect(x, area.top(), rm.horizontalAdvance(shown), area.height()), Qt::AlignVCenter, shown);
+            x += rm.horizontalAdvance(shown);
+        }
+        p.setFont(bold);
+        p.setPen(tc[Token::Fg]);
+        p.drawText(QRect(x, area.top(), std::max(0, area.right() - x), area.height()), Qt::AlignVCenter,
+                   bm.elidedText(last, Qt::ElideMiddle, std::max(0, area.right() - x)));
+        return;
     }
     if (fullPathMode_) {
         const auto TextRect = rect().adjusted(4, 2, -4, -2);

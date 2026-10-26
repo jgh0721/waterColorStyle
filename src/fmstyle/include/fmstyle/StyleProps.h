@@ -17,6 +17,7 @@ inline constexpr char kSize[] = "fmSize";                  // "small" | "mini" |
 inline constexpr char kSwitch[] = "fmSwitch";              // bool — QCheckBox를 스위치로
 inline constexpr char kSegment[] = "fmSegment";            // "first" | "middle" | "last" | "only"
 inline constexpr char kCard[] = "fmCard";                  // bool — QFrame을 카드로
+inline constexpr char kSoftSelection[] = "fmSoftSelection"; // bool — 항목 보기의 선택을 연한 강조 + 3 px 막대로(시안3 탐색 · 범주 목록)
 inline constexpr char kPaneActive[] = "fmPaneActive";      // bool — 활성 패널 (탭 줄 · 목록)
 inline constexpr char kProgressState[] = "fmProgress";     // "paused" | "error"
 inline constexpr char kPreviewState[] = "fmPreviewState";  // "hover,pressed,focus,on" — 미리보기 전용
