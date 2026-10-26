@@ -171,7 +171,9 @@ public:
         const QRect r = option.rect;
         const QModelIndex first = index.siblingAtColumn(TitleCol);
         p->save();
-        p->fillRect(r, (option.state & QStyle::State_Selected) ? tc[T::Sel] : tc[T::Surface]);
+        // 시안3의 --sel은 강조 채움(흰 글자용) — 글자색을 그대로 두는 이 표는 연한 강조 바탕
+        const QColor selected = tc.isPaperFluent() ? tc[T::AccentSoft] : tc[T::Sel];
+        p->fillRect(r, (option.state & QStyle::State_Selected) ? selected : tc[T::Surface]);
         p->fillRect(QRect(r.left(), r.bottom(), r.width(), 1), tc[T::Grid]);
         const QRect text = r.adjusted(8, 0, -8, 0);
         switch (index.column()) {

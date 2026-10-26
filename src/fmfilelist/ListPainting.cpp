@@ -4,6 +4,7 @@
 
 #include <QPainter>
 #include <QWidget>
+#include <algorithm>
 #include <cmath>
 
 namespace fm::filelist::detail {
@@ -22,8 +23,16 @@ bool paneActive(const QWidget *widget)
 
 RecordGeometry RecordGeometry::make(bool watercolor, bool twoLine, const ListAppearance &a)
 {
+    return make(watercolor ? fm::style::Design::Watercolor : fm::style::Design::Standard, twoLine, a);
+}
+
+RecordGeometry RecordGeometry::make(fm::style::Design design, bool twoLine, const ListAppearance &a)
+{
+    const bool watercolor = design == fm::style::Design::Watercolor;
+    const bool paper = design == fm::style::Design::PaperFluent;
     RecordGeometry g;
     g.watercolor = watercolor;
+    g.paper = paper;
     g.twoLine = twoLine;
     g.nameBelow = twoLine && a.nameBelow;
     g.separator = twoLine ? a.twoLineSeparator : a.oneLineSeparator;
@@ -32,9 +41,9 @@ RecordGeometry RecordGeometry::make(bool watercolor, bool twoLine, const ListApp
     const int density = a.density == RowDensity::Compact ? -1 : a.density == RowDensity::Relaxed ? 2 : 0;
     const int font = std::max(-4, a.fontPx - 13);
     if (!twoLine) {
-        // 1줄: 시안1 24 · 시안2 21, 여백 방식은 아래 틈 2 · 좌우 6 · 모서리 4
-        const int row = (watercolor ? 21 : 24) + 2 * density + font;
-        g.headerHeight = watercolor ? 22 : 27;
+        // 1줄: 시안1 24 · 시안2 21 · 시안3 22, 여백 방식은 아래 틈 2 · 좌우 6 · 모서리 4
+        const int row = (watercolor ? 21 : paper ? 22 : 24) + 2 * density + font;
+        g.headerHeight = watercolor ? 22 : paper ? 25 : 27;
         if (space) {
             g.gap = 2;
             g.sideMargin = 6;
@@ -43,28 +52,29 @@ RecordGeometry RecordGeometry::make(bool watercolor, bool twoLine, const ListApp
         g.pitch = row + g.gap;
         return g;
     }
-    // 2줄: 시안1 이름 22 + 메타 18(레코드 44), 시안2 20 + 16(38). 여백 방식 48/42 + 틈 2, 틴트 46/40.
-    g.nameHeight = (watercolor ? 20 : 22) + 2 * density + font;
-    g.metaHeight = (watercolor ? 16 : 18) + 2 * density + font;
-    g.headerHeight = watercolor ? 40 : 45;
+    // 2줄: 시안1 이름 22 + 메타 18(레코드 44), 시안2 20 + 16(38), 시안3 21 + 17(40).
+    // 여백 방식 48/42/44 + 틈 2, 틴트 46/40/42.
+    g.nameHeight = (watercolor ? 20 : paper ? 21 : 22) + 2 * density + font;
+    g.metaHeight = (watercolor ? 16 : paper ? 17 : 18) + 2 * density + font;
+    g.headerHeight = watercolor ? 40 : paper ? 43 : 45;
     const int content = g.nameHeight + g.metaHeight;
     int block = 0;
     switch (g.separator) {
     case RecordSeparator::Space:
-        block = watercolor ? 42 : 48;
+        block = watercolor ? 42 : paper ? 44 : 48;
         g.gap = 2;
         g.sideMargin = 6;
         g.radius = watercolor ? 0 : 6;
         g.padTop = (block - content) / 2.0;
         break;
     case RecordSeparator::Tint:
-        block = watercolor ? 40 : 46;
+        block = watercolor ? 40 : paper ? 42 : 46;
         g.padTop = (block - content) / 2.0;
         break;
     case RecordSeparator::None:
     case RecordSeparator::Zebra:
     case RecordSeparator::Line:
-        block = watercolor ? 38 : 44;
+        block = watercolor ? 38 : paper ? 40 : 44;
         g.padTop = (block - 1 - content) / 2.0;  // 아래 1 px 구분선 자리
         break;
     }
@@ -116,9 +126,9 @@ TextColors textColors(const fm::style::ThemeColors &tc, const ListAppearance &a,
         c.iconLine = tc[Token::OnInvCur];
     } else if (invSel) {
         c.name = c.ext = c.meta = c.iconLine = tc[Token::OnInvSel];
-    } else if (tc.isWatercolor() && s.marked && s.active) {
-        c.name = c.ext = c.meta = c.iconLine = QColor(0xFF, 0xFF, 0xFF);  // 시안2: 활성 패널 선택은 흰 글자
-    } else if (tc.isWatercolor() && s.marked) {
+    } else if (tc.fillsSelection() && s.marked && s.active) {
+        c.name = c.ext = c.meta = c.iconLine = QColor(0xFF, 0xFF, 0xFF);  // 시안2 · 시안3: 활성 패널 선택은 흰 글자
+    } else if (tc.fillsSelection() && s.marked) {
         c.name = c.ext = c.meta = tc[Token::Fg];
         c.iconLine = tc[Token::Fg3];
     } else {
@@ -154,12 +164,14 @@ void paintRecordBackground(QPainter *p, const QRect &record, const RecordGeometr
     const QRectF block = g.block(record);
     if (!fill.isValid() && groupBackground.isValid())
         fill = groupBackground;  // 파일 그룹 배경(선택 · 역상이 우선)
+    // 시안3: 선택 · 역상 채움은 양 끝을 2 px 둥글게(파일 그룹 배경은 네모 그대로)
+    const qreal fillRadius = g.radius > 0 ? g.radius : (g.paper && (invCur || s.marked)) ? 2.0 : 0.0;
     if (fill.isValid()) {
-        if (g.radius > 0) {
+        if (fillRadius > 0) {
             p->setRenderHint(QPainter::Antialiasing);
             p->setPen(Qt::NoPen);
             p->setBrush(fill);
-            p->drawRoundedRect(block, g.radius, g.radius);
+            p->drawRoundedRect(block, fillRadius, fillRadius);
         } else {
             p->fillRect(block, fill);
         }
@@ -223,6 +235,10 @@ QPen cursorPen(const fm::style::ThemeColors &tc, InactiveCursor inactiveCursor, 
         pen.setDashPattern({1.0, 1.0});
         return pen;
     }
+    if (asActive && tc.isPaperFluent()) {
+        // 시안3: 2 px --focus 외곽선, 강조 채움 선택 위에서는 흰색
+        return QPen(s.marked && s.active ? tc[Token::OnAccent] : tc[Token::Focus], 2.0);
+    }
     if (asActive)
         return QPen(tc[Token::Focus], 1.0);
     if (inactiveCursor == InactiveCursor::Hidden)
@@ -244,7 +260,12 @@ void paintRecordCursor(QPainter *p, const QRect &record, const RecordGeometry &g
     p->save();
     p->setPen(pen);
     p->setBrush(Qt::NoBrush);
-    if (g.radius > 0) {
+    if (g.paper && pen.widthF() >= 2.0) {
+        // 시안3: 레코드 안쪽 2 px 외곽선, 모서리 4(여백 방식은 블록 모서리)
+        p->setRenderHint(QPainter::Antialiasing);
+        const qreal radius = std::max<qreal>(g.radius, 4.0);
+        p->drawRoundedRect(g.block(record).adjusted(1, 1, -1, -1), radius, radius);
+    } else if (g.radius > 0) {
         p->setRenderHint(QPainter::Antialiasing);
         p->drawRoundedRect(g.block(record).adjusted(0.5, 0.5, -0.5, -0.5), g.radius, g.radius);
     } else {

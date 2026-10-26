@@ -348,16 +348,16 @@
         <item>
          <widget class="fm::ui::SettingRow" name="designRow">
           <property name="title"><string>디자인</string></property>
-          <property name="description"><string>도구 모음의 워터컬러 스위치와 같음</string></property>
+          <property name="description"><string>도구 모음의 워터컬러 스위치와 같음 · Paper Fluent는 워터컬러 색 + 기본 구조</string></property>
           <widget class="fm::ui::SegmentedControl" name="designSegment" native="true">
-           <property name="items"><stringlist><string>기본</string><string>워터컬러</string></stringlist></property>
+           <property name="items"><stringlist><string>기본</string><string>워터컬러</string><string>Paper Fluent</string></stringlist></property>
           </widget>
          </widget>
         </item>
         <item>
          <widget class="fm::ui::SettingRow" name="darkToneRow">
           <property name="title"><string>다크 색조</string></property>
-          <property name="description"><string>워터컬러 다크 테마의 바탕</string></property>
+          <property name="description"><string>워터컬러 · Paper Fluent 다크 테마의 바탕</string></property>
           <widget class="fm::ui::SegmentedControl" name="darkToneSegment" native="true">
            <property name="items"><stringlist><string>회색</string><string>네이비</string></stringlist></property>
           </widget>
@@ -366,7 +366,7 @@
         <item>
          <widget class="fm::ui::SettingRow" name="coloredTitleRow">
           <property name="title"><string>제목 표시줄에 테마 색</string></property>
-          <property name="description"><string>워터컬러 창 제목 표시줄을 바탕색으로 칠함</string></property>
+          <property name="description"><string>워터컬러 · Paper Fluent 창 제목 표시줄을 바탕색으로 칠함</string></property>
           <widget class="fm::ui::Switch" name="coloredTitleSwitch">
            <property name="onText"><string>켬</string></property>
            <property name="offText"><string>끔</string></property>

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "fmstyle/ThemeTokens.h"
+
 #include <QProxyStyle>
 
 namespace fm::style {
@@ -22,9 +24,12 @@ public:
     FmStyle();
     ~FmStyle() override;
 
-    /// 위젯에 적용할 시안1 색: 가장 가까운 ThemeScope, 없으면 ThemeManager의 현재 변형.
+    /// 이 스타일이 그리는 디자인 — FmStyle은 시안1, PaperFluentStyle은 시안3.
+    Design design() const noexcept { return m_design; }
+
+    /// 위젯에 적용할 그 디자인의 색: 가장 가까운 ThemeScope, 없으면 ThemeManager의 현재 변형.
     /// 디자인과 상관없이 위젯이 직접 그릴 때는 fm::style::themeColorsFor()를 쓴다.
-    static const ThemeColors &colorsFor(const QWidget *widget);
+    static const ThemeColors &colorsFor(const QWidget *widget, Design design = Design::Standard);
 
     /// '액세스 키 밑줄 항상 표시'. 끄면 Windows처럼 Alt를 누르는 동안만 밑줄이 보인다.
     void setAlwaysShowMnemonics(bool on);
@@ -63,6 +68,9 @@ public:
                                 const QStyleOption *option) const override;
 
 protected:
+    /// 시안1 구조(크기 · 모서리 · 상태 표현)에 다른 디자인의 색을 얹는 스타일(PaperFluentStyle)이 쓴다.
+    explicit FmStyle(Design design);
+
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
@@ -89,6 +97,10 @@ private:
 
     void setAltDown(bool down, QObject *source);
 
+    const ThemeColors &colors(const QWidget *widget) const { return colorsFor(widget, m_design); }
+    bool paper() const noexcept { return m_design == Design::PaperFluent; }
+
+    Design m_design = Design::Standard;
     bool m_alwaysMnemonics = false;
     bool m_altDown = false;
 };

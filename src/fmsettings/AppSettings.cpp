@@ -45,7 +45,8 @@ E enumFromJson(const QJsonValue &json, const Name<E> (&table)[N], E fallback)
 }
 
 constexpr Name<Scheme> kScheme[] = {{Scheme::System, "system"}, {Scheme::Light, "light"}, {Scheme::Dark, "dark"}};
-constexpr Name<fs::Design> kDesign[] = {{fs::Design::Standard, "standard"}, {fs::Design::Watercolor, "watercolor"}};
+constexpr Name<fs::Design> kDesign[] = {{fs::Design::Standard, "standard"}, {fs::Design::Watercolor, "watercolor"},
+                                        {fs::Design::PaperFluent, "paperfluent"}};
 constexpr Name<DarkTone> kDarkTone[] = {{DarkTone::Gray, "gray"}, {DarkTone::Navy, "navy"}};
 constexpr Name<AppearanceSettings::Density> kDensity[] = {
     {AppearanceSettings::Density::Compact, "compact"}, {AppearanceSettings::Density::Normal, "normal"},

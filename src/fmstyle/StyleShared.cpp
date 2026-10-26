@@ -6,6 +6,7 @@
 #include "fmstyle/Glyphs.h"
 #include "fmstyle/StyleProps.h"
 #include "fmstyle/ThemeColors.h"
+#include "fmstyle/ThemeManager.h"
 #include "fmstyle/WatercolorChrome.h"
 #include "fmstyle/WatercolorStyle.h"
 
@@ -48,7 +49,7 @@ bool usesWatercolor(const QWidget *widget, bool fallback)
     return fallback;
 }
 
-// 아이콘 모드별 글자색 — 시안1: 보조 글자(Fg2) · 마우스 올림 Fg · 사용 안 함 Fg3,
+// 아이콘 모드별 글자색 — 시안1 · 시안3: 보조 글자(Fg2) · 마우스 올림 Fg · 사용 안 함 Fg3,
 // 시안2: 글자(Fg) · 마우스 올림 hoverFg · 사용 안 함 disFg (단추 글자와 같은 규칙).
 QColor glyphColor(const QWidget *widget, bool watercolor, QIcon::Mode mode)
 {
@@ -63,7 +64,9 @@ QColor glyphColor(const QWidget *widget, bool watercolor, QIcon::Mode mode)
         }
         return tc[Token::Fg];
     }
-    const ThemeColors &tc = FmStyle::colorsFor(widget);
+    // 시안1 구조 스타일은 시안1 · 시안3이 같이 쓴다 — 위젯에 걸린 색의 디자인을 따른다.
+    const Design design = themeColorsFor(widget).isPaperFluent() ? Design::PaperFluent : Design::Standard;
+    const ThemeColors &tc = FmStyle::colorsFor(widget, design);
     switch (mode) {
     case QIcon::Disabled: return tc[Token::Fg3];
     case QIcon::Active:

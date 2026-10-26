@@ -798,9 +798,9 @@ private:
                 const auto [r1, k1] = ratio(*fg, bg.value_or(tc[T::Surface]));
                 const QString bgName = bg ? tr("자체 배경") : dark ? tr("어두운 배경") : tr("흰 배경");
                 text.append({u"%1 %2:1"_s.arg(bgName, r1), k1});
-                // 시안2는 활성 패널의 선택 행을 강조 채움 · 흰 글자로 그려 그룹 글자색을 쓰지 않는다 —
+                // 시안2 · 시안3은 활성 패널의 선택 행을 강조 채움 · 흰 글자로 그려 그룹 글자색을 쓰지 않는다 —
                 // 그룹 글자색이 보이는 비활성 패널의 선택 행(--sel-in)과 견준다
-                if (tc.isWatercolor()) {
+                if (tc.fillsSelection()) {
                     const auto [r2, k2] = ratio(*fg, tc[T::SelIn]);
                     text.append({tr("비활성 선택 행 %1:1").arg(r2), k2});
                 } else {
@@ -817,7 +817,7 @@ private:
                 back.append({tr("목록 배경 그대로"), K::Mute});
             }
             m_tags[dark ? 1 : 0]->setTags(text);
-            m_tags[dark ? 1 : 0]->setToolTip(tc.isWatercolor() ? tr("시안2는 활성 패널의 선택 행을 흰 글자로 그려 그룹 글자색을 쓰지 않습니다.") : QString());
+            m_tags[dark ? 1 : 0]->setToolTip(tc.fillsSelection() ? tr("시안2 · 시안3은 활성 패널의 선택 행을 흰 글자로 그려 그룹 글자색을 쓰지 않습니다.") : QString());
             m_tags[dark ? 3 : 2]->setTags(back);
         }
     }

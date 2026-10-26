@@ -94,6 +94,13 @@ constexpr Rule kWatercolorRules[] = {
     {T::InvSelIn, "내장 값(비활성 역상 회색)", nullptr},
 };
 
+// 시안3(Paper Fluent): 선택만 워터컬러처럼 강조 채움, 나머지는 시안1 규칙.
+constexpr Rule kPaperFluentRules[] = {
+    {T::Sel, "= 강조 채움 · 흰 글자", nullptr},
+    {T::SelIn, "내장 값(비활성 선택 회색)", nullptr},
+    {T::InvSelIn, "내장 값(비활성 역상 회색)", nullptr},
+};
+
 struct Usage
 {
     T token;
@@ -163,7 +170,7 @@ QColor towardKeeping(const QColor &c, const QColor &bg, double minimum)
 const VariantSeeds &seedsFor(const ThemeSeeds &seeds, Design design, Variant variant)
 {
     // 시안1에는 남색이 없다 — 다크 칸을 쓴다
-    const Variant v = (design == Design::Standard && variant == Variant::Navy) ? Variant::Dark : variant;
+    const Variant v = (!hasNavyVariant(design) && variant == Variant::Navy) ? Variant::Dark : variant;
     return seeds.variantSeeds(design, v);
 }
 
@@ -176,7 +183,6 @@ std::optional<Token> tokenByCss(const QString &css)
     return std::nullopt;
 }
 
-QString designKey(Design d) { return d == Design::Watercolor ? u"watercolor"_s : u"standard"_s; }
 QString variantKey(Variant v)
 {
     switch (v) {
@@ -230,7 +236,9 @@ TokenSource tokenSource(Token token, Design design)
         }
         return nullptr;
     };
-    const Rule *rule = design == Design::Watercolor ? find(kWatercolorRules) : nullptr;
+    const Rule *rule = design == Design::Watercolor  ? find(kWatercolorRules)
+                     : design == Design::PaperFluent ? find(kPaperFluentRules)
+                                                     : nullptr;
     if (!rule)
         rule = find(kRules);
     if (rule) {
@@ -286,6 +294,7 @@ DerivedTheme deriveTheme(Variant variant, const ThemeSeeds &seeds, const TokenOv
     const ThemeColors builtin(variant, design);
     const bool light = variant == Variant::Light;  // 남색은 다크 규칙
     const bool watercolor = design == Design::Watercolor;
+    const bool fillSel = design != Design::Standard;  // 선택 = 강조 채움(시안2 · 시안3)
     const bool fix = seeds.fixContrast;
     const VariantSeeds &vs = seedsFor(seeds, design, variant);
     auto seed = [&vs](SeedRole r) -> std::optional<QColor> {
@@ -363,7 +372,7 @@ DerivedTheme deriveTheme(Variant variant, const ThemeSeeds &seeds, const TokenOv
             set(T::OnAccent, fix ? bestTextOn(accent) : kWhite);
         }
         if (vs.selFollowsAccent && (accentSeeded || changed(T::Surface) || changed(T::Fg))) {
-            if (watercolor)
+            if (fillSel)
                 set(T::Sel, accent);  // 강조 채움 + 강조 위 글자
             else
                 adjust(T::Sel, mix(surface, accent, light ? 0.20 : 0.40), surface, fg, 4.5);
@@ -375,13 +384,13 @@ DerivedTheme deriveTheme(Variant variant, const ThemeSeeds &seeds, const TokenOv
                    c[T::InvCur], 4.5);
         }
     }
-    if (changed(T::Sel) && !watercolor)
+    if (changed(T::Sel) && !fillSel)
         set(T::SelIn, desaturate(c[T::Sel]));
     if (changed(T::InvCur))
         set(T::OnInvCur, bestTextOn(c[T::InvCur]));
     if (changed(T::InvSel)) {
         set(T::OnInvSel, fix ? bestTextOn(c[T::InvSel]) : kWhite);
-        if (!watercolor)
+        if (!fillSel)
             set(T::InvSelIn, desaturate(c[T::InvSel]));
     }
     if (changed(T::Warn) || changed(T::Surface)) {
@@ -448,10 +457,10 @@ QJsonObject ColorScheme::toJson() const
     root[u"accent"_s] = accent;
 
     QJsonObject designs;
-    for (const Design d : {Design::Standard, Design::Watercolor}) {
+    for (const Design d : {Design::Standard, Design::Watercolor, Design::PaperFluent}) {
         QJsonObject variants;
         for (const Variant v : {Variant::Light, Variant::Dark, Variant::Navy}) {
-            if (d == Design::Standard && v == Variant::Navy)
+            if (!hasNavyVariant(d) && v == Variant::Navy)
                 continue;
             const VariantSeeds &vs = seeds.variantSeeds(d, v);
             const TokenOverrides &ov = overridesFor(d, v);
@@ -501,7 +510,7 @@ std::optional<ColorScheme> ColorScheme::fromJson(const QJsonObject &json, QStrin
     scheme.seeds.useSystemAccent = accent.value(u"useSystem"_s).toBool(false);
 
     const QJsonObject designs = json.value(u"designs"_s).toObject();
-    for (const Design d : {Design::Standard, Design::Watercolor}) {
+    for (const Design d : {Design::Standard, Design::Watercolor, Design::PaperFluent}) {
         const QJsonObject variants = designs.value(designKey(d)).toObject();
         for (const Variant v : {Variant::Light, Variant::Dark, Variant::Navy}) {
             const QJsonObject variantObj = variants.value(variantKey(v)).toObject();

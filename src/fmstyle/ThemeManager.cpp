@@ -1,6 +1,8 @@
 #include "fmstyle/ThemeManager.h"
 
 #include "fmstyle/FmStyle.h"
+#include "fmstyle/PaperFluentChrome.h"
+#include "fmstyle/PaperFluentStyle.h"
 #include "fmstyle/WatercolorChrome.h"
 #include "fmstyle/WatercolorStyle.h"
 
@@ -32,15 +34,13 @@ namespace fm::style {
 
 namespace {
 
-constexpr int designIndex(Design d) { return d == Design::Standard ? 0 : 1; }
-
 // 시안1에는 남색이 없으므로 남색 요청은 다크 칸을 쓴다.
 constexpr int variantIndex(Design d, Variant v)
 {
     switch (v) {
     case Variant::Light: return 0;
     case Variant::Dark:  return 1;
-    case Variant::Navy:  return d == Design::Watercolor ? 2 : 1;
+    case Variant::Navy:  return hasNavyVariant(d) ? 2 : 1;
     }
     return 0;
 }
@@ -253,9 +253,9 @@ void ThemeManager::rebuild()
         if (const auto accent = systemAccent())
             seeds.accent = *accent;
     }
-    for (const Design d : {Design::Standard, Design::Watercolor}) {
+    for (const Design d : {Design::Standard, Design::Watercolor, Design::PaperFluent}) {
         for (const Variant v : {Variant::Light, Variant::Dark, Variant::Navy}) {
-            if (d == Design::Standard && v == Variant::Navy)
+            if (!hasNavyVariant(d) && v == Variant::Navy)
                 continue;  // 다크 칸을 같이 쓴다(variantIndex)
             const int vi = variantIndex(d, v);
             m_colors[designIndex(d)][vi] = deriveColors(v, seeds, m_overrides[designIndex(d)][vi], d);
@@ -269,7 +269,7 @@ ColorScheme ThemeManager::colorScheme() const
     scheme.id = m_schemeId;
     scheme.name = m_schemeName;
     scheme.seeds = m_seeds;
-    for (int d = 0; d < 2; ++d) {
+    for (std::size_t d = 0; d < kDesignCount; ++d) {
         for (std::size_t v = 0; v < kVariantCount; ++v)
             scheme.overrides[d][v] = m_overrides[d][v];
     }
@@ -281,7 +281,7 @@ void ThemeManager::setColorScheme(const ColorScheme &scheme)
     m_schemeId = scheme.id;
     m_schemeName = scheme.name;
     bool same = m_seeds == scheme.seeds;
-    for (int d = 0; d < 2; ++d) {
+    for (std::size_t d = 0; d < kDesignCount; ++d) {
         for (std::size_t v = 0; v < kVariantCount; ++v) {
             same = same && m_overrides[d][v] == scheme.overrides[d][v];
             m_overrides[d][v] = scheme.overrides[d][v];
@@ -330,8 +330,8 @@ void ThemeManager::apply()
     const Variant base = m_scheme == Scheme::Light ? Variant::Light
                        : m_scheme == Scheme::Dark  ? Variant::Dark
                                                    : systemVariant();
-    // 남색은 시안2 전용 — 시안1로 바꾸면 다크로, 다시 시안2로 오면 남색으로 돌아간다.
-    m_effective = isDarkVariant(base) && m_design == Design::Watercolor && m_darkTone == DarkTone::Navy
+    // 남색은 시안2 · 시안3 전용 — 시안1로 바꾸면 다크로, 다시 돌아오면 남색으로 돌아간다.
+    m_effective = isDarkVariant(base) && hasNavyVariant(m_design) && m_darkTone == DarkTone::Navy
                       ? Variant::Navy
                       : base;
     if (m_installed) {
@@ -394,7 +394,8 @@ void ThemeManager::applyTitleBar(QWidget *window) const
     constexpr COLORREF kColorDefault = 0xFFFFFFFF;  // DWMWA_COLOR_DEFAULT — 시스템 색으로 되돌림
 
     // 워터컬러: 창 틀과 같은 파란색 제목 표시줄 + 흰 글자. 단추 기호도 흰색이 되도록 어두운 모드를 켠다.
-    const bool tinted = m_design == Design::Watercolor && m_coloredTitleBar;
+    // Paper Fluent: 제목 워시의 위쪽 색.
+    const bool tinted = hasNavyVariant(m_design) && m_coloredTitleBar;
     const BOOL dark = (tinted || (isDarkVariant(m_effective) && m_darkTitleBar)) ? TRUE : FALSE;
     ::DwmSetWindowAttribute(hwnd, kUseImmersiveDarkMode, &dark, sizeof(dark));
 
@@ -402,7 +403,8 @@ void ThemeManager::applyTitleBar(QWidget *window) const
     COLORREF text = kColorDefault;
     COLORREF border = kColorDefault;
     if (tinted) {
-        const QColor frame = watercolorChrome(m_effective).frame;
+        const QColor frame = m_design == Design::Watercolor ? watercolorChrome(m_effective).frame
+                                                            : paperFluentTitleColor(m_effective);
         caption = border = RGB(frame.red(), frame.green(), frame.blue());
         text = RGB(0xFF, 0xFF, 0xFF);
     }
@@ -419,8 +421,11 @@ void ThemeManager::applyTitleBar(QWidget *window) const
 
 QStyle *createStyle(Design design)
 {
-    if (design == Design::Watercolor)
-        return new WatercolorStyle;
+    switch (design) {
+    case Design::Watercolor:  return new WatercolorStyle;
+    case Design::PaperFluent: return new PaperFluentStyle;
+    case Design::Standard:    break;
+    }
     return new FmStyle;
 }
 

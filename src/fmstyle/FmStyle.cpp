@@ -1,5 +1,6 @@
 #include "fmstyle/FmStyle.h"
 #include "fmstyle/Glyphs.h"
+#include "fmstyle/PaperFluentChrome.h"
 #include "fmstyle/StylePaint.h"
 
 #include "fmstyle/StyleProps.h"
@@ -31,6 +32,7 @@
 #include <QStyleOption>
 #include <QTabBar>
 #include <QToolButton>
+#include <QTreeView>
 
 #include <algorithm>
 #include <cmath>
@@ -103,10 +105,32 @@ constexpr int kDockTitleMargin = 5;
 constexpr int kDockButtonMargin = 6;
 constexpr int kDockButton = 2 * kDockButtonMargin + 10;
 constexpr int kDockSeparator = 5;
+// 시안3(Paper Fluent) — 캔버스 "Paper Fluent 토큰" 보드의 모서리 · 밀도 표
+constexpr qreal kPaperRadius = 6.0;        // 단추 · 입력 · 콤보
+constexpr qreal kPaperCardRadius = 8.0;    // 카드 · 메뉴 · 팝업
+constexpr qreal kPaperSmallRadius = 4.0;   // 커서 · 탭 위쪽 · 도구 설명
+constexpr int kPaperButtonHeight = 28;
+constexpr int kPaperButtonHeightSmall = 24;
+constexpr int kPaperButtonHeightSmallDialog = 26;
+constexpr int kPaperInputHeight = 28;
+constexpr int kPaperInputHeightDialog = 30;
+constexpr int kPaperTabHeight = 30;
+constexpr int kPaperHeaderHeight = 24;
+constexpr int kPaperItemMinHeight = 22;
+constexpr int kPaperMenuBarItemHeight = 26;
+constexpr int kPaperProgressThickness = 8;
 
-int inputHeight(const QWidget *w) { return density(w) == Density::Dialog ? kInputHeightDialog : kInputHeight; }
+qreal radiusOf(const ThemeColors &tc) { return tc.isPaperFluent() ? kPaperRadius : kRadius; }
+qreal cardRadiusOf(const ThemeColors &tc) { return tc.isPaperFluent() ? kPaperCardRadius : kCardRadius; }
 
-int progressThickness(const QWidget *w)
+int inputHeight(const QWidget *w, bool paper)
+{
+    if (paper)
+        return density(w) == Density::Dialog ? kPaperInputHeightDialog : kPaperInputHeight;
+    return density(w) == Density::Dialog ? kInputHeightDialog : kInputHeight;
+}
+
+int progressThickness(const QWidget *w, bool paper)
 {
     switch (sizeVariant(w)) {
     case SizeVariant::Thin: return kProgressThin;
@@ -116,7 +140,7 @@ int progressThickness(const QWidget *w)
     case SizeVariant::Mini:
     case SizeVariant::Compact: break;
     }
-    return kProgressThickness;
+    return paper ? kPaperProgressThickness : kProgressThickness;
 }
 
 int segmentHeight(const QWidget *w)
@@ -286,16 +310,16 @@ void drawInputFrame(QPainter *p, const QRect &rect, QStyle::State s, const Theme
     QColor bg = !enabled ? tc[T::Win] : readOnly ? mix(tc[T::Field], tc[T::Win], 0.6) : tc[T::Field];
     if (enabled && hover && !focus && !readOnly)
         bg = mix(bg, tc[T::Fg], 0.025);
-    fillRounded(p, r, kRadius, bg);
+    fillRounded(p, r, radiusOf(tc), bg);
     const QColor border = !enabled ? mix(tc[T::BtnLine], tc[T::Win], 0.5) : invalid ? tc[T::Danger] : tc[T::BtnLine];
-    strokeRounded(p, r, kRadius, border);
+    strokeRounded(p, r, radiusOf(tc), border);
 
     if (!enabled)
         return;
     p->save();
     p->setRenderHint(QPainter::Antialiasing, true);
     QPainterPath clip;
-    clip.addRoundedRect(QRectF(rect), kRadius, kRadius);
+    clip.addRoundedRect(QRectF(rect), radiusOf(tc), radiusOf(tc));
     p->setClipPath(clip);
     if (focus || invalid)
         p->fillRect(QRectF(rect.left(), rect.bottom() - 1.0, rect.width(), 2.0), invalid ? tc[T::Danger] : tc[T::Accent]);
@@ -310,7 +334,7 @@ void drawFramelessInput(QPainter *p, const QRect &rect, QStyle::State s, const T
     if (!(s & QStyle::State_Enabled))
         return;
     if (s & (QStyle::State_MouseOver | QStyle::State_On))
-        fillRounded(p, crisp(rect), kRadius, overlay(tc[T::Fg], (s & QStyle::State_On) ? 0.08 : 0.05));
+        fillRounded(p, crisp(rect), radiusOf(tc), overlay(tc[T::Fg], (s & QStyle::State_On) ? 0.08 : 0.05));
     if (s & QStyle::State_HasFocus)
         p->fillRect(QRectF(rect.left() + 2, rect.bottom() - 1.0, rect.width() - 4, 2.0), tc[T::Accent]);
 }
@@ -443,6 +467,94 @@ void drawSwitch(QPainter *p, const QRect &rect, QStyle::State s, const ThemeColo
     p->restore();
 }
 
+/// 시안3 단추: 1 px 테두리 + 세로 워시(위 --btn-hi → 아래 --btn-lo) + 아래 1 px 그림자. 기본 · 위험은 채움 워시.
+/// 누름은 워시 없이 아래 색으로 납작하게(그림자 없음), 켠 토글은 연한 강조 바탕.
+void drawPaperButton(QPainter *p, const QRectF &rect, QStyle::State s, ButtonRole role, const ThemeColors &tc)
+{
+    const PaperFluentChrome x = paperFluentChrome(tc);
+    const bool enabled = s & QStyle::State_Enabled;
+    const bool hover = s & QStyle::State_MouseOver;
+    const bool pressed = s & QStyle::State_Sunken;
+    const bool on = s & QStyle::State_On;
+    QColor top = x.buttonHi;
+    QColor bottom = x.buttonLo;
+    QColor border = tc[T::BtnLine];
+    qreal hoverAmount = 0.04;
+    qreal pressAmount = 0.09;
+    if (enabled && role == ButtonRole::Primary) {
+        top = x.primaryHi;
+        bottom = tc[T::Accent];
+        border = x.primaryLine;
+        hoverAmount = 0.10;
+        pressAmount = 0.18;
+    } else if (enabled && role == ButtonRole::Danger) {
+        top = x.dangerHi;
+        bottom = tc[T::DangerFill];
+        border = x.dangerLine;
+        hoverAmount = 0.10;
+        pressAmount = 0.18;
+    } else if (on) {
+        top = bottom = enabled ? tc[T::AccentSoft] : mix(tc[T::AccentSoft], tc[T::Win], 0.5);
+    }
+    const qreal radius = kPaperRadius;
+    const QRectF body = rect.adjusted(0, 0, 0, -1);  // 아래 1 px은 그림자 자리
+    if (!enabled) {
+        if (!on)
+            top = bottom = mix(tc[T::Btn], tc[T::Win], 0.5);
+        border = mix(tc[T::BtnLine], tc[T::Win], 0.4);
+    } else if (pressed) {
+        top = bottom = mix(bottom, tc[T::Fg], pressAmount);
+    } else {
+        if (hover) {
+            top = mix(top, tc[T::Fg], hoverAmount);
+            bottom = mix(bottom, tc[T::Fg], hoverAmount);
+        }
+        fillRounded(p, body.translated(0, 1), radius, x.shadow);
+    }
+    QLinearGradient wash(body.topLeft(), body.bottomLeft());
+    wash.setColorAt(0, top);
+    wash.setColorAt(1, bottom);
+    fillRounded(p, body, radius, wash);
+    strokeRounded(p, body, radius, border);
+}
+
+/// 시안3의 트리(폴더 트리 · 탐색)는 연한 강조 선택 — 파일 목록 · 표의 강조 채움과 구분한다.
+bool softSelection(const QWidget *w, const ThemeColors &tc)
+{
+    return tc.isPaperFluent() && qobject_cast<const QTreeView *>(w);
+}
+
+QColor itemSelectionColor(const QStyleOption *opt, const QWidget *w, const ThemeColors &tc)
+{
+    const bool active = paneActive(opt, w);
+    if (softSelection(w, tc))
+        return active ? tc[T::AccentSoft] : tc[T::SelIn];
+    return active ? tc[T::Sel] : tc[T::SelIn];
+}
+
+/// 패널 활성 속성(fmPaneActive)이 위쪽 어디에도 없으면 일반 탭 위젯 — 선택 탭 밑줄을 늘 강조색으로.
+bool hasPaneProperty(const QWidget *w)
+{
+    for (const QWidget *p = w; p; p = p->parentWidget()) {
+        if (p->property(props::kPaneActive).isValid())
+            return true;
+        if (p->isWindow())
+            break;
+    }
+    return false;
+}
+
+/// 시안3 진행 막대 채움 — 위가 밝은 세로 워시.
+QBrush progressBrush(const QRectF &r, const QColor &color, const ThemeColors &tc)
+{
+    if (!tc.isPaperFluent())
+        return color;
+    QLinearGradient wash(r.topLeft(), r.bottomLeft());
+    wash.setColorAt(0, mix(color, QColor(0xFF, 0xFF, 0xFF), 0.20));
+    wash.setColorAt(1, color);
+    return wash;
+}
+
 QColor progressColor(const QStyleOption *opt, const QWidget *w, const ThemeColors &tc)
 {
     const QString state = stringProp(opt, w, props::kProgressState);
@@ -458,21 +570,27 @@ QColor progressColor(const QStyleOption *opt, const QWidget *w, const ThemeColor
 // =============================================================================================
 
 FmStyle::FmStyle()
-    : QProxyStyle(u"Fusion"_s)
+    : FmStyle(Design::Standard)
 {
-    setObjectName(u"FmStyle"_s);
+}
+
+FmStyle::FmStyle(Design design)
+    : QProxyStyle(u"Fusion"_s)
+    , m_design(design)
+{
+    setObjectName(design == Design::PaperFluent ? u"PaperFluentStyle"_s : u"FmStyle"_s);
 }
 
 FmStyle::~FmStyle() = default;
 
-const ThemeColors &FmStyle::colorsFor(const QWidget *widget)
+const ThemeColors &FmStyle::colorsFor(const QWidget *widget, Design design)
 {
-    // 범위에 걸린 색이 다른 디자인 것이면 같은 변형의 시안1 색을 쓴다.
+    // 범위에 걸린 색이 다른 디자인 것이면 같은 변형의 이 디자인 색을 쓴다.
     const ThemeColors *scoped = ThemeScope::find(widget);
-    if (scoped && scoped->design() == Design::Standard)
+    if (scoped && scoped->design() == design)
         return *scoped;
     const ThemeManager &manager = ThemeManager::instance();
-    return manager.colors(Design::Standard, scoped ? scoped->variant() : manager.effectiveVariant());
+    return manager.colors(design, scoped ? scoped->variant() : manager.effectiveVariant());
 }
 
 void FmStyle::setAlwaysShowMnemonics(bool on)
@@ -593,7 +711,7 @@ void FmStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, const QWi
         drawSegment(option, p, w);
         return;
     }
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const QStyle::State s = option->state;
     const bool enabled = s & State_Enabled;
     const bool hover = s & State_MouseOver;
@@ -605,7 +723,7 @@ void FmStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, const QWi
     if (role == ButtonRole::Link) {
         // 링크 단추: 패널 없음. 키보드 포커스만 2 px 둥근 링.
         if (enabled && keyboardFocus(s))
-            strokeRounded(p, QRectF(option->rect).adjusted(1, 1, -1, -1), kRadius - 1, tc[T::Focus], 2.0);
+            strokeRounded(p, QRectF(option->rect).adjusted(1, 1, -1, -1), radiusOf(tc) - 1, tc[T::Focus], 2.0);
         return;
     }
 
@@ -615,10 +733,12 @@ void FmStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, const QWi
     if (role == ButtonRole::Subtle || (flat && role == ButtonRole::Normal)) {
         if (enabled && (pressed || hover || on)) {
             const QColor bg = on ? tc[T::AccentSoft] : overlay(tc[T::Fg], pressed ? 0.12 : 0.07);
-            fillRounded(p, r, kRadius, bg);
+            fillRounded(p, r, radiusOf(tc), bg);
         } else if (!enabled && on) {
-            fillRounded(p, r, kRadius, mix(tc[T::AccentSoft], tc[T::Win], 0.5));
+            fillRounded(p, r, radiusOf(tc), mix(tc[T::AccentSoft], tc[T::Win], 0.5));
         }
+    } else if (tc.isPaperFluent()) {
+        drawPaperButton(p, r, s, role, tc);
     } else {
         QColor bg = tc[T::Btn];
         QColor border = tc[T::BtnLine];
@@ -642,16 +762,16 @@ void FmStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, const QWi
             bg = mix(bg, tc[T::Fg], pressAmount);
         else if (hover)
             bg = mix(bg, tc[T::Fg], hoverAmount);
-        fillRounded(p, r, kRadius, bg);
-        strokeRounded(p, r, kRadius, border);
+        fillRounded(p, r, radiusOf(tc), bg);
+        strokeRounded(p, r, radiusOf(tc), border);
     }
     if (enabled && keyboardFocus(s))
-        strokeRounded(p, QRectF(option->rect).adjusted(1, 1, -1, -1), kRadius - 1, tc[T::Focus], 2.0);
+        strokeRounded(p, QRectF(option->rect).adjusted(1, 1, -1, -1), radiusOf(tc) - 1, tc[T::Focus], 2.0);
 }
 
 void FmStyle::drawSegment(const QStyleOption *option, QPainter *p, const QWidget *w) const
 {
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const QString pos = segmentOf(w);
     const bool first = pos == u"first" || pos == u"only";
     const bool last = pos == u"last" || pos == u"only";
@@ -668,17 +788,27 @@ void FmStyle::drawSegment(const QStyleOption *option, QPainter *p, const QWidget
     // 첫 조각이 아니면 왼쪽 테두리를 위젯 바깥(-0.5)으로 밀어 앞 조각의 오른쪽 테두리와 겹친다.
     QRectF r(option->rect);
     r.adjust(first ? 0.5 : -0.5, 0.5, -0.5, -0.5);
-    const QPainterPath path = sidesPath(r, first ? kRadius : 0.0, last ? kRadius : 0.0);
+    const QPainterPath path = sidesPath(r, first ? radiusOf(tc) : 0.0, last ? radiusOf(tc) : 0.0);
 
     p->save();
     p->setRenderHint(QPainter::Antialiasing, true);
-    p->fillPath(path, bg);
+    if (tc.isPaperFluent() && !on) {
+        // 시안3: 켜지지 않은 조각은 단추와 같은 세로 워시
+        const PaperFluentChrome x = paperFluentChrome(tc);
+        const qreal amount = !enabled ? 0.0 : (s & State_Sunken) ? 0.09 : (s & State_MouseOver) ? 0.04 : 0.0;
+        QLinearGradient wash(r.topLeft(), r.bottomLeft());
+        wash.setColorAt(0, mix(x.buttonHi, tc[T::Fg], amount));
+        wash.setColorAt(1, mix(x.buttonLo, tc[T::Fg], amount));
+        p->fillPath(path, wash);
+    } else {
+        p->fillPath(path, bg);
+    }
     p->setPen(QPen(enabled ? tc[T::BtnLine] : mix(tc[T::BtnLine], tc[T::Win], 0.4), 1.0));
     p->drawPath(path);
     if (enabled && keyboardFocus(s)) {
         const QRectF fr = QRectF(option->rect).adjusted(first ? 2 : 1, 2, -2, -2);
         p->setPen(QPen(tc[T::Focus], 2.0));
-        p->drawPath(sidesPath(fr, first ? kRadius - 1 : 0.0, last ? kRadius - 1 : 0.0));
+        p->drawPath(sidesPath(fr, first ? radiusOf(tc) - 1 : 0.0, last ? radiusOf(tc) - 1 : 0.0));
     }
     p->restore();
 }
@@ -693,7 +823,7 @@ void FmStyle::drawToolPanel(const QStyleOption *option, QPainter *p, const QWidg
         drawButtonPanel(option, p, w);
         return;
     }
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const QStyle::State s = option->state;
     if (!(s & State_Enabled))
         return;
@@ -705,9 +835,9 @@ void FmStyle::drawToolPanel(const QStyleOption *option, QPainter *p, const QWidg
     else if (s & State_MouseOver)
         bg = overlay(tc[T::Fg], 0.07);
     if (bg.isValid())
-        fillRounded(p, crisp(option->rect), kRadius, bg);
+        fillRounded(p, crisp(option->rect), radiusOf(tc), bg);
     if (keyboardFocus(s))
-        strokeRounded(p, QRectF(option->rect).adjusted(1, 1, -1, -1), kRadius - 1, tc[T::Focus], 2.0);
+        strokeRounded(p, QRectF(option->rect).adjusted(1, 1, -1, -1), radiusOf(tc) - 1, tc[T::Focus], 2.0);
 }
 
 // 도구 단추: 바탕은 한 덩어리(둥근 모서리). 분할이면 바탕이 보일 때 두 칸 사이 1 px 선과 눌린 칸만 더 짙게,
@@ -719,7 +849,7 @@ void FmStyle::drawToolButton(const QStyleOptionComplex *option, QPainter *p, con
         QProxyStyle::drawComplexControl(CC_ToolButton, option, p, w);
         return;
     }
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const ToolButtonParts parts = toolButtonParts(proxy(), tb, w, kToolDropDown);
     const bool enabled = tb->state & State_Enabled;
 
@@ -730,7 +860,7 @@ void FmStyle::drawToolButton(const QStyleOptionComplex *option, QPainter *p, con
         const bool lit = !(tb->state & State_AutoRaise) || (tb->state & (State_MouseOver | State_Sunken | State_On));
         p->save();
         QPainterPath clip;
-        clip.addRoundedRect(crisp(tb->rect), kRadius, kRadius);
+        clip.addRoundedRect(crisp(tb->rect), radiusOf(tc), radiusOf(tc));
         p->setClipPath(clip);
         for (const auto &[rect, state] : {std::pair{parts.button, parts.buttonState}, std::pair{parts.menu, parts.menuState}}) {
             if (state & State_Sunken)
@@ -757,9 +887,16 @@ void FmStyle::drawToolButton(const QStyleOptionComplex *option, QPainter *p, con
 
 void FmStyle::drawFocus(const QStyleOption *option, QPainter *p, const QWidget *w) const
 {
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     if (isComboPopupView(w))
         return;  // 콤보 펼친 목록에는 커서 테두리가 없다(선택 겹침이 가리키는 항목)
+    // 시안3 커서: 안쪽 2 px 외곽선(모서리 4). 강조 채움 선택 위에서는 강조 위 글자색.
+    if (tc.isPaperFluent() && qobject_cast<const QAbstractItemView *>(w) && paneActive(option, w)) {
+        const bool onFill = (option->state & State_Selected) && !softSelection(w, tc);
+        strokeRounded(p, QRectF(option->rect).adjusted(1, 1, -1, -1), kPaperSmallRadius,
+                      onFill ? tc[T::OnAccent] : tc[T::Focus], 2.0);
+        return;
+    }
     // 목록의 커서 (TC의 커서 막대 테두리)
     if (qobject_cast<const QAbstractItemView *>(w)) {
         p->save();
@@ -782,7 +919,7 @@ void FmStyle::drawFocus(const QStyleOption *option, QPainter *p, const QWidget *
     if (qobject_cast<const QAbstractButton *>(w) && !qobject_cast<const QCheckBox *>(w)
         && !qobject_cast<const QRadioButton *>(w))
         return;
-    const qreal radius = isSwitch(w) ? (kSwitchHeight + 2) / 2.0 : kRadius;
+    const qreal radius = isSwitch(w) ? (kSwitchHeight + 2) / 2.0 : radiusOf(tc);
     strokeRounded(p, QRectF(option->rect).adjusted(0.75, 0.75, -0.75, -0.75), radius, tc[T::Focus],
                   1.5);
 }
@@ -795,7 +932,7 @@ void FmStyle::drawTabShape(const QStyleOption *option, QPainter *p, const QWidge
     const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
     if (!tab)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const bool selected = tab->state & State_Selected;
     const bool hover = tab->state & State_MouseOver;
     // 위쪽 탭 모양으로 그리고 아래 · 왼쪽 · 오른쪽 탭은 좌표를 뒤집거나 돌린다(바깥 쪽이 둥글다).
@@ -805,15 +942,27 @@ void FmStyle::drawTabShape(const QStyleOption *option, QPainter *p, const QWidge
     p->save();
     p->setTransform(tabTransform(side, tab->rect), true);
     p->setRenderHint(QPainter::Antialiasing, true);
+    if (tc.isPaperFluent()) {
+        // 시안3 밑줄 탭: 선택 = 목록 바탕(위 모서리 4) + 아래 2 px 밑줄(비활성 패널은 테두리 색), 마우스 올림 = 옅은 겹침
+        if (selected) {
+            p->fillPath(topRoundedPath(r, kPaperSmallRadius), tc[T::Surface]);
+            const bool lit = paneActiveProperty(w) || !hasPaneProperty(w);
+            p->fillRect(QRectF(r.left(), r.bottom() - 2.0, r.width(), 2.0), lit ? tc[T::Accent] : tc[T::BtnLine]);
+        } else if (hover && (tab->state & State_Enabled)) {
+            p->fillPath(topRoundedPath(r.adjusted(0, 2, 0, 0), kPaperSmallRadius), overlay(tc[T::Fg], 0.05));
+        }
+        p->restore();
+        return;
+    }
     if (selected) {
         // 선택 탭은 목록 바탕색으로 아래 내용과 이어진다 (아래 구분선을 덮음).
-        p->fillPath(topRoundedPath(r, kCardRadius), tc[T::Surface]);
+        p->fillPath(topRoundedPath(r, cardRadiusOf(tc)), tc[T::Surface]);
         QPainterPath edge;
         edge.moveTo(r.left(), r.bottom() + 0.5);
-        edge.lineTo(r.left(), r.top() + kCardRadius);
-        edge.arcTo(QRectF(r.left(), r.top(), 2 * kCardRadius, 2 * kCardRadius), 180, -90);
-        edge.lineTo(r.right() - kCardRadius, r.top());
-        edge.arcTo(QRectF(r.right() - 2 * kCardRadius, r.top(), 2 * kCardRadius, 2 * kCardRadius), 90,
+        edge.lineTo(r.left(), r.top() + cardRadiusOf(tc));
+        edge.arcTo(QRectF(r.left(), r.top(), 2 * cardRadiusOf(tc), 2 * cardRadiusOf(tc)), 180, -90);
+        edge.lineTo(r.right() - cardRadiusOf(tc), r.top());
+        edge.arcTo(QRectF(r.right() - 2 * cardRadiusOf(tc), r.top(), 2 * cardRadiusOf(tc), 2 * cardRadiusOf(tc)), 90,
                    -90);
         edge.lineTo(r.right(), r.bottom() + 0.5);
         p->setPen(QPen(tc[T::Line], 1.0));
@@ -821,11 +970,11 @@ void FmStyle::drawTabShape(const QStyleOption *option, QPainter *p, const QWidge
         p->drawPath(edge);
         // 활성 패널: 선택 탭 안쪽 위에 강조색 2 px (목업 .pane.on .tab.is-on)
         if (paneActiveProperty(w)) {
-            p->setClipPath(topRoundedPath(r.adjusted(0.5, 0.5, -0.5, 0), kCardRadius - 0.5));
+            p->setClipPath(topRoundedPath(r.adjusted(0.5, 0.5, -0.5, 0), cardRadiusOf(tc) - 0.5));
             p->fillRect(QRectF(r.left(), r.top(), r.width(), 2.5), tc[T::Accent]);
         }
     } else if (hover && (tab->state & State_Enabled)) {
-        p->fillPath(topRoundedPath(r.adjusted(0, 2, 0, -1), kCardRadius), overlay(tc[T::Fg], 0.05));
+        p->fillPath(topRoundedPath(r.adjusted(0, 2, 0, -1), cardRadiusOf(tc)), overlay(tc[T::Fg], 0.05));
     }
     p->restore();
 }
@@ -835,14 +984,25 @@ void FmStyle::drawHeaderSection(const QStyleOption *option, QPainter *p, const Q
     const auto *h = qstyleoption_cast<const QStyleOptionHeader *>(option);
     if (!h)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     QColor bg = tc[T::Head];
     if (h->state & State_Sunken)
         bg = mix(bg, tc[T::Fg], 0.08);
     else if ((h->state & State_MouseOver) && (h->state & State_Enabled))
         bg = mix(bg, tc[T::Fg], 0.04);
     const QRect r = h->rect;
-    p->fillRect(r, bg);
+    if (tc.isPaperFluent() && h->orientation == Qt::Horizontal) {
+        // 시안3 머리글 워시 --head → --alt (마우스 올림 · 누름은 두 색을 같이 짙게)
+        const qreal amount = (h->state & State_Sunken) ? 0.08
+                           : ((h->state & State_MouseOver) && (h->state & State_Enabled)) ? 0.04
+                                                                                          : 0.0;
+        QLinearGradient wash(QRectF(r).topLeft(), QRectF(r).bottomLeft());
+        wash.setColorAt(0, mix(tc[T::Head], tc[T::Fg], amount));
+        wash.setColorAt(1, mix(tc[T::Alt], tc[T::Fg], amount));
+        p->fillRect(r, wash);
+    } else {
+        p->fillRect(r, bg);
+    }
     if (h->orientation == Qt::Horizontal) {
         p->fillRect(QRect(r.left(), r.bottom(), r.width(), 1), tc[T::Line]);
         if (h->position != QStyleOptionHeader::End && h->position != QStyleOptionHeader::OnlyOneSection)
@@ -861,15 +1021,15 @@ void FmStyle::drawMenuBarItem(const QStyleOption *option, QPainter *p, const QWi
     const auto *mi = qstyleoption_cast<const QStyleOptionMenuItem *>(option);
     if (!mi)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const bool enabled = mi->state & State_Enabled;
     const bool active = (mi->state & State_Selected) && enabled;
     const bool down = (mi->state & State_Sunken) && enabled;
     const QRect r = mi->rect;
     if (active || down) {
-        QRectF bg = QRectF(r).adjusted(0, (r.height() - kMenuBarItemHeight) / 2.0, 0,
-                                       -(r.height() - kMenuBarItemHeight) / 2.0);
-        fillRounded(p, bg, kRadius, overlay(tc[T::Fg], down ? 0.10 : 0.06));
+        const int itemHeight = tc.isPaperFluent() ? kPaperMenuBarItemHeight : kMenuBarItemHeight;
+        QRectF bg = QRectF(r).adjusted(0, (r.height() - itemHeight) / 2.0, 0, -(r.height() - itemHeight) / 2.0);
+        fillRounded(p, bg, radiusOf(tc), overlay(tc[T::Fg], down ? 0.10 : 0.06));
     }
     // 아이콘 + 글(fm::ui::MenuBar) — Qt 기본은 아이콘만
     drawMenuBarItemContents(p, mi, proxy(), w, enabled ? tc[T::Fg] : tc[T::Fg3]);
@@ -880,7 +1040,7 @@ void FmStyle::drawMenuItem(const QStyleOption *option, QPainter *p, const QWidge
     const auto *mi = qstyleoption_cast<const QStyleOptionMenuItem *>(option);
     if (!mi)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const QRect r = mi->rect;
 
     if (mi->menuItemType == QStyleOptionMenuItem::Separator) {
@@ -893,7 +1053,7 @@ void FmStyle::drawMenuItem(const QStyleOption *option, QPainter *p, const QWidge
     const bool enabled = mi->state & State_Enabled;
     const bool selected = (mi->state & State_Selected) && enabled;
     if (selected)
-        fillRounded(p, QRectF(r).adjusted(0, 1, 0, -1), kRadius, overlay(tc[T::Fg], 0.07));
+        fillRounded(p, QRectF(r).adjusted(0, 1, 0, -1), radiusOf(tc), overlay(tc[T::Fg], 0.07));
 
     // 체크 · 아이콘 열
     const QRect column(r.left() + 6, r.top(), 20, r.height());
@@ -956,7 +1116,7 @@ void FmStyle::drawProgress(ControlElement element, const QStyleOption *option, Q
     const auto *pb = qstyleoption_cast<const QStyleOptionProgressBar *>(option);
     if (!pb)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const bool horizontal = pb->state & State_Horizontal;
     const QRectF g(pb->rect);
     const qreal radius = (horizontal ? g.height() : g.width()) / 2.0;
@@ -970,7 +1130,13 @@ void FmStyle::drawProgress(ControlElement element, const QStyleOption *option, Q
             if (detail::contrast(groove, bg) < wanted)
                 groove = detail::pushUntil(groove, tc[T::Fg3], bg, wanted);
         }
-        fillRounded(p, g, radius, groove);
+        if (tc.isPaperFluent()) {
+            // 시안3 홈: 단추 아래 색 + 1 px 구분선
+            fillRounded(p, crisp(pb->rect), radius, paperFluentChrome(tc).buttonLo);
+            strokeRounded(p, crisp(pb->rect), radius, tc[T::Line]);
+        } else {
+            fillRounded(p, g, radius, groove);
+        }
         return;
     }
     if (element == CE_ProgressBarLabel) {
@@ -998,7 +1164,7 @@ void FmStyle::drawProgress(ControlElement element, const QStyleOption *option, Q
             QPainterPath clip;
             clip.addRoundedRect(g, radius, radius);
             p->setClipPath(clip);
-            fillRounded(p, seg, radius, color);
+            fillRounded(p, seg, radius, progressBrush(seg, color, tc));
             p->restore();
         }
         return;
@@ -1023,7 +1189,7 @@ void FmStyle::drawProgress(ControlElement element, const QStyleOption *option, Q
         else
             chunk.setTop(g.bottom() - length);
     }
-    fillRounded(p, chunk, radius, color);
+    fillRounded(p, chunk, radius, progressBrush(chunk, color, tc));
 }
 
 void FmStyle::drawShapedFrame(const QStyleOption *option, QPainter *p, const QWidget *w) const
@@ -1031,7 +1197,7 @@ void FmStyle::drawShapedFrame(const QStyleOption *option, QPainter *p, const QWi
     const auto *f = qstyleoption_cast<const QStyleOptionFrame *>(option);
     if (!f)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     if (isFooter(w)) {
         // 대화상자 버튼 영역 — --foot 바탕 + 위 1 px --line
         p->fillRect(f->rect, tc[T::Foot]);
@@ -1040,8 +1206,8 @@ void FmStyle::drawShapedFrame(const QStyleOption *option, QPainter *p, const QWi
     }
     if (boolProp(w, props::kCard)) {
         const QRectF r = crisp(f->rect);
-        fillRounded(p, r, kCardRadius, tc[T::Surface]);
-        strokeRounded(p, r, kCardRadius, tc[T::Line]);
+        fillRounded(p, r, cardRadiusOf(tc), tc[T::Surface]);
+        strokeRounded(p, r, cardRadiusOf(tc), tc[T::Line]);
         return;
     }
     switch (f->frameShape) {
@@ -1074,7 +1240,7 @@ void FmStyle::drawToolBoxTab(ControlElement element, const QStyleOption *option,
     const auto *tb = qstyleoption_cast<const QStyleOptionToolBox *>(option);
     if (!tb)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const QStyle::State s = tb->state;
     const bool enabled = s & State_Enabled;
     const bool selected = s & State_Selected;
@@ -1089,7 +1255,7 @@ void FmStyle::drawToolBoxTab(ControlElement element, const QStyleOption *option,
         p->fillRect(r, bg);
         p->fillRect(QRect(r.left(), r.bottom(), r.width(), 1), tc[T::Line]);
         if (enabled && keyboardFocus(s))
-            strokeRounded(p, QRectF(r).adjusted(1, 1, -1, -1), kRadius - 1, tc[T::Focus], 2.0);
+            strokeRounded(p, QRectF(r).adjusted(1, 1, -1, -1), radiusOf(tc) - 1, tc[T::Focus], 2.0);
         return;
     }
 
@@ -1125,7 +1291,7 @@ void FmStyle::drawSlider(const QStyleOptionComplex *option, QPainter *p, const Q
     const auto *sl = qstyleoption_cast<const QStyleOptionSlider *>(option);
     if (!sl)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const bool enabled = sl->state & State_Enabled;
     const bool horizontal = sl->orientation == Qt::Horizontal;
     const QRect handle = proxy()->subControlRect(CC_Slider, sl, SC_SliderHandle, w);
@@ -1197,7 +1363,7 @@ void FmStyle::drawDial(const QStyleOptionComplex *option, QPainter *p, const QWi
     const auto *d = qstyleoption_cast<const QStyleOptionSlider *>(option);
     if (!d)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const bool enabled = d->state & State_Enabled;
     const bool hover = enabled && (d->state & State_MouseOver);
     const bool focus = enabled && keyboardFocus(d->state);
@@ -1254,9 +1420,19 @@ void FmStyle::drawTitleBar(const QStyleOptionComplex *option, QPainter *p, const
     const auto *tb = qstyleoption_cast<const QStyleOptionTitleBar *>(option);
     if (!tb)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const bool active = tb->state & State_Active;
-    p->fillRect(tb->rect, tc[T::Win]);
+    // 시안3: 활성 창은 파란 제목 워시 + 밝은 글자, 비활성은 시안1처럼 창 바탕
+    const bool wash = tc.isPaperFluent() && active;
+    const PaperFluentChrome x = paperFluentChrome(tc);
+    if (wash) {
+        QLinearGradient g(QRectF(tb->rect).topLeft(), QRectF(tb->rect).bottomLeft());
+        g.setColorAt(0, x.titleTop);
+        g.setColorAt(1, x.titleBottom);
+        p->fillRect(tb->rect, g);
+    } else {
+        p->fillRect(tb->rect, tc[T::Win]);
+    }
 
     if ((tb->subControls & SC_TitleBarSysMenu) && !tb->icon.isNull()) {
         const QRect ir = proxy()->subControlRect(CC_TitleBar, tb, SC_TitleBarSysMenu, w);
@@ -1267,9 +1443,9 @@ void FmStyle::drawTitleBar(const QStyleOptionComplex *option, QPainter *p, const
         p->save();
         QFont f = p->font();
         f.setPixelSize(12);
-        f.setWeight(QFont::Normal);
+        f.setWeight(wash ? QFont::DemiBold : QFont::Normal);
         p->setFont(f);
-        p->setPen(active ? tc[T::Fg] : tc[T::Fg3]);
+        p->setPen(wash ? x.titleFg : active ? tc[T::Fg] : tc[T::Fg3]);
         p->drawText(label, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine,
                     QFontMetrics(f).elidedText(tb->text, Qt::ElideRight, label.width()));
         p->restore();
@@ -1289,13 +1465,13 @@ void FmStyle::drawTitleBar(const QStyleOptionComplex *option, QPainter *p, const
         const bool on = tb->activeSubControls & b.sc;
         const bool pressed = on && (tb->state & State_Sunken);
         const bool hover = on && (tb->state & State_MouseOver);
-        QColor glyph = active ? tc[T::Fg] : tc[T::Fg3];
+        QColor glyph = wash ? x.titleFg : active ? tc[T::Fg] : tc[T::Fg3];
         if (b.sc == SC_TitleBarCloseButton && (hover || pressed)) {
             p->fillRect(r, pressed ? mix(tc[T::DangerFill], tc[T::Fg], 0.15) : tc[T::DangerFill]);
             glyph = tc[T::OnDanger];
         } else if (hover || pressed) {
-            p->fillRect(r, overlay(tc[T::Fg], pressed ? 0.12 : 0.07));
-            glyph = tc[T::Fg];
+            p->fillRect(r, wash ? overlay(x.titleFg, pressed ? 0.24 : 0.14) : overlay(tc[T::Fg], pressed ? 0.12 : 0.07));
+            glyph = wash ? x.titleFg : tc[T::Fg];
         }
         QRectF box(0, 0, 16, 16);
         box.moveCenter(QRectF(r).center());
@@ -1306,7 +1482,7 @@ void FmStyle::drawTitleBar(const QStyleOptionComplex *option, QPainter *p, const
 // 최대화한 MDI 창이 메뉴 막대에 두는 단추 묶음: 제목 표시줄 단추와 같은 모양을 둥근 겹침으로.
 void FmStyle::drawMdiControls(const QStyleOptionComplex *option, QPainter *p, const QWidget *w) const
 {
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const bool enabled = option->state & State_Enabled;
     struct Btn { SubControl sc; ChromeGlyph glyph; };
     const Btn buttons[] = {{SC_MdiMinButton, ChromeGlyph::Minimize},
@@ -1323,10 +1499,10 @@ void FmStyle::drawMdiControls(const QStyleOptionComplex *option, QPainter *p, co
         const bool hover = on && (option->state & State_MouseOver);
         QColor glyph = enabled ? tc[T::Fg2] : tc[T::Fg3];
         if (b.sc == SC_MdiCloseButton && (hover || pressed)) {
-            fillRounded(p, QRectF(r), kRadius, pressed ? mix(tc[T::DangerFill], tc[T::Fg], 0.15) : tc[T::DangerFill]);
+            fillRounded(p, QRectF(r), radiusOf(tc), pressed ? mix(tc[T::DangerFill], tc[T::Fg], 0.15) : tc[T::DangerFill]);
             glyph = tc[T::OnDanger];
         } else if (hover || pressed) {
-            fillRounded(p, QRectF(r), kRadius, overlay(tc[T::Fg], pressed ? 0.12 : 0.07));
+            fillRounded(p, QRectF(r), radiusOf(tc), overlay(tc[T::Fg], pressed ? 0.12 : 0.07));
             glyph = tc[T::Fg];
         }
         QRectF box(0, 0, 16, 16);
@@ -1342,7 +1518,7 @@ void FmStyle::drawDockTitle(const QStyleOption *option, QPainter *p, const QWidg
     const auto *dw = qstyleoption_cast<const QStyleOptionDockWidget *>(option);
     if (!dw)
         return;
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const bool active = dockActive(w);
     QRect r = dw->rect;
     QRect text = proxy()->subElementRect(SE_DockWidgetTitleBarText, dw, w);
@@ -1353,7 +1529,7 @@ void FmStyle::drawDockTitle(const QStyleOption *option, QPainter *p, const QWidg
         p->rotate(-90);
         r = QRect(0, 0, r.height(), r.width());
     }
-    p->fillRect(r, tc[T::Win]);
+    p->fillRect(r, tc.isPaperFluent() ? tc[T::Alt] : tc[T::Win]);  // 시안3 도크 제목은 --alt
     p->fillRect(QRect(r.left(), r.bottom(), r.width(), 1), tc[T::Line]);
     if (active)
         p->fillRect(QRect(r.left(), r.top(), r.width(), 2), tc[T::Accent]);
@@ -1372,14 +1548,14 @@ void FmStyle::drawDockTitle(const QStyleOption *option, QPainter *p, const QWidg
 // 도크 제목 줄 단추: 22 × 22 둥근 겹침(마우스 올림 7 % · 누름 12 %), 기호 16(Fg2 → 올림 Fg).
 void FmStyle::drawDockButton(const QStyleOption *option, QPainter *p, const QWidget *w) const
 {
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
     const QStyle::State s = option->state;
     const bool enabled = s & State_Enabled;
     const bool pressed = enabled && (s & (State_Sunken | State_On));
     const bool hover = enabled && (s & (State_Raised | State_MouseOver));
     const QRectF r(option->rect);
     if (pressed || hover)
-        fillRounded(p, r, kRadius, overlay(tc[T::Fg], pressed ? 0.12 : 0.07));
+        fillRounded(p, r, radiusOf(tc), overlay(tc[T::Fg], pressed ? 0.12 : 0.07));
     QRectF box(0, 0, 16, 16);
     box.moveCenter(r.center());
     paintChromeGlyph(p, dockButtonGlyph(dockButtonKind(w)), box,
@@ -1393,7 +1569,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
                             const QWidget *w) const
 {
     applyPreviewState(option, w);
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
 
     switch (element) {
     case PE_PanelButtonCommand:
@@ -1507,11 +1683,11 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
             if (isComboPopupView(w)) {
                 // 콤보 펼친 목록: 메뉴 항목처럼 안쪽 둥근 겹침(선택 = 마우스가 가리키는 항목)
                 if (v->state & State_Selected)
-                    fillRounded(p, crisp(v->rect.adjusted(3, 1, -3, -1)), kRadius, overlay(tc[T::Fg], 0.07));
+                    fillRounded(p, crisp(v->rect.adjusted(3, 1, -3, -1)), radiusOf(tc), overlay(tc[T::Fg], 0.07));
                 return;
             }
             if (v->state & State_Selected) {
-                p->fillRect(v->rect, paneActive(v, w) ? tc[T::Sel] : tc[T::SelIn]);
+                p->fillRect(v->rect, itemSelectionColor(v, w, tc));
                 return;
             }
             if (v->backgroundBrush.style() != Qt::NoBrush)
@@ -1525,7 +1701,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         if (const auto *v = qstyleoption_cast<const QStyleOptionViewItem *>(option)) {
             if ((v->state & State_Selected)
                 && proxy()->styleHint(SH_ItemView_ShowDecorationSelected, option, w))
-                p->fillRect(v->rect, paneActive(v, w) ? tc[T::Sel] : tc[T::SelIn]);
+                p->fillRect(v->rect, itemSelectionColor(v, w, tc));
             else if (itemHover(v, w))
                 p->fillRect(v->rect, mix(v->palette.color(QPalette::Base), tc[T::Fg], 0.045));
             else if (v->features & QStyleOptionViewItem::Alternate)
@@ -1547,8 +1723,8 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
             p->drawEllipse(horizontal ? QPointF(r.left() + 3, r.top()) : QPointF(r.left(), r.top() + 3), 2.75, 2.75);
             p->restore();
         } else {
-            fillRounded(p, crisp(r), kRadius, withAlpha(tc[T::Accent], 0.10));
-            strokeRounded(p, crisp(r, 1.5), kRadius, tc[T::Accent], 1.5);
+            fillRounded(p, crisp(r), radiusOf(tc), withAlpha(tc[T::Accent], 0.10));
+            strokeRounded(p, crisp(r, 1.5), radiusOf(tc), tc[T::Accent], 1.5);
         }
         return;
     }
@@ -1566,7 +1742,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
             return;  // 그림자 있는 메뉴(fm::ui::Menu)는 바탕을 직접 그린다
         const bool rounded = w && w->testAttribute(Qt::WA_TranslucentBackground);
         if (rounded)
-            fillRounded(p, crisp(option->rect), kCardRadius, tc[T::Surface]);
+            fillRounded(p, crisp(option->rect), cardRadiusOf(tc), tc[T::Surface]);
         else
             p->fillRect(option->rect, tc[T::Surface]);
         return;
@@ -1576,7 +1752,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
             return;
         const bool rounded = w && w->testAttribute(Qt::WA_TranslucentBackground);
         if (rounded) {
-            strokeRounded(p, crisp(option->rect), kCardRadius, tc[T::Line]);
+            strokeRounded(p, crisp(option->rect), cardRadiusOf(tc), tc[T::Line]);
         } else {
             p->save();
             p->setPen(tc[T::Line]);
@@ -1588,6 +1764,16 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
     case PE_PanelMenuBar:
         return;
     case PE_PanelTipLabel:
+        if (tc.isPaperFluent()) {
+            // 시안3: 크림 도구 설명(--tip-bg · --tip-line)
+            const PaperFluentChrome x = paperFluentChrome(tc);
+            p->fillRect(option->rect, x.tipBg);
+            p->save();
+            p->setPen(x.tipLine);
+            p->drawRect(option->rect.adjusted(0, 0, -1, -1));
+            p->restore();
+            return;
+        }
         p->fillRect(option->rect, tc[T::Surface]);
         p->save();
         p->setPen(tc[T::Line]);
@@ -1617,7 +1803,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         QRectF box(0, 0, kTabClose, kTabClose);
         box.moveCenter(QRectF(option->rect).center());
         if (pressed || hover)
-            fillRounded(p, box, kRadius, overlay(tc[T::Fg], pressed ? 0.14 : 0.08));
+            fillRounded(p, box, radiusOf(tc), overlay(tc[T::Fg], pressed ? 0.14 : 0.08));
         const QColor color = !enabled                                        ? tc[T::Fg3]
                            : (pressed || hover || (s & State_Selected))      ? tc[T::Fg]
                                                                              : tc[T::Fg3];
@@ -1651,8 +1837,8 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
     }
     case PE_FrameGroupBox: {
         const QRectF r = crisp(option->rect);
-        fillRounded(p, r, kCardRadius, tc[T::Surface]);
-        strokeRounded(p, r, kCardRadius, tc[T::Line]);
+        fillRounded(p, r, cardRadiusOf(tc), tc[T::Surface]);
+        strokeRounded(p, r, cardRadiusOf(tc), tc[T::Line]);
         return;
     }
     case PE_IndicatorToolBarSeparator: {
@@ -1686,7 +1872,7 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
                           const QWidget *w) const
 {
     applyPreviewState(option, w);
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
 
     switch (element) {
     case CE_PushButtonBevel:
@@ -1870,16 +2056,27 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
         }
         return;
     case CE_HeaderEmptyArea:
-        p->fillRect(option->rect, tc[T::Head]);
+        if (tc.isPaperFluent()) {
+            QLinearGradient wash(QRectF(option->rect).topLeft(), QRectF(option->rect).bottomLeft());
+            wash.setColorAt(0, tc[T::Head]);
+            wash.setColorAt(1, tc[T::Alt]);
+            p->fillRect(option->rect, wash);
+        } else {
+            p->fillRect(option->rect, tc[T::Head]);
+        }
         p->fillRect(QRect(option->rect.left(), option->rect.bottom(), option->rect.width(), 1), tc[T::Line]);
         return;
 
     case CE_ItemViewItem:
         if (const auto *v = qstyleoption_cast<const QStyleOptionViewItem *>(option)) {
             // 목업: 선택 행은 바탕만 바뀌고 글자색은 그대로 (역상 선택은 3단계에서 따로)
+            // 시안3: 활성 패널의 강조 채움 선택은 흰 글자(강조 위 글자), 트리의 연한 선택 · 비활성은 그대로
             QStyleOptionViewItem copy = *v;
+            // (콤보 펼친 목록의 선택은 옅은 겹침이라 제외)
+            const bool onFill = tc.isPaperFluent() && !softSelection(w, tc) && !isComboPopupView(w) && paneActive(v, w);
             for (const auto group : {QPalette::Active, QPalette::Inactive})
-                copy.palette.setColor(group, QPalette::HighlightedText, copy.palette.color(group, QPalette::Text));
+                copy.palette.setColor(group, QPalette::HighlightedText,
+                                      onFill ? tc[T::OnAccent] : copy.palette.color(group, QPalette::Text));
             QProxyStyle::drawControl(element, &copy, p, w);
         }
         return;
@@ -1949,13 +2146,27 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
                                  QPainter *p, const QWidget *w) const
 {
     applyPreviewState(option, w);
-    const ThemeColors &tc = colorsFor(w);
+    const ThemeColors &tc = colors(w);
 
     switch (control) {
     case CC_ComboBox:
         if (const auto *cb = qstyleoption_cast<const QStyleOptionComboBox *>(option)) {
             QStyle::State s = cb->state;
-            if (cb->frame) {
+            if (cb->frame && tc.isPaperFluent() && !cb->editable) {
+                // 시안3: 고르기만 하는 콤보는 단추와 같은 세로 워시, 펼침 · 포커스는 아래 2 px 강조선
+                drawPaperButton(p, crisp(cb->rect), s & ~State_On, ButtonRole::Normal, tc);
+                const bool invalid = isInvalid(w);
+                if ((s & State_Enabled) && (invalid || (s & (State_On | State_HasFocus)))) {
+                    p->save();
+                    p->setRenderHint(QPainter::Antialiasing, true);
+                    QPainterPath clip;
+                    clip.addRoundedRect(QRectF(cb->rect).adjusted(0, 0, 0, -1), kPaperRadius, kPaperRadius);
+                    p->setClipPath(clip);
+                    p->fillRect(QRectF(cb->rect.left(), cb->rect.bottom() - 2.0, cb->rect.width(), 2.0),
+                                invalid ? tc[T::Danger] : tc[T::Accent]);
+                    p->restore();
+                }
+            } else if (cb->frame) {
                 if (s & State_On)  // 목록이 열려 있으면 포커스처럼 강조
                     s |= State_HasFocus;
                 drawInputFrame(p, cb->rect, s, tc, isInvalid(w));
@@ -2016,7 +2227,7 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
             const bool horizontal = sb->orientation == Qt::Horizontal;
             const bool hover = sb->state & State_MouseOver;
             const bool pressed = (sb->activeSubControls & SC_ScrollBarSlider) && (sb->state & State_Sunken);
-            const qreal thickness = (hover || pressed) ? 8.0 : 6.0;
+            const qreal thickness = (hover || pressed) ? (tc.isPaperFluent() ? 10.0 : 8.0) : 6.0;
             QRectF r(slider);
             if (horizontal) {
                 r.setTop(r.center().y() - thickness / 2);
@@ -2041,8 +2252,8 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
                     p->fillRect(QRect(fr.left(), fr.top(), fr.width(), 1), tc[T::Line]);
                 } else {
                     const QRectF r = crisp(fr);
-                    fillRounded(p, r, kCardRadius, tc[T::Surface]);
-                    strokeRounded(p, r, kCardRadius, tc[T::Line]);
+                    fillRounded(p, r, cardRadiusOf(tc), tc[T::Surface]);
+                    strokeRounded(p, r, cardRadiusOf(tc), tc[T::Line]);
                 }
             }
             if ((gb->subControls & SC_GroupBoxLabel) && !gb->text.isEmpty()) {
@@ -2144,7 +2355,7 @@ QRect FmStyle::subElementRect(SubElement element, const QStyleOption *option, co
             if (element == SE_ProgressBarLabel)
                 return QRect(r.right() - labelWidth + 1, r.top(), labelWidth, r.height());
             const QRect bar = r.adjusted(0, 0, -labelWidth, 0);
-            const int thickness = progressThickness(w);
+            const int thickness = progressThickness(w, paper());
             if (horizontal)
                 return QRect(bar.left(), bar.top() + (bar.height() - thickness) / 2, bar.width(), thickness);
             return QRect(bar.left() + (bar.width() - thickness) / 2, bar.top(), thickness, bar.height());
@@ -2370,8 +2581,10 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
                 return QSize(cs.width() + chip + 4, kLinkHeight);
             const bool segment = !segmentOf(w).isEmpty();
             const bool compact = isSmall(w);
-            const int smallHeight = density(w) == Density::Dialog ? kButtonHeightSmallDialog : kButtonHeightSmall;
-            const int height = segment ? segmentHeight(w) : compact ? smallHeight : kButtonHeight;
+            const bool dialog = density(w) == Density::Dialog;
+            const int smallHeight = paper() ? (dialog ? kPaperButtonHeightSmallDialog : kPaperButtonHeightSmall)
+                                            : (dialog ? kButtonHeightSmallDialog : kButtonHeightSmall);
+            const int height = segment ? segmentHeight(w) : compact ? smallHeight : paper() ? kPaperButtonHeight : kButtonHeight;
             const int padX = segment ? segmentPadX(w) : compact ? kButtonPadXSmall : kButtonPadX;
             if (b->text.isEmpty() && !b->icon.isNull())
                 return QSize(std::max(height, cs.width() + 16), height);
@@ -2388,22 +2601,23 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
         if (segment)
             return QSize(cs.width() + 2 * segmentPadX(w) + 4, segmentHeight(w));
         const int dropDown = toolButtonHasDropDown(option) ? kToolDropDown - 2 : 0;
-        return QSize(std::max(kButtonHeight, cs.width() + 16) + dropDown, std::max(kButtonHeight, cs.height() + 16));
+        const int side = paper() ? kPaperButtonHeight : kButtonHeight;
+        return QSize(std::max(side, cs.width() + 16) + dropDown, std::max(side, cs.height() + 16));
     }
 
     case CT_LineEdit:
         if (const auto *f = qstyleoption_cast<const QStyleOptionFrame *>(option); f && f->lineWidth > 0)
-            return QSize(cs.width() + 2 * kInputPadX, std::max(inputHeight(w), cs.height() + 2));
+            return QSize(cs.width() + 2 * kInputPadX, std::max(inputHeight(w, paper()), cs.height() + 2));
         return cs;
     case CT_SpinBox:
         if (const auto *sb = qstyleoption_cast<const QStyleOptionSpinBox *>(option)) {
             const bool buttons = sb->buttonSymbols != QAbstractSpinBox::NoButtons;
             return QSize(cs.width() + kInputPadX + (buttons ? kSpinButtonWidth + 2 : kInputPadX),
-                         std::max(inputHeight(w), cs.height() + 4));
+                         std::max(inputHeight(w, paper()), cs.height() + 4));
         }
         break;
     case CT_ComboBox:
-        return QSize(cs.width() + kInputPadX + kComboArrowWidth + 4, std::max(inputHeight(w), cs.height() + 4));
+        return QSize(cs.width() + kInputPadX + kComboArrowWidth + 4, std::max(inputHeight(w, paper()), cs.height() + 4));
 
     case CT_CheckBox:
         if (isSwitch(w)) {
@@ -2424,21 +2638,22 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
     case CT_TabBarTab:
         if (const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option)) {
             // 선택 탭의 굵은 글자 여유 6. 세로 탭은 가로 · 세로가 바뀐다.
+            const int height = paper() ? kPaperTabHeight : kTabHeight;
             if (isVerticalTab(tabSide(tab->shape)))
-                return QSize(kTabHeight, cs.height() + 6);
-            return QSize(cs.width() + 6, kTabHeight);
+                return QSize(height, cs.height() + 6);
+            return QSize(cs.width() + 6, height);
         }
         break;
     case CT_HeaderSection: {
         QSize s = QProxyStyle::sizeFromContents(type, option, cs, w);
         if (const auto *h = qstyleoption_cast<const QStyleOptionHeader *>(option);
             h && h->orientation == Qt::Horizontal)
-            s.setHeight(flatHeader(w) ? kHeaderHeightFlat : kHeaderHeight);
+            s.setHeight(flatHeader(w) ? kHeaderHeightFlat : paper() ? kPaperHeaderHeight : kHeaderHeight);
         return s;
     }
     case CT_ItemViewItem: {
         QSize s = QProxyStyle::sizeFromContents(type, option, cs, w);
-        s.setHeight(std::max(s.height(), kItemMinHeight));
+        s.setHeight(std::max(s.height(), paper() ? kPaperItemMinHeight : kItemMinHeight));
         return s;
     }
 
@@ -2457,13 +2672,13 @@ QSize FmStyle::sizeFromContents(ContentsType type, const QStyleOption *option, c
         break;
     case CT_MenuBarItem:
         return QSize(menuBarItemContents(qstyleoption_cast<const QStyleOptionMenuItem *>(option), cs).width() + 20,
-                     kMenuBarItemHeight);
+                     paper() ? kPaperMenuBarItemHeight : kMenuBarItemHeight);
 
     case CT_ProgressBar:
         if (const auto *pb = qstyleoption_cast<const QStyleOptionProgressBar *>(option)) {
             if (pb->state & State_Horizontal)
-                return QSize(cs.width(), pb->textVisible ? std::max(cs.height(), 16) : progressThickness(w));
-            return QSize(pb->textVisible ? std::max(cs.width(), 16) : progressThickness(w), cs.height());
+                return QSize(cs.width(), pb->textVisible ? std::max(cs.height(), 16) : progressThickness(w, paper()));
+            return QSize(pb->textVisible ? std::max(cs.width(), 16) : progressThickness(w, paper()), cs.height());
         }
         break;
 
@@ -2575,7 +2790,7 @@ QIcon FmStyle::standardIcon(StandardPixmap standardIcon, const QStyleOption *opt
 {
     // 관리자 권한 방패 — 목업의 두 색 방패(--shield / --shield-2). Windows 시스템 방패 대신 쓴다.
     if (standardIcon == SP_VistaShield)
-        return shieldIcon(colorsFor(w), 16);
+        return shieldIcon(colors(w), 16);
     // 화살표 · 창 단추 · 확장 단추 등 단색 아이콘은 테마 색으로 (Fusion 그림은 검은색이라 다크에서 안 보인다).
     if (QIcon icon = themedStandardIcon(standardIcon, w, false); !icon.isNull())
         return icon;
@@ -2619,7 +2834,7 @@ int FmStyle::styleHint(StyleHint hint, const QStyleOption *option, const QWidget
     case SH_DitherDisabledText:
         return 0;
     case SH_Table_GridLineColor:
-        return static_cast<int>(colorsFor(w)[T::Grid].rgba());
+        return static_cast<int>(colors(w)[T::Grid].rgba());
     case SH_ToolTipLabel_Opacity:
         return 255;
     case SH_TabBar_Alignment:

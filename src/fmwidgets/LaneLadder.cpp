@@ -300,7 +300,7 @@ void LaneLadder::paintEvent(QPaintEvent *)
         else if (i % 2 == 1)
             p.fillRect(rr, tc[T::Alt]);
         if (i == m_current)
-            p.fillRect(rr, tc[T::Sel]);
+            p.fillRect(rr, tc.isPaperFluent() ? tc[T::AccentSoft] : tc[T::Sel]);  // 시안3 --sel은 흰 글자용
         else if (i == m_hover)
             p.fillRect(rr, tc[T::AccentSoft]);
 

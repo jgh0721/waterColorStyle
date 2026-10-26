@@ -53,7 +53,7 @@ private:
 
     fm::style::Design m_design = fm::style::Design::Standard;
     std::optional<fm::style::Variant> m_variant;
-    std::array<QStyle *, 2> m_styles{};
+    std::array<QStyle *, fm::style::kDesignCount> m_styles{};
     QList<QPointer<QWidget>> m_roots;
 };
 

@@ -1,6 +1,7 @@
 #include "fmstyle/ThemeColors.h"
 
 #include "fmstyle/ColorScheme.h"
+#include "fmstyle/PaperFluentChrome.h"
 #include "fmstyle/WatercolorChrome.h"
 
 #include "ColorMath_p.h"
@@ -82,6 +83,11 @@ QPalette ThemeColors::toPalette() const
         all(QPalette::ToolTipText, x.tipFg);
         for (const auto role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText})
             p.setColor(QPalette::Disabled, role, x.disFg);
+    } else if (m_design == Design::PaperFluent) {
+        // 크림 도구 설명(워터컬러 계열)
+        const PaperFluentChrome x = paperFluentChrome(*this);
+        all(QPalette::ToolTipBase, x.tipBg);
+        all(QPalette::ToolTipText, x.tipFg);
     }
     return p;
 }
@@ -115,8 +121,8 @@ QList<ContrastResult> checkContrast(const ThemeColors &c, double minimum)
     QList<ContrastResult> out;
     out.reserve(static_cast<qsizetype>(std::size(kPairs)));
     for (const Pair &pair : kPairs) {
-        // 워터컬러의 선택 행은 흰 글자
-        const Token fg = (c.isWatercolor() && pair.bg == T::Sel) ? T::OnAccent : pair.fg;
+        // 시안2 · 시안3의 선택 행은 흰 글자
+        const Token fg = (c.fillsSelection() && pair.bg == T::Sel) ? T::OnAccent : pair.fg;
         const double ratio = contrast(c[fg], c[pair.bg]);
         out.append({QString::fromUtf8(pair.label), fg, pair.bg, ratio, ratio >= minimum});
     }

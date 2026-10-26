@@ -87,6 +87,7 @@ private Q_SLOTS:
         QTest::addColumn<int>("button");
         QTest::newRow("standard") << int(fs::Design::Standard) << 22;
         QTest::newRow("watercolor") << int(fs::Design::Watercolor) << 16;
+        QTest::newRow("paperfluent") << int(fs::Design::PaperFluent) << 22;
     }
 
     void titleMetrics()

@@ -45,7 +45,7 @@ struct TokenSource
 
     QString rule(Variant variant) const { return isDarkVariant(variant) ? ruleDark : ruleLight; }
 };
-/// 워터컬러는 선택(강조 채움 · 흰 글자)과 포커스(글자색 점선) 문구가 다르다.
+/// 워터컬러는 선택(강조 채움 · 흰 글자)과 포커스(글자색 점선) 문구가 다르다. Paper Fluent는 선택 문구만 다르다.
 TokenSource tokenSource(Token token, Design design);
 /// "창 · 대화상자 본문, 탭 줄, 상태 표시줄" (§2.2.9 쓰는 곳)
 QString tokenUsage(Token token);
@@ -80,7 +80,7 @@ struct ColorScheme
     QString id = QStringLiteral("builtin");
     QString name;
     ThemeSeeds seeds;
-    std::array<std::array<TokenOverrides, kVariantCount>, 2> overrides{};  // [디자인][변형]
+    std::array<std::array<TokenOverrides, kVariantCount>, kDesignCount> overrides{};  // [디자인][변형]
 
     const TokenOverrides &overridesFor(Design design, Variant variant) const noexcept
     {

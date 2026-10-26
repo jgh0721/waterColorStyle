@@ -1,10 +1,11 @@
 // 파일 관리자 UI 데모(P4~) — 메인 창. 도구 모음 오른쪽의 스위치로 시안1 ↔ 시안2, 색 구성표 · 다크 색조를 바꾼다.
 //   fmdemo                                         Main 보드 기본 상태
 //   fmdemo --design watercolor --scheme navy        시안2 · 다크(남색)
+//   fmdemo --design paperfluent                     시안3 · Paper Fluent
 //   fmdemo --left-mode thumb --right-mode thumb     섬네일(왼쪽 Qt 목록 · 오른쪽 Qtitan 카드)
 //   fmdemo --sep2 tint --name-below --inv-cursor    표시 변형
 //   fmdemo --shot main.png                          스크린샷을 저장하고 끝냄
-//   fmdemo --shot shots                             폴더면 메인 창 + 대화상자 변형 전부 × 테마 5 일괄(+ 목업식 틀 · index.html)
+//   fmdemo --shot shots                             폴더면 메인 창 + 대화상자 변형 전부 × 테마 8 일괄(+ 목업식 틀 · index.html)
 //   fmdemo --catalog                                대화상자 카탈로그 창
 //   fmdemo --compare 100000 --measure               섬네일 비교 창(sample · 10000 · 100000 · <폴더>), 측정 결과 출력
 //   fmdemo --settings my.json                       설정 파일(없으면 %APPDATA%\FM Tools\settings.json, 스냅숏 · --open은 메모리만)
@@ -139,7 +140,7 @@ int main(int argc, char *argv[])
 
     QCommandLineParser parser;
     parser.addHelpOption();
-    const QCommandLineOption designOption(u"design"_s, u"standard | watercolor"_s, u"name"_s, u"standard"_s);
+    const QCommandLineOption designOption(u"design"_s, u"standard | watercolor | paperfluent"_s, u"name"_s, u"standard"_s);
     const QCommandLineOption schemeOption(u"scheme"_s, u"system | light | dark | navy"_s, u"name"_s, u"light"_s);
     const QCommandLineOption leftModeOption(u"left-mode"_s, u"1 | 2 | auto | thumb"_s, u"mode"_s);
     const QCommandLineOption rightModeOption(u"right-mode"_s, u"1 | 2 | auto | thumb"_s, u"mode"_s);
@@ -170,7 +171,7 @@ int main(int argc, char *argv[])
     parser.process(app);
 
     auto &theme = fs::ThemeManager::instance();
-    theme.setDesign(parser.value(designOption) == u"watercolor"_s ? fs::Design::Watercolor : fs::Design::Standard);
+    theme.setDesign(fs::designFromKey(parser.value(designOption)));
     const QString scheme = parser.value(schemeOption);
     theme.setDarkTone(scheme == u"navy"_s ? fs::ThemeManager::DarkTone::Navy : fs::ThemeManager::DarkTone::Gray);
     theme.setScheme(scheme == u"system"_s  ? fs::ThemeManager::Scheme::System

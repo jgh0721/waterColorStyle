@@ -72,7 +72,7 @@ public:
             return;  // 배너 위젯이 그린다
         }
         const bool editing = first.data(EditingRole).toBool();
-        p->fillRect(r, editing ? tc[T::Sel] : tc[T::Surface]);
+        p->fillRect(r, editing ? (tc.isPaperFluent() ? tc[T::AccentSoft] : tc[T::Sel]) : tc[T::Surface]);  // 시안3 --sel은 흰 글자용
         p->fillRect(QRect(r.left(), r.bottom(), r.width(), 1), tc[T::Grid]);
         switch (index.column()) {
         case NameColumn: {

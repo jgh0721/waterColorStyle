@@ -137,6 +137,63 @@ constexpr std::array<Triple, kTokenCount> kWatercolor{{
     {0x4C000000, 0x99000000, 0xA6000000},  // --shadow       x3 y3 · 30 % / 60 % / 65 %
 }};
 
+// 시안3(Paper Fluent) — 캔버스 "Paper Fluent 토큰" 보드(hybrid.css)의 :root / .dark / .navy 값. 순서는 enum Token과 같다.
+// 보드에 없는 남색 값은 워터컬러 남색을 쓴다. 다크 · 남색 강조는 보드의 #4A7FD6이 흰 글자 대비 4.0:1이라
+// 워터컬러 다크 강조 #3F74CC(4.6:1)로 둔다.
+constexpr std::array<Triple, kTokenCount> kPaperFluent{{
+    {0xFFECEBE3, 0xFF2B2B27, 0xFF17213A},  // --win
+    {0xFFE4E3DA, 0xFF262622, 0xFF131C33},  // --foot
+    {0xFFFBFBF7, 0xFF1F1F1C, 0xFF0F172C},  // --surface      종이 톤
+    {0xFFF3F2EB, 0xFF252522, 0xFF131C33},  // --alt
+    {0xFFE9E8DF, 0xFF33332E, 0xFF1D2946},  // --head         머리글 워시 위쪽 (아래쪽은 --alt)
+    {0xFFFFFFFF, 0xFF1B1B18, 0xFF0F172C},  // --field
+    {0xFFF6F5EF, 0xFF3A3A35, 0xFF22325A},  // --btn          단추 워시 가운데
+    {0xFFB9B8A6, 0xFF5F5F57, 0xFF4A5F8E},  // --btn-line
+    {0xFFCFCEC0, 0xFF45453F, 0xFF2C3C62},  // --line
+    {0xFFE3E2D8, 0xFF33332E, 0xFF1A2540},  // --grid
+    {0xFF17170F, 0xFFECECE6, 0xFFE4EAF6},  // --fg
+    {0xFF45443B, 0xFFC2C2B8, 0xFFAEBBD6},  // --fg2
+    {0xFF6B6A5F, 0xFF9A9A90, 0xFF8494B5},  // --fg3
+    {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF},  // --on-accent
+    {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF},  // --on-danger
+    {0xFF2F63BD, 0xFF3F74CC, 0xFF3F74CC},  // --accent
+    {0xFF2A559E, 0xFF93B8F2, 0xFF8FB4F0},  // --accent-fg
+    {0xFFDCE6F7, 0xFF2A3A55, 0xFF22365E},  // --accent-soft
+    {0xFF2F63BD, 0xFF3367BC, 0xFF3367BC},  // --sel          선택은 강조색 채움 + 흰 글자 (워터컬러 규칙)
+    {0xFFD6D5CC, 0xFF45453F, 0xFF2D3B5C},  // --sel-in
+    {0xFF2F63BD, 0xFF93B8F2, 0xFF8FB4F0},  // --focus        2 px 외곽선 커서 · 포커스
+    {0xFF24428A, 0xFFD8D8D0, 0xFFD5DDF0},  // --inv-cur
+    {0xFFFFFFFF, 0xFF1F1F1C, 0xFF0F172C},  // --on-inv-cur
+    {0xFFFFD75E, 0xFF1A4FB0, 0xFF1A4FB0},  // --inv-cur-sel
+    {0xFF2F63BD, 0xFF3367BC, 0xFF3367BC},  // --inv-sel
+    {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF},  // --on-inv-sel
+    {0xFF8A8A80, 0xFF55554E, 0xFF3A4A70},  // --inv-sel-in
+    {0xFFF0F0EB, 0xFF2A2A26, 0xFF16203A},  // --tint
+    {0x29FFFFFF, 0x14FFFFFF, 0x14FFFFFF},  // --tint-sel     흰색 16 % / 8 % / 8 %
+    {0x24FFFFFF, 0x1A000000, 0x1A000000},  // --tint-inv     흰색 14 % / 검정 10 % / 10 %
+    {0xFF8F4A05, 0xFFF2BA52, 0xFFF2BA52},  // --warn
+    {0xFFFFF9E1, 0xFF3A3318, 0xFF2E2A1A},  // --warn-bg
+    {0xFFDCCB7E, 0xFF6A5A22, 0xFF5A4E22},  // --warn-line
+    {0xFFB8231A, 0xFFF2766B, 0xFFF2766B},  // --danger
+    {0xFFB84A4A, 0xFFB04848, 0xFFB04848},  // --danger-fill
+    {0xFFFBE9E7, 0xFF3A1E1B, 0xFF361B22},  // --danger-bg
+    {0xFFDFA2A2, 0xFF6E302A, 0xFF6A2D38},  // --danger-line
+    {0xFF1C7A32, 0xFF6CCB8E, 0xFF6CCB8E},  // --ok
+    {0xFFE4F2E4, 0xFF1A2E20, 0xFF142A26},  // --ok-bg
+    {0xFF8A7A55, 0xFFB8A36E, 0xFFB8A36E},  // --paused
+    {0xFFE5A11A, 0xFFE5A11A, 0xFFE5A11A},  // --shield
+    {0xFFB7780B, 0xFFB7780B, 0xFFB7780B},  // --shield-2
+    {0xFFE0AA2E, 0xFFD9A441, 0xFFD9A441},  // --folder
+    {0xFF2F6BD6, 0xFF5B92F0, 0xFF5B92F0},  // --k-exe
+    {0xFFC4382D, 0xFFEE6A5E, 0xFFEE6A5E},  // --k-pdf
+    {0xFF138A7E, 0xFF3CC0B0, 0xFF3CC0B0},  // --k-img
+    {0xFF7A4FC4, 0xFFA583E8, 0xFFA583E8},  // --k-zip
+    {0xFF2E8540, 0xFF5CBF6E, 0xFF5CBF6E},  // --k-code
+    {0xFF6B7280, 0xFF9AA1AC, 0xFF9AA1AC},  // --k-doc
+    {0xFFA0A6AE, 0xFF6F757E, 0xFF6F757E},  // --k-sys
+    {0x2917170F, 0x8C000000, 0xA6000000},  // --shadow       2단 그림자 · 16 % / 55 % / 65 %
+}};
+
 } // namespace
 
 const std::array<TokenInfo, kTokenCount> &allTokens() noexcept
@@ -161,8 +218,8 @@ QString tokenCssName(Token t)
 
 QRgb builtinColor(Token t, Variant variant, Design design) noexcept
 {
-    if (design == Design::Watercolor) {
-        const Triple &p = kWatercolor[indexOf(t)];
+    if (design != Design::Standard) {
+        const Triple &p = design == Design::Watercolor ? kWatercolor[indexOf(t)] : kPaperFluent[indexOf(t)];
         switch (variant) {
         case Variant::Light: return p.light;
         case Variant::Dark:  return p.dark;
@@ -175,7 +232,34 @@ QRgb builtinColor(Token t, Variant variant, Design design) noexcept
 
 QString designLabel(Design design)
 {
-    return design == Design::Watercolor ? QStringLiteral("시안2 · 워터컬러") : QStringLiteral("시안1 · 기본");
+    switch (design) {
+    case Design::Standard:    return QStringLiteral("시안1 · 기본");
+    case Design::Watercolor:  return QStringLiteral("시안2 · 워터컬러");
+    case Design::PaperFluent: return QStringLiteral("시안3 · Paper Fluent");
+    }
+    return {};
+}
+
+QString designKey(Design design)
+{
+    switch (design) {
+    case Design::Standard:    return QStringLiteral("standard");
+    case Design::Watercolor:  return QStringLiteral("watercolor");
+    case Design::PaperFluent: return QStringLiteral("paperfluent");
+    }
+    return {};
+}
+
+Design designFromKey(const QString &key, Design fallback)
+{
+    const QString k = key.trimmed().toLower();
+    if (k == u"standard" || k == u"1" || k == u"시안1")
+        return Design::Standard;
+    if (k == u"watercolor" || k == u"2" || k == u"시안2")
+        return Design::Watercolor;
+    if (k == u"paperfluent" || k == u"paper-fluent" || k == u"3" || k == u"시안3")
+        return Design::PaperFluent;
+    return fallback;
 }
 
 QString variantLabel(Variant variant)

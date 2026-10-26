@@ -187,7 +187,7 @@ void FileCellDelegate::paint(QPainter *p, const QStyleOptionViewItem &option, co
 
     // 파일 그룹: 글자색은 선택 · 역상 표시가 아닐 때만, 글꼴 효과는 늘
     const ResolvedGroupStyle group = m_d->groupStyleFor(nameIndex);
-    const bool inverted = invertedCursor(a, s) || (a.invertSelection && s.marked) || (tc.isWatercolor() && s.marked && s.active);
+    const bool inverted = invertedCursor(a, s) || (a.invertSelection && s.marked) || (tc.fillsSelection() && s.marked && s.active);
     if (!inverted) {
         if (const auto text = group.text(tc.isDark())) {
             c.name = *text;
@@ -420,7 +420,7 @@ void FileListViewPrivate::applyLayout()
     if (!model || applying || !ensureColumns())
         return;
     applying = true;
-    geometry = RecordGeometry::make(colors().isWatercolor(), twoLine, appearance);
+    geometry = RecordGeometry::make(colors().design(), twoLine, appearance);
     geometry.oneLineMetaWidth = oneLineMetaWidth();
     const RecordGeometry &g = geometry;
 
@@ -942,7 +942,7 @@ public:
     explicit FileListViewPrivate(FileListView *q) : q(q) {}
 
     int nameColumn() const { return layout.nameColumn(); }
-    void updateGeometry() { geometry = RecordGeometry::make(fm::style::themeColorsFor(q).isWatercolor(), twoLine, appearance); }
+    void updateGeometry() { geometry = RecordGeometry::make(fm::style::themeColorsFor(q).design(), twoLine, appearance); }
 
     FileListView *q;
     QLabel *placeholder = nullptr;

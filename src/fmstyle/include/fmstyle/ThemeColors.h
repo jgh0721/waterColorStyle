@@ -26,7 +26,11 @@ public:
     Design design() const noexcept { return m_design; }
     bool isDark() const noexcept { return isDarkVariant(m_variant); }  // 다크 · 남색
     bool isNavy() const noexcept { return m_variant == Variant::Navy; }
+    /// 워터컬러 입체(각진 모서리 · 빗면)로 그리는가 — 시안3은 시안1의 둥근 구조라 false.
     bool isWatercolor() const noexcept { return m_design == Design::Watercolor; }
+    bool isPaperFluent() const noexcept { return m_design == Design::PaperFluent; }
+    /// 선택이 강조색 채움 + 흰 글자인가(시안2 · 시안3). 시안1은 연한 선택 바탕에 글자색 그대로.
+    bool fillsSelection() const noexcept { return m_design != Design::Standard; }
 
     QColor color(Token t) const { return m_colors[indexOf(t)]; }
     QColor operator[](Token t) const { return color(t); }
@@ -65,7 +69,7 @@ struct ThemeSeeds
     std::optional<QColor> accent;  // 비어 있으면 손으로 맞춘 내장 값을 그대로 쓴다
     bool fixContrast = true;       // 파생 색의 대비가 4.5:1 미만이면 보정
     bool useSystemAccent = false;  // Windows 강조색 사용(설정 › 일반 · 모양)
-    std::array<std::array<VariantSeeds, kVariantCount>, 2> roles{};  // [디자인][변형]
+    std::array<std::array<VariantSeeds, kVariantCount>, kDesignCount> roles{};  // [디자인][변형]
 
     const VariantSeeds &variantSeeds(Design design, Variant variant) const noexcept
     {
@@ -83,6 +87,7 @@ using TokenOverrides = std::array<std::optional<QColor>, kTokenCount>;
 
 /// 테마 색상 화면의 규칙과 같은 식으로 파생 색을 계산한다.
 /// 워터컬러는 선택이 강조색 채움(흰 글자)이고 포커스가 글자색 점선이라 규칙이 조금 다르다.
+/// Paper Fluent는 선택만 워터컬러 규칙(강조 채움)이고 나머지는 시안1 규칙이다.
 ThemeColors deriveColors(Variant variant, const ThemeSeeds &seeds,
                          const TokenOverrides &overrides = {},
                          Design design = Design::Standard);
@@ -96,7 +101,7 @@ struct ContrastResult
     bool passes;
 };
 
-/// 목업의 '대비 검사'와 같은 9개 조합. 워터컬러의 '선택 레코드'는 흰 글자(강조 위 글자) 기준.
+/// 목업의 '대비 검사'와 같은 9개 조합. 시안2 · 시안3의 '선택 레코드'는 흰 글자(강조 위 글자) 기준.
 QList<ContrastResult> checkContrast(const ThemeColors &colors, double minimum = 4.5);
 
 double contrastRatio(const QColor &a, const QColor &b);

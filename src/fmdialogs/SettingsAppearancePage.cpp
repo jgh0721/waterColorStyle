@@ -111,9 +111,10 @@ public:
                                            ? (p.general.startupFolders.isEmpty() ? tr("지정한 폴더 없음 — 홈 폴더를 엽니다")
                                                                                  : p.general.startupFolders.join(u" · "_s))
                                            : QString());
-        const bool watercolor = p.appearance.design == fs::Design::Watercolor;
-        ui->darkToneRow->setEnabled(watercolor);
-        ui->coloredTitleRow->setEnabled(watercolor);
+        // 남색 색조 · 제목 표시줄 색은 시안2 · 시안3에만 있다
+        const bool tinted = fs::hasNavyVariant(p.appearance.design);
+        ui->darkToneRow->setEnabled(tinted);
+        ui->coloredTitleRow->setEnabled(tinted);
     }
 
 protected:

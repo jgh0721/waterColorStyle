@@ -693,12 +693,12 @@ private:
     // ---------------------------------------------------------------- 상태 도우미
 
     fs::Design design() const { return pending().appearance.design; }
-    /// 편집 변형 — 다크는 워터컬러 남색 색조면 남색 칸(시안1의 남색은 다크 칸을 쓴다).
+    /// 편집 변형 — 다크는 남색 색조면 남색 칸(시안2 · 시안3, 시안1의 남색은 다크 칸을 쓴다).
     fs::Variant editVariant() const
     {
         if (!m_editDark)
             return fs::Variant::Light;
-        return design() == fs::Design::Watercolor && pending().appearance.darkTone == st::DarkTone::Navy ? fs::Variant::Navy
+        return fs::hasNavyVariant(design()) && pending().appearance.darkTone == st::DarkTone::Navy ? fs::Variant::Navy
                                                                                                           : fs::Variant::Dark;
     }
     const fs::ThemeSeeds &seeds() const { return pending().theme.scheme.seeds; }

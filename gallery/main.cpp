@@ -2655,7 +2655,7 @@ int main(int argc, char *argv[])
     const QCommandLineOption accentOption(u"accent"_s, u"강조색 기준 색 (#RRGGBB)."_s, u"color"_s);
     const QCommandLineOption noFixOption(u"no-fix"_s, u"대비 자동 보정을 끕니다."_s);
     const QCommandLineOption delayOption(u"shot-delay"_s, u"스크린샷까지 기다릴 시간(ms)."_s, u"ms"_s, u"400"_s);
-    const QCommandLineOption designOption(u"design"_s, u"시작 디자인: standard(시안1) · watercolor(시안2)."_s,
+    const QCommandLineOption designOption(u"design"_s, u"시작 디자인: standard(시안1) · watercolor(시안2) · paperfluent(시안3)."_s,
                                           u"name"_s, u"standard"_s);
     const QCommandLineOption partsOption(u"parts"_s, u"대화상자 부품 구역만 보입니다."_s);
     const QCommandLineOption qtWidgetsOption(u"qt-widgets"_s, u"Qt 표준 위젯 구역만 보입니다."_s);
@@ -2663,7 +2663,7 @@ int main(int argc, char *argv[])
     const QCommandLineOption controlsOption(u"controls"_s, u"입력 · 단추 구역만 보입니다."_s);
     const QCommandLineOption layoutsOption(u"layouts"_s, u"배치 비교(흐름 · 유연 상자 · 격자) 구역만 보입니다."_s);
     const QCommandLineOption extrasOption(u"extras"_s, u"진행 고리 · 도구 설명 · 메뉴 · 내용 대화상자 구역만 보입니다."_s);
-    const QCommandLineOption toneOption(u"dark-tone"_s, u"다크 색조: gray · navy (시안2)."_s, u"tone"_s, u"gray"_s);
+    const QCommandLineOption toneOption(u"dark-tone"_s, u"다크 색조: gray · navy (시안2 · 시안3)."_s, u"tone"_s, u"gray"_s);
     parser.addOptions({shotOption, accentOption, noFixOption, delayOption, designOption, partsOption, qtWidgetsOption, docksOption,
                        controlsOption, layoutsOption, extrasOption, toneOption});
     parser.process(app);
@@ -2677,9 +2677,7 @@ int main(int argc, char *argv[])
         fs::ThemeManager::instance().setDarkTone(fs::ThemeManager::DarkTone::Navy);
 
     auto &theme = fs::ThemeManager::instance();
-    const QString designName = parser.value(designOption).toLower();
-    if (designName == u"watercolor" || designName == u"2")
-        theme.setDesign(fs::Design::Watercolor);
+    theme.setDesign(fs::designFromKey(parser.value(designOption)));
     theme.install(app);
     if (parser.isSet(accentOption) || parser.isSet(noFixOption)) {
         fs::ThemeSeeds seeds;
@@ -2704,7 +2702,7 @@ int main(int argc, char *argv[])
     topRow->setSpacing(0);
     auto *designGroup = new QButtonGroup(top);
     QList<QAbstractButton *> designButtons;
-    for (const fs::Design d : {fs::Design::Standard, fs::Design::Watercolor}) {
+    for (const fs::Design d : {fs::Design::Standard, fs::Design::Watercolor, fs::Design::PaperFluent}) {
         auto *b = new QPushButton(fs::designLabel(d));
         designButtons.append(b);
         designGroup->addButton(b, int(d));
@@ -2726,8 +2724,8 @@ int main(int argc, char *argv[])
         }
         h->addWidget(buildTile(fs::Variant::Light), 1);
         h->addWidget(buildTile(fs::Variant::Dark), 1);
-        // 다크(남색)는 시안2 전용 — Main 보드처럼 라이트 · 다크 · 다크(남색) 세 타일
-        if (fs::ThemeManager::instance().design() == fs::Design::Watercolor)
+        // 다크(남색)는 시안2 · 시안3 전용 — Main 보드처럼 라이트 · 다크 · 다크(남색) 세 타일
+        if (fs::hasNavyVariant(fs::ThemeManager::instance().design()))
             h->addWidget(buildTile(fs::Variant::Navy), 1);
         TransferSimulator::instance().refreshReadouts();
     };

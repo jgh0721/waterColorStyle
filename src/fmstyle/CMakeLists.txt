@@ -2,6 +2,8 @@ qt_add_library(fmstyle STATIC
     include/fmstyle/ColorScheme.h
     include/fmstyle/FmStyle.h
     include/fmstyle/Glyphs.h
+    include/fmstyle/PaperFluentChrome.h
+    include/fmstyle/PaperFluentStyle.h
     include/fmstyle/StylePaint.h
     include/fmstyle/StyleProps.h
     include/fmstyle/ThemeColors.h
@@ -15,6 +17,8 @@ qt_add_library(fmstyle STATIC
     ColorScheme.cpp
     FmStyle.cpp
     Glyphs.cpp
+    PaperFluentChrome.cpp
+    PaperFluentStyle.cpp
     StylePaint.cpp
     StyleProps.cpp
     StyleShared.cpp

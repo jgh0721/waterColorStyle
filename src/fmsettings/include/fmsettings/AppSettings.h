@@ -31,7 +31,7 @@ struct AppearanceSettings
     using Density = fm::filelist::RowDensity;
 
     Scheme scheme = Scheme::System;                 // 시스템(Y) · 라이트(L) · 다크(K)
-    fm::style::Design design = fm::style::Design::Standard;  // (제안) 디자인 — 시안1 · 시안2
+    fm::style::Design design = fm::style::Design::Standard;  // (제안) 디자인 — 시안1 · 시안2 · 시안3
     DarkTone darkTone = DarkTone::Gray;             // (제안) 다크 색조 — 워터컬러에서만
     bool darkTitleBar = true;
     bool coloredTitleBar = true;                    // (제안) 워터컬러 제목 표시줄 색

@@ -1,7 +1,7 @@
 #pragma once
 
 // 테마 토큰 51개 — 디자인 캔버스의 "테마 토큰" 보드와 같은 이름, 같은 기본값.
-// 시안1(기본)과 시안2(워터컬러)는 같은 51개 토큰을 쓰고 값만 다르다.
+// 시안1(기본) · 시안2(워터컬러) · 시안3(Paper Fluent)은 같은 51개 토큰을 쓰고 값만 다르다.
 
 #include <QColor>
 #include <QString>
@@ -40,14 +40,19 @@ static_assert(kTokenCount == 51, "the design board defines 51 tokens");
 
 constexpr std::size_t indexOf(Token t) noexcept { return static_cast<std::size_t>(t); }
 
-/// 색 구성 변형. Navy(다크 · 남색)는 시안2(워터컬러) 전용이다 — 시안1에서 남색을 요청하면 다크 값을 쓴다.
+/// 색 구성 변형. Navy(다크 · 남색)는 시안2 · 시안3 전용이다 — 시안1에서 남색을 요청하면 다크 값을 쓴다.
 enum class Variant : std::uint8_t { Light, Dark, Navy };
 inline constexpr std::size_t kVariantCount = 3;
 /// 다크 계열(다크 · 남색) — 어두운 바탕 규칙을 쓸지 정할 때.
 constexpr bool isDarkVariant(Variant v) noexcept { return v != Variant::Light; }
 
-/// 디자인. Standard = 시안1 "파일 관리자 UI", Watercolor = 시안2 "파일 관리자 UI(워터컬러)".
-enum class Design : std::uint8_t { Standard, Watercolor };
+/// 디자인. Standard = 시안1 "파일 관리자 UI", Watercolor = 시안2 "파일 관리자 UI(워터컬러)",
+/// PaperFluent = 시안3 "Paper Fluent"(워터컬러 종이 색 + 시안1 Fluent 구조).
+enum class Design : std::uint8_t { Standard, Watercolor, PaperFluent };
+inline constexpr std::size_t kDesignCount = 3;
+constexpr std::size_t designIndex(Design d) noexcept { return static_cast<std::size_t>(d); }
+/// 남색 변형이 있는 디자인 — 시안1은 남색 대신 다크를 쓴다.
+constexpr bool hasNavyVariant(Design d) noexcept { return d != Design::Standard; }
 
 enum class TokenGroup : std::uint8_t {
     Surfaces,
@@ -79,8 +84,13 @@ QString tokenCssName(Token t);
 /// 디자인 · 변형별 내장 기본값 #AARRGGBB.
 QRgb builtinColor(Token t, Variant variant, Design design) noexcept;
 
-/// "시안1 · 기본", "시안2 · 워터컬러"
+/// "시안1 · 기본", "시안2 · 워터컬러", "시안3 · Paper Fluent"
 QString designLabel(Design design);
+
+/// 설정 · 명령줄 · 색 구성표 JSON의 디자인 이름: "standard" · "watercolor" · "paperfluent".
+QString designKey(Design design);
+/// designKey() 값, 번호(1 · 2 · 3), "시안1" ~ "시안3", "paper-fluent"를 읽는다(대소문자 무시). 모르면 fallback.
+Design designFromKey(const QString &key, Design fallback = Design::Standard);
 
 /// "라이트", "다크", "다크(남색)"
 QString variantLabel(Variant variant);

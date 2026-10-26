@@ -324,7 +324,7 @@ int main(int argc, char *argv[])
 
     QCommandLineParser parser;
     parser.addHelpOption();
-    const QCommandLineOption designOption(u"design"_s, u"standard | watercolor"_s, u"name"_s, u"standard"_s);
+    const QCommandLineOption designOption(u"design"_s, u"standard | watercolor | paperfluent"_s, u"name"_s, u"standard"_s);
     const QCommandLineOption schemeOption(u"scheme"_s, u"light | dark | navy"_s, u"name"_s, u"light"_s);
     const QCommandLineOption leftOption(u"left"_s, u"mock-left | mock-right | mock-thumbs | local:<경로>"_s, u"source"_s, u"mock-left"_s);
     const QCommandLineOption rightOption(u"right"_s, u"mock-left | mock-right | mock-thumbs | local:<경로>"_s, u"source"_s, u"mock-right"_s);
@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
     parser.process(app);
 
     auto &theme = fs::ThemeManager::instance();
-    theme.setDesign(parser.value(designOption) == u"watercolor"_s ? fs::Design::Watercolor : fs::Design::Standard);
+    theme.setDesign(fs::designFromKey(parser.value(designOption)));
     const QString scheme = parser.value(schemeOption);
     theme.setDarkTone(scheme == u"navy"_s ? fs::ThemeManager::DarkTone::Navy : fs::ThemeManager::DarkTone::Gray);
     theme.setScheme(scheme == u"light"_s ? fs::ThemeManager::Scheme::Light : fs::ThemeManager::Scheme::Dark);

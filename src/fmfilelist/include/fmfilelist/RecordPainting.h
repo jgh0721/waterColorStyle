@@ -37,6 +37,7 @@ struct RecordGeometry
 {
     bool twoLine = false;
     bool watercolor = false;
+    bool paper = false;       // 시안3(Paper Fluent): 2 px 커서 외곽선 · 둥근 선택 끝
     bool nameBelow = false;
     RecordSeparator separator = RecordSeparator::None;
     int pitch = 24;           // 레코드 전체 높이(여백 방식의 아래 틈 포함) — Qtitan 셀 높이 × 줄 수
@@ -49,6 +50,8 @@ struct RecordGeometry
     int oneLineMetaWidth = kExtWidth + kSizeWidth + kDateWidth1 + kAttrWidth1;  // 1줄 메타 열 폭 합(틴트 띠 — 열 배치가 정함)
     qreal radius = 0;         // 여백 방식 블록 모서리
 
+    static RecordGeometry make(fm::style::Design design, bool twoLine, const ListAppearance &appearance);
+    /// 시안1 · 시안2만 아는 호출 쪽(watercolor = 시안2).
     static RecordGeometry make(bool watercolor, bool twoLine, const ListAppearance &appearance);
 
     /// 바탕 블록(여백 방식이면 좌우 · 아래를 줄인 사각형).
@@ -91,7 +94,7 @@ void paintRecordBackground(QPainter *p, const QRect &record, const RecordGeometr
 void paintRecordCursor(QPainter *p, const QRect &record, const RecordGeometry &g, const ListAppearance &a,
                        const RecordState &s, const fm::style::ThemeColors &tc);
 
-/// 커서 틀 펜 — 시안1 실선 / 비활성 점선(dashed), 시안2 점선(dotted). 그리지 않으면 NoPen.
+/// 커서 틀 펜 — 시안1 실선 / 비활성 점선(dashed), 시안2 점선(dotted), 시안3 2 px 실선. 그리지 않으면 NoPen.
 QPen cursorPen(const fm::style::ThemeColors &tc, InactiveCursor inactiveCursor, const RecordState &s);
 
 } // namespace fm::filelist::detail

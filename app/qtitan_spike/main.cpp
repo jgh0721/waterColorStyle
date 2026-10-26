@@ -548,7 +548,7 @@ int main(int argc, char *argv[])
 
     QCommandLineParser parser;
     parser.addHelpOption();
-    const QCommandLineOption designOption(u"design"_s, u"standard | watercolor"_s, u"name"_s, u"standard"_s);
+    const QCommandLineOption designOption(u"design"_s, u"standard | watercolor | paperfluent"_s, u"name"_s, u"standard"_s);
     const QCommandLineOption schemeOption(u"scheme"_s, u"light | dark"_s, u"name"_s, u"light"_s);
     const QCommandLineOption modeOption(u"mode"_s, u"1 | 2"_s, u"n"_s, u"2"_s);
     const QCommandLineOption sepOption(u"sep"_s, u"zebra | line | space | tint"_s, u"name"_s, u"line"_s);
@@ -561,7 +561,7 @@ int main(int argc, char *argv[])
     parser.process(app);
 
     auto &theme = fs::ThemeManager::instance();
-    theme.setDesign(parser.value(designOption) == u"watercolor"_s ? fs::Design::Watercolor : fs::Design::Standard);
+    theme.setDesign(fs::designFromKey(parser.value(designOption)));
     theme.setScheme(parser.value(schemeOption) == u"dark"_s ? fs::ThemeManager::Scheme::Dark : fs::ThemeManager::Scheme::Light);
     theme.install(app);
 

@@ -31,6 +31,7 @@ void addDesigns()
     QTest::addColumn<int>("design");
     QTest::newRow("standard") << int(fs::Design::Standard);
     QTest::newRow("watercolor") << int(fs::Design::Watercolor);
+    QTest::newRow("paperfluent") << int(fs::Design::PaperFluent);
 }
 
 void sendToolTipEvent(QWidget *target, const QPoint &pos)
@@ -94,7 +95,7 @@ private Q_SLOTS:
         ring.setValue(72);
         const QImage image = ring.grab().toImage();
         const auto blueish = [&](const QColor &c) { return c.alpha() > 0 && c.blue() > c.red() + 40; };
-        const int ringY = design == int(fs::Design::Standard) ? 4 : 6;
+        const int ringY = design == int(fs::Design::Watercolor) ? 6 : 4;  // 시안3은 시안1 구조
         QVERIFY2(blueish(image.pixelColor(36, ringY)), qPrintable(image.pixelColor(36, ringY).name()));
         QVERIFY(!blueish(image.pixelColor(ringY, 32)));
     }

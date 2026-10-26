@@ -232,7 +232,8 @@ void paintTile(QPainter *p, const QRect &rect, const QModelIndex &index, const T
             p->setPen(pen);
             p->setBrush(Qt::NoBrush);
             if (radius > 0) {
-                p->drawRoundedRect(QRectF(tile).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
+                const qreal inset = pen.widthF() / 2;  // 시안3 2 px 커서도 타일 안쪽에
+                p->drawRoundedRect(QRectF(tile).adjusted(inset, inset, -inset, -inset), radius, radius);
             } else {
                 p->setRenderHint(QPainter::Antialiasing, false);
                 p->drawRect(tile.adjusted(0, 0, -1, -1));

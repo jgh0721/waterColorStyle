@@ -83,7 +83,7 @@ PreviewController::PreviewController()
     const QString design = qEnvironmentVariable("FMSTYLE_DESIGN").trimmed().toLower();
     const QString saved = settings().value(u"design"_s).toString();
     const QString d = design.isEmpty() ? saved : design;
-    m_design = (d == u"watercolor" || d == u"2" || d == u"시안2") ? fs::Design::Watercolor : fs::Design::Standard;
+    m_design = fs::designFromKey(d);
     const QString variant = qEnvironmentVariable("FMSTYLE_VARIANT").trimmed().toLower();
     m_variant = variantFromKey(variant.isEmpty() ? settings().value(u"variant"_s).toString() : variant);
 }
@@ -109,7 +109,7 @@ void PreviewController::setVariant(std::optional<fs::Variant> variant)
 void PreviewController::save() const
 {
     QSettings s = settings();
-    s.setValue(u"design"_s, m_design == fs::Design::Watercolor ? u"watercolor"_s : u"standard"_s);
+    s.setValue(u"design"_s, fs::designKey(m_design));
     s.setValue(u"variant"_s, variantKey(m_variant));
 }
 
@@ -123,7 +123,7 @@ fs::Variant PreviewController::effectiveVariant() const
 
 QStyle *PreviewController::style(fs::Design design)
 {
-    QStyle *&s = m_styles[design == fs::Design::Watercolor ? 1 : 0];
+    QStyle *&s = m_styles[fs::designIndex(design)];
     if (!s)
         s = fs::createStyle(design);
     return s;
@@ -193,7 +193,8 @@ PreviewTaskMenu::PreviewTaskMenu(QObject *parent)
     auto &controller = PreviewController::instance();
     auto *designs = new QActionGroup(this);
     for (const auto &[text, design] : {std::pair{u"미리보기 디자인 — 시안1 (기본)"_s, fs::Design::Standard},
-                                       std::pair{u"미리보기 디자인 — 시안2 (워터컬러)"_s, fs::Design::Watercolor}}) {
+                                       std::pair{u"미리보기 디자인 — 시안2 (워터컬러)"_s, fs::Design::Watercolor},
+                                       std::pair{u"미리보기 디자인 — 시안3 (Paper Fluent)"_s, fs::Design::PaperFluent}}) {
         QAction *a = designs->addAction(text);
         a->setCheckable(true);
         a->setData(int(design));

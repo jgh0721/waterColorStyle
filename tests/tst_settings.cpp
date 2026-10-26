@@ -40,8 +40,8 @@ private Q_SLOTS:
 
 void TestSettings::deriveKeepsBuiltin()
 {
-    // 시드가 없으면 손으로 맞춘 내장 값 그대로(두 디자인 · 모든 변형)
-    for (const fs::Design d : {fs::Design::Standard, fs::Design::Watercolor}) {
+    // 시드가 없으면 손으로 맞춘 내장 값 그대로(세 디자인 · 모든 변형)
+    for (const fs::Design d : {fs::Design::Standard, fs::Design::Watercolor, fs::Design::PaperFluent}) {
         for (const fs::Variant v : {fs::Variant::Light, fs::Variant::Dark, fs::Variant::Navy}) {
             const fs::DerivedTheme t = fs::deriveTheme(v, fs::ThemeSeeds{}, {}, d);
             QCOMPARE(t.colors, fs::ThemeColors(v, d));
@@ -71,6 +71,12 @@ void TestSettings::deriveAccent()
     const fs::ThemeColors wc = fs::deriveColors(fs::Variant::Light, seeds, {}, fs::Design::Watercolor);
     QCOMPARE(wc[Token::Sel], wc[Token::Accent]);
     QCOMPARE(wc[Token::Focus], fs::ThemeColors(fs::Variant::Light, fs::Design::Watercolor)[Token::Focus]);
+    // Paper Fluent: 선택 = 강조 채움(워터컬러 규칙), 포커스는 강조색을 따른다(시안1 규칙)
+    const fs::ThemeColors pf = fs::deriveColors(fs::Variant::Light, seeds, {}, fs::Design::PaperFluent);
+    QCOMPARE(pf[Token::Sel], pf[Token::Accent]);
+    QCOMPARE(pf[Token::Focus], pf[Token::Accent]);
+    QCOMPARE(pf[Token::SelIn], fs::ThemeColors(fs::Variant::Light, fs::Design::PaperFluent)[Token::SelIn]);
+    QCOMPARE(fs::tokenSource(Token::Sel, fs::Design::PaperFluent).rule(fs::Variant::Light), u"= 강조 채움 · 흰 글자"_s);
     // 흰 글자 대비가 모자란 강조색은 어둡게 보정되고 "보정됨"
     fs::ThemeSeeds pale;
     pale.accent = QColor(u"#9FD3FF"_s);
@@ -138,9 +144,12 @@ void TestSettings::colorSchemeJson()
     vs.invSelFollowsAccent = false;
     scheme.overridesFor(fs::Design::Standard, fs::Variant::Light)[fs::indexOf(Token::KPdf)] = QColor(u"#C4382D"_s);
     scheme.overridesFor(fs::Design::Standard, fs::Variant::Dark)[fs::indexOf(Token::TintSel)] = QColor(0xFF, 0xFF, 0xFF, 0x20);
+    scheme.overridesFor(fs::Design::PaperFluent, fs::Variant::Navy)[fs::indexOf(Token::Head)] = QColor(u"#1D2946"_s);
+    scheme.seeds.variantSeeds(fs::Design::PaperFluent, fs::Variant::Light).seed[size_t(fs::SeedRole::Win)] = QColor(u"#ECEBE3"_s);
     QVERIFY(!scheme.isPristine());
     const QJsonObject json = scheme.toJson();
     QCOMPARE(json.value(u"format"_s).toString(), u"fm-color-scheme"_s);
+    QVERIFY(json.value(u"designs"_s).toObject().contains(u"paperfluent"_s));
     const auto back = fs::ColorScheme::fromJson(json);
     QVERIFY(back);
     QCOMPARE(*back, scheme);

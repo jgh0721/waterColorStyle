@@ -50,6 +50,9 @@ constexpr Theme kThemes[] = {
     {"wc-light", "시안2 라이트", fs::Design::Watercolor, TM::Scheme::Light, TM::DarkTone::Gray},
     {"wc-dark", "시안2 다크", fs::Design::Watercolor, TM::Scheme::Dark, TM::DarkTone::Gray},
     {"wc-navy", "시안2 남색", fs::Design::Watercolor, TM::Scheme::Dark, TM::DarkTone::Navy},
+    {"pf-light", "시안3 라이트", fs::Design::PaperFluent, TM::Scheme::Light, TM::DarkTone::Gray},
+    {"pf-dark", "시안3 다크", fs::Design::PaperFluent, TM::Scheme::Dark, TM::DarkTone::Gray},
+    {"pf-navy", "시안3 남색", fs::Design::PaperFluent, TM::Scheme::Dark, TM::DarkTone::Navy},
 };
 
 struct Screen

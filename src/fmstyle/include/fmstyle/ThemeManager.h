@@ -11,8 +11,8 @@ class QWidget;
 
 namespace fm::style {
 
-/// 앱 전체 테마 상태: 디자인(시안1 · 시안2), 색 구성표(시스템/라이트/다크), 다크 색조(회색/남색), 기준 색, 직접 지정 값.
-/// install() 한 번으로 스타일(FmStyle 또는 WatercolorStyle), 팔레트, 기본 글꼴을 적용한다.
+/// 앱 전체 테마 상태: 디자인(시안1 · 시안2 · 시안3), 색 구성표(시스템/라이트/다크), 다크 색조(회색/남색), 기준 색, 직접 지정 값.
+/// install() 한 번으로 스타일(FmStyle · WatercolorStyle · PaperFluentStyle), 팔레트, 기본 글꼴을 적용한다.
 class ThemeManager final : public QObject
 {
     Q_OBJECT
@@ -20,7 +20,7 @@ class ThemeManager final : public QObject
 public:
     enum class Scheme { System, Light, Dark };
     Q_ENUM(Scheme)
-    /// 다크 계열일 때의 색조. 남색은 시안2(워터컬러)에서만 쓰이고 시안1은 회색(다크)을 쓴다.
+    /// 다크 계열일 때의 색조. 남색은 시안2 · 시안3에서만 쓰이고 시안1은 회색(다크)을 쓴다.
     enum class DarkTone { Gray, Navy };
     Q_ENUM(DarkTone)
 
@@ -40,17 +40,17 @@ public:
     DarkTone darkTone() const noexcept { return m_darkTone; }
     void setDarkTone(DarkTone tone);
 
-    /// 지금 화면에 쓰이는 변형 (시스템이면 OS 설정을 따른다). 다크 계열 + 시안2 + 남색 색조면 Navy.
+    /// 지금 화면에 쓰이는 변형 (시스템이면 OS 설정을 따른다). 다크 계열 + 시안2 · 시안3 + 남색 색조면 Navy.
     Variant effectiveVariant() const noexcept { return m_effective; }
 
     /// 지금 디자인 · 지금 변형의 색.
     const ThemeColors &colors() const noexcept { return colors(m_design, m_effective); }
     /// 지금 디자인의 색.
     const ThemeColors &colors(Variant variant) const noexcept { return colors(m_design, variant); }
-    /// 디자인을 지정한 색 — 두 디자인의 색은 늘 함께 계산해 둔다 (나란히 보기 · 미리보기용).
+    /// 디자인을 지정한 색 — 세 디자인의 색은 늘 함께 계산해 둔다 (나란히 보기 · 미리보기용).
     const ThemeColors &colors(Design design, Variant variant) const noexcept;
 
-    /// 기준 색은 두 디자인에 같이 적용된다.
+    /// 공통 강조색은 모든 디자인에 같이 적용된다.
     ThemeSeeds seeds() const { return m_seeds; }
     void setSeeds(const ThemeSeeds &seeds);
 
@@ -66,7 +66,7 @@ public:
     bool darkTitleBar() const noexcept { return m_darkTitleBar; }
     void setDarkTitleBar(bool on);
 
-    /// 워터컬러에서 제목 표시줄을 파란 제목 색으로 칠한다 (Windows 11 22000+, 그 밖에서는 무시).
+    /// 워터컬러 · Paper Fluent에서 제목 표시줄을 파란 제목 색으로 칠한다 (Windows 11 22000+, 그 밖에서는 무시).
     bool coloredTitleBar() const noexcept { return m_coloredTitleBar; }
     void setColoredTitleBar(bool on);
 
@@ -121,8 +121,8 @@ private:
     Variant m_effective = Variant::Light;
     ThemeSeeds m_seeds;
     DarkTone m_darkTone = DarkTone::Gray;
-    TokenOverrides m_overrides[2][kVariantCount];  // [디자인][변형] — 시안1의 남색 칸은 쓰지 않는다(다크 칸으로 대체)
-    ThemeColors m_colors[2][kVariantCount];
+    TokenOverrides m_overrides[kDesignCount][kVariantCount];  // [디자인][변형] — 시안1의 남색 칸은 쓰지 않는다(다크 칸으로 대체)
+    ThemeColors m_colors[kDesignCount][kVariantCount];
     bool m_darkTitleBar = true;
     bool m_coloredTitleBar = true;
     bool m_alwaysMnemonics = false;
