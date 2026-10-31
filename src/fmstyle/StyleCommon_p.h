@@ -10,6 +10,7 @@
 #include <QDockWidget>
 #include <QRegularExpression>
 #include <QCheckBox>
+#include <QPainter>
 #include <QRectF>
 #include <QStringList>
 #include <QStyle>
@@ -226,6 +227,22 @@ inline QRectF crisp(const QRect &r, qreal width = 1.0)
 {
     const qreal h = width / 2.0;
     return QRectF(r).adjusted(h, h, -h, -h);
+}
+
+// 1 px 테두리를 네 변의 채우기로 그린다. 펜 사각형은 125 % 같은 소수 배율에서 왼쪽 · 위 선이
+// 위젯 밖으로 반쯤 걸쳐 위치에 따라 잘려 사라진다. 100 %에서는 펜 drawRect와 같은 픽셀이다.
+inline void outlineRect(QPainter *p, const QRect &r, const QColor &c)
+{
+    if (r.width() <= 0 || r.height() <= 0)
+        return;
+    p->fillRect(QRect(r.left(), r.top(), r.width(), 1), c);
+    if (r.height() > 1)
+        p->fillRect(QRect(r.left(), r.bottom(), r.width(), 1), c);
+    if (r.height() > 2) {
+        p->fillRect(QRect(r.left(), r.top() + 1, 1, r.height() - 2), c);
+        if (r.width() > 1)
+            p->fillRect(QRect(r.right(), r.top() + 1, 1, r.height() - 2), c);
+    }
 }
 
 inline bool keyboardFocus(QStyle::State s)

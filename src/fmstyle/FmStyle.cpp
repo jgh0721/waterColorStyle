@@ -1231,13 +1231,8 @@ void FmStyle::drawShapedFrame(const QStyleOption *option, QPainter *p, const QWi
         p->fillRect(QRect(f->rect.center().x(), f->rect.top(), 1, f->rect.height()), tc[T::Line]);
         return;
     default:
-        if (f->lineWidth > 0) {
-            p->save();
-            p->setPen(tc[T::Line]);
-            p->setBrush(Qt::NoBrush);
-            p->drawRect(f->rect.adjusted(0, 0, -1, -1));
-            p->restore();
-        }
+        if (f->lineWidth > 0)
+            outlineRect(p, f->rect, tc[T::Line]);
         return;
     }
 }
@@ -1602,11 +1597,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         // 떠 있는 도크(사용자 제목 줄) · 자동 숨김 펼친 창의 틀: 창 바탕 + 1 px 선
         const QRect r = option->rect;
         p->fillRect(r, tc[T::Win]);
-        p->save();
-        p->setPen(dockActive(w) ? tc[T::Line] : tc[T::Grid]);
-        p->setBrush(Qt::NoBrush);
-        p->drawRect(r.adjusted(0, 0, -1, -1));
-        p->restore();
+        outlineRect(p, r, dockActive(w) ? tc[T::Line] : tc[T::Grid]);
         return;
     }
     case PE_IndicatorDockWidgetResizeHandle: {
@@ -1631,11 +1622,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
             } else if (isItemViewEditor(w)) {
                 // 항목 보기의 칸 편집기: 입력 바탕 + 강조색 1 px 테두리. 글자 자리는 칸과 같게 둔다.
                 p->fillRect(f->rect, tc[T::Field]);
-                p->save();
-                p->setPen(tc[T::Accent]);
-                p->setBrush(Qt::NoBrush);
-                p->drawRect(f->rect.adjusted(0, 0, -1, -1));
-                p->restore();
+                outlineRect(p, f->rect, tc[T::Accent]);
             } else {
                 // 스핀 · 콤보 상자 안의 편집기는 바깥 상자가 바탕을 이미 칠했다.
                 const QWidget *parent = w ? w->parentWidget() : nullptr;
@@ -1773,10 +1760,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         if (rounded) {
             strokeRounded(p, crisp(option->rect), cardRadiusOf(tc), tc[T::Line]);
         } else {
-            p->save();
-            p->setPen(tc[T::Line]);
-            p->drawRect(option->rect.adjusted(0, 0, -1, -1));
-            p->restore();
+            outlineRect(p, option->rect, tc[T::Line]);
         }
         return;
     }
@@ -1787,17 +1771,11 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
             // 시안3: 크림 도구 설명(--tip-bg · --tip-line)
             const PaperFluentChrome x = paperFluentChrome(tc);
             p->fillRect(option->rect, x.tipBg);
-            p->save();
-            p->setPen(x.tipLine);
-            p->drawRect(option->rect.adjusted(0, 0, -1, -1));
-            p->restore();
+            outlineRect(p, option->rect, x.tipLine);
             return;
         }
         p->fillRect(option->rect, tc[T::Surface]);
-        p->save();
-        p->setPen(tc[T::Line]);
-        p->drawRect(option->rect.adjusted(0, 0, -1, -1));
-        p->restore();
+        outlineRect(p, option->rect, tc[T::Line]);
         return;
 
     case PE_FrameTabBarBase:
@@ -1808,10 +1786,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         break;
     case PE_FrameTabWidget:
         p->fillRect(option->rect, tc[T::Surface]);
-        p->save();
-        p->setPen(tc[T::Line]);
-        p->drawRect(option->rect.adjusted(0, 0, -1, -1));
-        p->restore();
+        outlineRect(p, option->rect, tc[T::Line]);
         return;
     case PE_IndicatorTabClose: {
         // 탭 닫기 단추: 평소 Fg3 X, 선택 탭 · 마우스 올림이면 Fg. 마우스 올림 · 누름은 둥근 겹침.
@@ -1830,11 +1805,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         return;
     }
     case PE_Frame:
-        p->save();
-        p->setPen(tc[T::Line]);
-        p->setBrush(Qt::NoBrush);
-        p->drawRect(option->rect.adjusted(0, 0, -1, -1));
-        p->restore();
+        outlineRect(p, option->rect, tc[T::Line]);
         return;
     case PE_FrameWindow: {
         // MDI 창 틀: 제목 표시줄 아래 양옆 · 아래 띠를 창 바탕으로 메우고 바깥 1 px 선.
@@ -1847,11 +1818,7 @@ void FmStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option
         p->fillRect(QRect(r.left(), top, width, bandHeight), tc[T::Win]);
         p->fillRect(QRect(r.right() - width + 1, top, width, bandHeight), tc[T::Win]);
         p->fillRect(QRect(r.left(), r.bottom() - width + 1, r.width(), width), tc[T::Win]);
-        p->save();
-        p->setPen((option->state & State_Active) ? tc[T::Line] : tc[T::Grid]);
-        p->setBrush(Qt::NoBrush);
-        p->drawRect(r.adjusted(0, 0, -1, -1));
-        p->restore();
+        outlineRect(p, r, (option->state & State_Active) ? tc[T::Line] : tc[T::Grid]);
         return;
     }
     case PE_FrameGroupBox: {
