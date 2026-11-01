@@ -23,6 +23,10 @@ public:
     explicit WindowChrome(QWidget* Window, QWidget* Parent = nullptr, WindowChromeOptions Options = {});
     ~WindowChrome() override;
     bool nativeEventFilter(const QByteArray& Type, void* Message, qintptr* Result) override;
+    // A product widget between the title and the caption buttons. The title
+    // text already yields the layout's minimum width; nullptr removes it.
+    void setAccessoryWidget(QWidget* Widget);
+    QWidget* accessoryWidget() const { return accessory_; }
 
 protected:
     void paintEvent(QPaintEvent* Event) override;
@@ -39,5 +43,6 @@ private:
     QToolButton* minimize_ = nullptr;
     QToolButton* maximize_ = nullptr;
     QToolButton* close_ = nullptr;
+    QPointer<QWidget> accessory_;
 };
 }

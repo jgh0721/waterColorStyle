@@ -79,10 +79,25 @@ WindowChrome::WindowChrome(QWidget* Window, QWidget* Parent, WindowChromeOptions
     refresh();
 }
 WindowChrome::~WindowChrome() { if (qApp) qApp->removeNativeEventFilter(this); }
+void WindowChrome::setAccessoryWidget(QWidget* Widget)
+{
+    if (accessory_ == Widget) return;
+    auto* Layout = static_cast<QHBoxLayout*>(layout());
+    if (accessory_) Layout->removeWidget(accessory_);
+    accessory_ = Widget;
+    if (Widget) {
+        // Index 0 is the stretch that keeps the caption buttons right-aligned.
+        Widget->setParent(this);
+        Layout->insertWidget(1, Widget, 0, Qt::AlignVCenter);
+        Widget->setMaximumHeight(height());
+    }
+    update();
+}
 void WindowChrome::refresh()
 {
     const auto& Colors = fm::style::themeColorsFor(this);
     setFixedHeight(chromeHeight(this));
+    if (accessory_) accessory_->setMaximumHeight(height());
     auto* Layout = static_cast<QHBoxLayout*>(layout());
     if (Colors.isPaperFluent()) {
         // 시안3: 단추는 제목 줄 높이 전체 · 46 px, 바탕 없이 올림 · 누름만 밝은 겹침, 닫기는 위험색
