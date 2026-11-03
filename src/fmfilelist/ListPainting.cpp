@@ -1,4 +1,4 @@
-#include "ListPainting_p.h"
+﻿#include "ListPainting_p.h"
 
 #include <fmstyle/StyleProps.h>
 
@@ -171,7 +171,21 @@ void paintRecordBackground(QPainter *p, const QRect &record, const RecordGeometr
             p->setRenderHint(QPainter::Antialiasing);
             p->setPen(Qt::NoPen);
             p->setBrush(fill);
-            p->drawRoundedRect(block, fillRadius, fillRadius);
+            QRectF fillBlock = block;
+            if (g.paper && (invCur || s.marked)) {
+                const QTransform device = p->deviceTransform();
+                if (device.type() <= QTransform::TxScale && device.isInvertible()) {
+                    // At 150%, odd row heights put alternate edges on half pixels.
+                    // Snap the fill and leave one physical pixel per logical record,
+                    // so adjacent selections do not form accidental two-row blocks.
+                    QRectF pixels = device.mapRect(block);
+                    const int gap = g.gap == 0 && g.separator != RecordSeparator::Line ? 1 : 0;
+                    pixels.setTop(qRound(pixels.top()));
+                    pixels.setBottom(qRound(pixels.bottom()) - gap);
+                    fillBlock = device.inverted().mapRect(pixels);
+                }
+            }
+            p->drawRoundedRect(fillBlock, fillRadius, fillRadius);
         } else {
             p->fillRect(block, fill);
         }

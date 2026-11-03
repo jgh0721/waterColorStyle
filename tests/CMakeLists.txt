@@ -2,6 +2,11 @@
 find_package(Qt6 REQUIRED COMPONENTS Test)
 
 if(TARGET Fm::filelist)
+    qt_add_executable(tst_recordpainting tst_recordpainting.cpp)
+    target_link_libraries(tst_recordpainting PRIVATE Fm::filelist Qt6::Test)
+    fm_set_compile_options(tst_recordpainting)
+    add_test(NAME tst_recordpainting COMMAND tst_recordpainting)
+
     qt_add_executable(tst_filelist tst_filelist.cpp)
     target_link_libraries(tst_filelist PRIVATE Fm::filelist Qt6::Test)
     # 비공개 그리기 규칙(ListPainting_p.h)도 검사한다.
@@ -16,7 +21,7 @@ if(TARGET Fm::filelist)
     if(WIN32)
         list(APPEND _testEnv "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
     endif()
-    set_tests_properties(tst_filelist PROPERTIES ENVIRONMENT "${_testEnv}")
+    set_tests_properties(tst_filelist tst_recordpainting PROPERTIES ENVIRONMENT "${_testEnv}")
 
     # 메인 창 — 데모 앱의 창 · 패널 소스를 그대로 넣어 검사한다.
     set(_demo ${PROJECT_SOURCE_DIR}/app/fmdemo)
