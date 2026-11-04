@@ -126,6 +126,11 @@ void setKeyHint(QWidget *widget, const QString &keys)
     setAndRefresh(widget, props::kKeyHint, keys.isEmpty() ? QVariant() : QVariant(keys), true);
 }
 
+void setCellEditor(QWidget *widget, bool on)
+{
+    setAndRefresh(widget, props::kCell, on ? QVariant(true) : QVariant(), false);
+}
+
 void setFlatHeader(QWidget *viewOrHeader, bool on)
 {
     setAndRefresh(viewOrHeader, props::kHeader, on ? QVariant(u"flat"_s) : QVariant(), true);

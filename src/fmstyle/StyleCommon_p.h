@@ -84,6 +84,9 @@ inline QString plainText(QString text)
     return text.replace(u"&&"_s, u"&"_s);
 }
 
+// 표 셀 안 편집기(fmCell) — 콤보 · 단추를 입력 틀로 그린다.
+inline bool isCellEditor(const QWidget *w) { return boolProp(w, props::kCell); }
+
 inline bool isSwitch(const QWidget *w)
 {
     return qobject_cast<const QCheckBox *>(w) && boolProp(w, props::kSwitch);

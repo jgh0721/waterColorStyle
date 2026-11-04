@@ -594,6 +594,11 @@ bool WatercolorStyle::eventFilter(QObject *watched, QEvent *event)
 // ---------------------------------------------------------------------------------------------
 // 버튼
 
+namespace {
+// 아래 익명 이름공간에서 정의한다(셀 편집기 단추가 입력 틀을 쓴다).
+void drawInputFrame(QPainter *p, const QRect &r, QStyle::State s, const ThemeColors &tc, const X &x, bool invalid);
+} // namespace
+
 void WatercolorStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, const QWidget *w) const
 {
     if (!segmentOf(w).isEmpty()) {
@@ -602,6 +607,14 @@ void WatercolorStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, c
     }
     const ThemeColors &tc = colorsFor(w);
     const X &x = watercolorChrome(tc.variant());
+    if (isCellEditor(w)) {
+        // 표 셀 안 단추 · 도구 단추: 셀의 입력 칸과 같은 들어간 틀
+        QStyle::State cell = option->state;
+        if (cell & (State_Sunken | State_On))
+            cell |= State_HasFocus;
+        drawInputFrame(p, option->rect, cell, tc, x, isInvalid(w));
+        return;
+    }
     const QStyle::State s = option->state;
     const bool enabled = s & State_Enabled;
     const ButtonRole role = buttonRole(w);

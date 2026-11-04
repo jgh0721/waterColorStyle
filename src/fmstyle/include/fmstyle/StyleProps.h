@@ -26,6 +26,7 @@ inline constexpr char kFooter[] = "fmFooter";              // bool — QFrame을
 inline constexpr char kKeyHint[] = "fmKeyHint";            // "F2" — 단추 · 라디오 · 체크 글자 뒤 키 칩
 inline constexpr char kHeader[] = "fmHeader";              // "flat" — 표 머리글을 평면으로(시안2 대화상자 · 설정 표)
 inline constexpr char kInvalid[] = "fmInvalid";            // bool — 입력 · 콤보를 오류 모양으로
+inline constexpr char kCell[] = "fmCell";                  // bool — 표 셀 안 편집기(콤보 · 단추 · 도구 단추)를 입력처럼 평면으로
 inline constexpr char kBusyPhase[] = "fmBusyPhase";        // qreal 0 ~ 1 — 불확정 진행 막대의 위치(fm::ui::ProgressBar가 움직임)
 inline constexpr char kStyledFont[] = "fmStyledFont";      // bool — 스타일이 polish에서 준 글꼴(unpolish에서 되돌림)
 inline constexpr char kDockButton[] = "fmDockButton";      // "close" | "float" | "pin" | "unpin" | "menu" — 도크 제목 줄 단추
@@ -73,6 +74,10 @@ void setFlatHeader(QWidget *viewOrHeader, bool on = true);
 
 /// 입력 · 콤보 · 스핀 상자를 오류 모양(위험 테두리)으로.
 void setInvalid(QWidget *widget, bool invalid = true);
+
+/// 표 셀 안 편집기 — 콤보 · 단추 · 도구 단추를 단추의 세로 워시 대신 입력 상자와 같은 평면 틀로 그린다.
+/// 셀 머리글(평면)과 같은 결로 보이게 하려는 것으로, 걸지 않은 위젯은 그대로다.
+void setCellEditor(QWidget *widget, bool on = true);
 
 /// QCheckBox를 스위치(시안1 40 × 20, 시안2 52 × 22)로 그린다. 글자는 스위치 왼쪽.
 void setSwitch(QWidget *checkBox, bool on = true);

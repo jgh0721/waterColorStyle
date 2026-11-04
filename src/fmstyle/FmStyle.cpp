@@ -723,6 +723,14 @@ void FmStyle::drawButtonPanel(const QStyleOption *option, QPainter *p, const QWi
         return;
     }
     const ThemeColors &tc = colors(w);
+    if (isCellEditor(w)) {
+        // 표 셀 안 단추 · 도구 단추: 셀의 입력 칸과 같은 평면 틀(눌림 · 펼침은 포커스처럼 강조)
+        QStyle::State cell = option->state;
+        if (cell & (State_Sunken | State_On))
+            cell |= State_HasFocus;
+        drawInputFrame(p, option->rect, cell, tc, isInvalid(w));
+        return;
+    }
     const QStyle::State s = option->state;
     const bool enabled = s & State_Enabled;
     const bool hover = s & State_MouseOver;
@@ -2138,7 +2146,7 @@ void FmStyle::drawComplexControl(ComplexControl control, const QStyleOptionCompl
     case CC_ComboBox:
         if (const auto *cb = qstyleoption_cast<const QStyleOptionComboBox *>(option)) {
             QStyle::State s = cb->state;
-            if (cb->frame && tc.isPaperFluent() && !cb->editable) {
+            if (cb->frame && tc.isPaperFluent() && !cb->editable && !isCellEditor(w)) {
                 // 시안3: 고르기만 하는 콤보는 단추와 같은 세로 워시, 펼침 · 포커스는 아래 2 px 강조선
                 drawPaperButton(p, crisp(cb->rect), s & ~State_On, ButtonRole::Normal, tc);
                 const bool invalid = isInvalid(w);
