@@ -1,4 +1,4 @@
-#include "fmstyle/FmStyle.h"
+﻿#include "fmstyle/FmStyle.h"
 #include "fmstyle/Glyphs.h"
 #include "fmstyle/PaperFluentChrome.h"
 #include "fmstyle/StylePaint.h"
@@ -1955,6 +1955,7 @@ void FmStyle::drawControl(ControlElement element, const QStyleOption *option, QP
                 f.setWeight(QFont::DemiBold);
                 p->setFont(f);
             }
+            copy.rect = centeredToolButtonLabelRect(&copy, p);
             QProxyStyle::drawControl(element, &copy, p, w);
             p->restore();
         }

@@ -1,4 +1,4 @@
-// Qt 표준 위젯 스타일 테스트(두 디자인) — 목업에 없는 Qt 기능: 틀 없는 콤보 · 스핀, 읽기 전용 입력, 납작한 단추,
+﻿// Qt 표준 위젯 스타일 테스트(두 디자인) — 목업에 없는 Qt 기능: 틀 없는 콤보 · 스핀, 읽기 전용 입력, 납작한 단추,
 // 도구 단추 메뉴(분할 칸 폭 · 드롭다운 꺾쇠 자리 · 누름 단추 폭은 그대로), 그룹 상자 제목 정렬 · 납작, 콤보 펼친 목록.
 
 #include <fmstyle/FmStyle.h>
@@ -183,6 +183,69 @@ private Q_SLOTS:
         const std::unique_ptr<QStyle> fusion(QStyleFactory::create(u"Fusion"_s));
         QCOMPARE(push.style()->pixelMetric(QStyle::PM_MenuButtonIndicator, &pushOpt, &push),
                  fusion->pixelMetric(QStyle::PM_MenuButtonIndicator, &pushOpt, &push));
+    }
+
+    void toolButtonLabelCentered_data() { addDesigns(); }
+    void toolButtonLabelCentered()
+    {
+        QFETCH(int, design);
+        auto &manager = fs::ThemeManager::instance();
+        manager.setDesign(fs::Design(design));
+        QToolButton button;
+        QFont font = button.font();
+        font.setPixelSize(18);
+        button.setFont(font);
+        for (const auto scheme : {fs::ThemeManager::Scheme::Light, fs::ThemeManager::Scheme::Dark}) {
+            manager.setScheme(scheme);
+            for (const auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+                for (const int iconSide : {12, 20}) {
+                    QPixmap icon(iconSide, iconSide);
+                    icon.fill(Qt::magenta);
+                    QStyleOptionToolButton option;
+                    option.initFrom(&button);
+                    option.rect = QRect(10, 8, 200, 48);
+                    option.direction = direction;
+                    option.font = font;
+                    option.fontMetrics = QFontMetrics(font);
+                    option.icon = QIcon(icon);
+                    option.iconSize = QSize(20, 20);
+                    option.text = u"&MMMM"_s;
+                    for (const auto mode : {Qt::ToolButtonIconOnly, Qt::ToolButtonTextOnly,
+                                           Qt::ToolButtonTextBesideIcon, Qt::ToolButtonTextUnderIcon}) {
+                        option.toolButtonStyle = mode;
+                        for (const auto state : {QStyle::State(QStyle::State_Enabled | QStyle::State_AutoRaise),
+                                                QStyle::State(QStyle::State_Enabled | QStyle::State_AutoRaise | QStyle::State_MouseOver),
+                                                QStyle::State(QStyle::State_Enabled | QStyle::State_Sunken),
+                                                QStyle::State(QStyle::State_Enabled | QStyle::State_On), QStyle::State()}) {
+                            option.state = state;
+                            for (const qreal dpr : {1.0, 1.5, 2.0}) {
+                                QImage image(QSize(220, 64) * dpr, QImage::Format_ARGB32_Premultiplied);
+                                image.setDevicePixelRatio(dpr);
+                                image.fill(Qt::transparent);
+                                QPainter painter(&image);
+                                button.style()->drawControl(QStyle::CE_ToolButtonLabel, &option, &painter, &button);
+                                painter.end();
+                                QRect ink;
+                                for (int y = 0; y < image.height(); ++y)
+                                    for (int x = 0; x < image.width(); ++x)
+                                        if (qAlpha(image.pixel(x, y)) > 20)
+                                            ink = ink.united(QRect(x, y, 1, 1));
+                                QVERIFY(!ink.isEmpty());
+                                const int shift = state & (QStyle::State_Sunken | QStyle::State_On)
+                                    ? button.style()->pixelMetric(QStyle::PM_ButtonShiftHorizontal, &option, &button) : 0;
+                                // Fusion mirrors the pressed offset of icon/text labels in RTL.
+                                const int visualShift = direction == Qt::RightToLeft
+                                    && (mode == Qt::ToolButtonTextBesideIcon || mode == Qt::ToolButtonTextUnderIcon) ? -shift : shift;
+                                const qreal offset = QRectF(ink).center().x() / dpr - QRectF(option.rect).center().x() - visualShift;
+                                QVERIFY2(qAbs(offset) <= 2.0, qPrintable(QString("mode=%1 direction=%2 icon=%3 state=%4 offset=%5")
+                                    .arg(mode).arg(direction).arg(iconSide).arg(int(state)).arg(offset)));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        manager.setScheme(fs::ThemeManager::Scheme::Light);
     }
 
     void paperFluentStyle()

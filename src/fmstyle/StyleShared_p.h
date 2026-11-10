@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // FmStyle · WatercolorStyle이 같이 쓰는 Qt 표준 위젯 도우미 — 테마 색 표준 아이콘, 창 단추 모양,
 // 탭 방향 변환, 슬라이더 영역, 다이얼 각도, 달력 정리. 모양(선 · 입체)은 각 스타일이 정한다.
@@ -120,6 +120,8 @@ struct ToolButtonParts
 };
 ToolButtonParts toolButtonParts(const QStyle *style, const QStyleOptionToolButton *option, const QWidget *widget,
                                 int indicatorWidth);
+/// 아이콘 옆 글자의 여유 폭을 양쪽으로 나눈다. Qt 기본 라벨은 이 모드만 앞쪽 정렬한다.
+QRect centeredToolButtonLabelRect(const QStyleOptionToolButton *option, const QPainter *painter);
 /// 메뉴가 달렸지만 분할이 아닌 도구 단추 — 크기에 꺾쇠 자리를 더해야 한다(Qt는 분할일 때만 더한다).
 bool toolButtonHasDropDown(const QStyleOption *option);
 

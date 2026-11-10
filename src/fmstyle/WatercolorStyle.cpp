@@ -1965,6 +1965,7 @@ void WatercolorStyle::drawControl(ControlElement element, const QStyleOption *op
             if (tb->activeSubControls & SC_ToolButton)
                 s |= (tb->state & State_Sunken);
             copy.palette.setColor(QPalette::ButtonText, buttonTextColor(s, buttonRole(w), tc, x));
+            copy.rect = centeredToolButtonLabelRect(&copy, p);
             QProxyStyle::drawControl(element, &copy, p, w);
         }
         return;

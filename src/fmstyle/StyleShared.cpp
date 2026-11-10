@@ -1,4 +1,4 @@
-#include "StyleShared_p.h"
+﻿#include "StyleShared_p.h"
 
 #include "StyleCommon_p.h"
 
@@ -402,6 +402,31 @@ ToolButtonParts toolButtonParts(const QStyle *style, const QStyleOptionToolButto
         parts.button = QStyle::visualRect(option->direction, r, QRect(r.left(), r.top(), r.width() - w + 2, r.height()));
     }
     return parts;
+}
+
+QRect centeredToolButtonLabelRect(const QStyleOptionToolButton *option, const QPainter *painter)
+{
+    const QRect rect = option->rect;
+    if (option->toolButtonStyle != Qt::ToolButtonTextBesideIcon || option->text.isEmpty()
+        || (option->icon.isNull() && !(option->features & QStyleOptionToolButton::Arrow)))
+        return rect;
+
+    // QToolButton reserves two spaces plus the style padding in sizeHint(), but QCommonStyle
+    // places this label at the leading edge. Give Fusion only the combined icon/text width;
+    // retain its mnemonic, disabled/checked icon, RTL, elision and pressed-offset handling.
+    QSize iconSize = option->iconSize;
+    if (!option->icon.isNull()) {
+        const QIcon::Mode mode = !(option->state & QStyle::State_Enabled) ? QIcon::Disabled
+            : (option->state & QStyle::State_MouseOver) && (option->state & QStyle::State_AutoRaise)
+                ? QIcon::Active : QIcon::Normal;
+        const QIcon::State state = option->state & QStyle::State_On ? QIcon::On : QIcon::Off;
+        const QPixmap icon = option->icon.pixmap(rect.size().boundedTo(option->iconSize),
+                                                painter->device()->devicePixelRatioF(), mode, state);
+        iconSize = icon.size() / icon.devicePixelRatio();
+    }
+    const int textWidth = option->fontMetrics.size(Qt::TextShowMnemonic, option->text).width();
+    const int width = std::min(rect.width(), iconSize.width() + 4 + textWidth);
+    return QRect(rect.left() + (rect.width() - width) / 2, rect.top(), width, rect.height());
 }
 
 bool toolButtonHasDropDown(const QStyleOption *option)
