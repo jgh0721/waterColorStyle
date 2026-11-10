@@ -38,7 +38,7 @@ int nameLineCount(const ThumbnailAppearance &a)
 
 int captionHeight(const ThumbnailAppearance &a)
 {
-    return 1 + nameLineCount(a) * kNameLine + (a.info == ThumbnailAppearance::Info::None ? 0 : 1 + kInfoLine) + 2;
+    return 1 + nameLineCount(a) * kNameLine + (a.info == ThumbnailAppearance::Info::None ? 0 : 1 + kInfoLine) + (a.secondaryLine ? 2 + kInfoLine : 0) + 2;
 }
 
 QRectF fitRect(const QRectF &box, qreal aspect)
@@ -108,6 +108,37 @@ QStringList wrapName(const QString &name, const QFont &font, int width, int maxL
 int tileHeight(const ThumbnailAppearance &a)
 {
     return kPad + a.size + kGap + captionHeight(a) + kPad;
+}
+
+int sectionHeaderHeight()
+{
+    return 30;
+}
+
+void paintSectionHeader(QPainter *p, const QRect &rect, const QModelIndex &index, const TileState &state,
+                        const fm::style::ThemeColors &tc, const QFont &baseFont)
+{
+    p->save();
+    p->setRenderHint(QPainter::Antialiasing);
+    const bool collapsed = index.data(SectionCollapsedRole).toBool();
+    const QRect line = rect.adjusted(2, 2, -2, -2);
+    // 접기 표시(삼각형) — 글꼴과 무관하게 직접 그린다.
+    const qreal cx = line.left() + 10, cy = line.center().y() + 0.5;
+    QPolygonF arrow;
+    if (collapsed) arrow << QPointF(cx - 2.5, cy - 5) << QPointF(cx + 3.5, cy) << QPointF(cx - 2.5, cy + 5);
+    else arrow << QPointF(cx - 5, cy - 2.5) << QPointF(cx + 5, cy - 2.5) << QPointF(cx, cy + 3.5);
+    p->setPen(Qt::NoPen); p->setBrush(tc[Token::Fg3]); p->drawPolygon(arrow);
+    QFont titleFont = fm::style::pixelFont(baseFont, 12.5, QFont::DemiBold);
+    p->setFont(titleFont); p->setPen(tc[Token::Fg]);
+    const QRect text = line.adjusted(24, 0, -6, 0);
+    p->drawText(text, Qt::AlignLeft | Qt::AlignVCenter, QFontMetrics(titleFont).elidedText(index.data(FullNameRole).toString(), Qt::ElideMiddle, text.width()));
+    p->setPen(QPen(tc[Token::Grid], 1));
+    p->drawLine(QPointF(line.left(), line.bottom() + 0.5), QPointF(line.right(), line.bottom() + 0.5));
+    if (state.cursor) {
+        p->setPen(QPen(state.active ? tc[Token::Fg] : tc[Token::Fg3], 1, state.active ? Qt::SolidLine : Qt::DashLine));
+        p->setBrush(Qt::NoBrush); p->drawRoundedRect(QRectF(line).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
+    }
+    p->restore();
 }
 
 void paintMockArt(QPainter *p, const QRectF &r, Art art)
@@ -401,6 +432,21 @@ void paintTile(QPainter *p, const QRect &rect, const QModelIndex &index, const T
         const int infoTop = caption.top() + 1 + std::min<int>(int(lines.size()), maxLines) * kNameLine + 1;
         p->drawText(QRect(caption.left() + 4, infoTop, textWidth, kInfoLine), Qt::AlignHCenter | Qt::AlignVCenter,
                     QFontMetrics(infoFont).elidedText(info, Qt::ElideRight, textWidth));
+    }
+    // 보조 글자(예: 평면 보기의 상대 폴더): 이름 · 정보 아래에 둥근 칩으로 그린다. 긴 경로는 가운데를 줄인다.
+    const QString secondary = a.secondaryLine ? index.data(SecondaryTextRole).toString() : QString();
+    if (!secondary.isEmpty()) {
+        const QFont chipFont = fm::style::pixelFont(baseFont, 11);
+        const QFontMetrics chipMetrics(chipFont);
+        const int infoLines = info.isEmpty() ? 0 : 1 + kInfoLine;
+        const int chipTop = caption.top() + 1 + std::min<int>(int(lines.size()), maxLines) * kNameLine + infoLines + 2;
+        const QString shown = chipMetrics.elidedText(secondary, Qt::ElideMiddle, textWidth - 10);
+        const int chipWidth = std::min(textWidth, chipMetrics.horizontalAdvance(shown) + 10);
+        const QRectF chip(caption.left() + 4 + (textWidth - chipWidth) / 2.0, chipTop, chipWidth, kInfoLine);
+        QColor chipFill = infoColor; chipFill.setAlphaF(0.14);
+        p->setPen(Qt::NoPen); p->setBrush(chipFill); p->drawRoundedRect(chip, kInfoLine / 2.0, kInfoLine / 2.0);
+        p->setFont(chipFont); p->setPen(infoColor);
+        p->drawText(chip, Qt::AlignCenter, shown);
     }
     p->restore();
 }

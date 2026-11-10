@@ -66,6 +66,7 @@ struct ThumbnailAppearance
     bool invertSelection = false;
     bool boldSelection = true;
     InactiveCursor inactiveCursor = InactiveCursor::Dashed;
+    bool secondaryLine = false;  // 이름 아래 보조 글자 줄(SecondaryTextRole) — 켜면 타일이 한 줄 높아진다
 
     /// 타일 폭 — max(크기 + 28, 100): 96 → 124(Main 보드, PLAN §11).
     int tileWidth() const noexcept { return std::max(size + 28, 100); }

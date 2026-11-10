@@ -33,6 +33,13 @@ int tileHeight(const ThumbnailAppearance &appearance);
 void paintTile(QPainter *painter, const QRect &rect, const QModelIndex &index, const TileState &state,
                const ThumbnailAppearance &appearance, const fm::style::ThemeColors &colors, const QFont &baseFont);
 
+/// 구획 머리글 높이(보기 폭 전체의 제목 줄).
+int sectionHeaderHeight();
+
+/// 구획 머리글 — 접기 표시 · 제목(FullNameRole) · 아래 구분선. 커서면 테두리를 그린다.
+void paintSectionHeader(QPainter *painter, const QRect &rect, const QModelIndex &index, const TileState &state,
+                        const fm::style::ThemeColors &colors, const QFont &baseFont);
+
 /// 목업의 가짜 섬네일(04 §2.4, 01 §9.4) — 테마와 무관한 고정 색.
 void paintMockArt(QPainter *painter, const QRectF &rect, Art art);
 

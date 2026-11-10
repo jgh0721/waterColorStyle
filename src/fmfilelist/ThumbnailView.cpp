@@ -43,7 +43,7 @@ void toggleMark(QAbstractItemModel *model, int row)
     if (!model || row < 0 || row >= model->rowCount())
         return;
     const QModelIndex i = model->index(row, NameColumn);
-    if (!i.data(IsUpRole).toBool())
+    if (!i.data(IsUpRole).toBool() && !i.data(SectionHeaderRole).toBool())
         model->setData(i, !i.data(MarkedRole).toBool(), MarkedRole);
 }
 
@@ -57,22 +57,34 @@ public:
     {
         const ThumbnailAppearance &a = m_view->appearance();
         const int tw = a.tileWidth();
+        ThumbnailPainter::TileState tileState;
+        tileState.active = detail::paneActive(m_view);
+        tileState.cursor = index.row() == m_view->currentIndex().row();
+        // 구획 모드: 머리글은 보기 폭 전체, 타일은 QListView가 놓은 자리 그대로(칸 나눔 없음).
+        if (m_view->sectionsEnabled()) {
+            if (index.data(SectionHeaderRole).toBool())
+                ThumbnailPainter::paintSectionHeader(p, option.rect, index, tileState, fm::style::themeColorsFor(m_view), m_view->font());
+            else
+                ThumbnailPainter::paintTile(p, QRect(option.rect.left(), option.rect.top(), tw, option.rect.height()), index, tileState, a,
+                                            fm::style::themeColorsFor(m_view), m_view->font());
+            return;
+        }
         // space-between: 칸 폭 = 보기 폭 / 열 수, 타일 i의 x = i × (보기 폭 − 타일 폭) / (열 수 − 1). 타일은 칸 안에 들어간다.
         const int viewWidth = std::max(tw, m_view->layoutWidth());
         const int cell = std::max(1, m_view->gridSize().width());
         const int columns = std::max(1, viewWidth / cell);
         const int column = std::clamp(option.rect.left() / cell, 0, columns - 1);
         const int left = columns > 1 ? int(std::lround(double(column) * (viewWidth - tw) / (columns - 1))) : 0;
-        ThumbnailPainter::TileState state;
-        state.active = detail::paneActive(m_view);
-        state.cursor = index.row() == m_view->currentIndex().row();
-        ThumbnailPainter::paintTile(p, QRect(left, option.rect.top(), tw, option.rect.height()), index, state, a,
+        ThumbnailPainter::paintTile(p, QRect(left, option.rect.top(), tw, option.rect.height()), index, tileState, a,
                                     fm::style::themeColorsFor(m_view), m_view->font());
     }
 
-    QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override
+    QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &index) const override
     {
         const ThumbnailAppearance &a = m_view->appearance();
+        // 머리글은 한 줄을 다 차지해 앞뒤 타일을 줄바꿈시킨다.
+        if (m_view->sectionsEnabled() && index.data(SectionHeaderRole).toBool())
+            return QSize(std::max(a.tileWidth(), m_view->layoutWidth() - 2), ThumbnailPainter::sectionHeaderHeight());
         return QSize(a.tileWidth(), ThumbnailPainter::tileHeight(a));
     }
 
@@ -104,7 +116,10 @@ ThumbnailListView::ThumbnailListView(QWidget *parent)
     setViewportMargins(8, 8, 8, 0);
     setAutoFillBackground(true);
     setBackgroundRole(QPalette::Base);
-    connect(this, &QListView::doubleClicked, this, &ThumbnailListView::rowActivated);
+    connect(this, &QListView::doubleClicked, this, [this](const QModelIndex &index) {
+        if (!index.data(SectionHeaderRole).toBool())
+            Q_EMIT rowActivated(index);
+    });
     updateGrid();
 }
 
@@ -133,8 +148,26 @@ int ThumbnailListView::layoutWidth() const
     return width;
 }
 
+void ThumbnailListView::setSectionsEnabled(bool enabled)
+{
+    if (m_sections == enabled)
+        return;
+    m_sections = enabled;
+    updateGrid();
+    scheduleDelayedItemsLayout();
+}
+
 void ThumbnailListView::updateGrid()
 {
+    if (m_sections) {
+        // 구획 모드: 머리글 폭이 타일과 달라 균일 칸을 쓰지 않는다. 타일 사이 간격은 고정 4.
+        setUniformItemSizes(false);
+        setGridSize(QSize());
+        setSpacing(2);
+        return;
+    }
+    setUniformItemSizes(true);
+    setSpacing(0);
     const int tw = m_appearance.tileWidth();
     const int width = std::max(tw, layoutWidth());
     const int columns = std::max(1, (width + 4) / (tw + 4));  // 최소 간격 4
@@ -166,6 +199,8 @@ void ThumbnailListView::resizeEvent(QResizeEvent *event)
 {
     QListView::resizeEvent(event);
     updateGrid();
+    if (m_sections)
+        scheduleDelayedItemsLayout();  // 머리글 폭이 보기 폭을 따른다
 }
 
 void ThumbnailListView::keyPressEvent(QKeyEvent *event)
@@ -188,6 +223,10 @@ void ThumbnailListView::keyPressEvent(QKeyEvent *event)
         break;
     case Qt::Key_Return:
     case Qt::Key_Enter:
+        if (currentIndex().data(SectionHeaderRole).toBool()) {
+            Q_EMIT sectionToggled(cursorRow());
+            return;
+        }
         Q_EMIT rowActivated(currentIndex());
         return;
     case Qt::Key_Backspace:
@@ -206,6 +245,10 @@ void ThumbnailListView::mousePressEvent(QMouseEvent *event)
     const int previous = cursorRow();
     QListView::mousePressEvent(event);
     if (!index.isValid() || event->button() != Qt::LeftButton) return;
+    if (index.data(SectionHeaderRole).toBool()) {
+        Q_EMIT sectionToggled(index.row());
+        return;
+    }
     if (event->modifiers() & Qt::ControlModifier) toggleMark(model(), index.row());
     else if (event->modifiers() & Qt::ShiftModifier) {
         for (int row = std::min(previous, index.row()); row <= std::max(previous, index.row()); ++row) {
@@ -564,6 +607,7 @@ ThumbnailView::ThumbnailView(QWidget *parent)
     connect(m_list, &ThumbnailListView::upRequested, this, &ThumbnailView::upRequested);
     connect(m_list, &ThumbnailListView::paneActivated, this, &ThumbnailView::paneActivated);
     connect(m_list, &ThumbnailListView::sizeStepRequested, this, &ThumbnailView::stepSize);
+    connect(m_list, &ThumbnailListView::sectionToggled, this, &ThumbnailView::sectionToggled);
 #if FM_WITH_QTITAN
     m_stack->addWidget(m_cards);
     connect(m_cards, &ThumbnailCardView::cursorRowChanged, this, [this](int row) {
@@ -671,6 +715,11 @@ void ThumbnailView::setSortText(const QString &text)
 QAbstractScrollArea *ThumbnailView::scrollArea() const
 {
     return current()->scrollArea();
+}
+
+void ThumbnailView::setSectionsEnabled(bool enabled)
+{
+    m_list->setSectionsEnabled(enabled);
 }
 
 void ThumbnailView::setPreviewMode(bool preview)

@@ -50,6 +50,9 @@ enum Role {
     SizeTextRole,                 // QString — 크기 글자(모델의 표시 형식), 폴더는 빈 문자열
     DateTextRole,                 // QString — 날짜만(모델의 표시 형식에서 시각을 뺀 것) — 섬네일 정보 줄
     SearchHighlightRole,          // QVariantList of { UTF-16 start, length } pairs in FullNameRole.
+    SectionHeaderRole,            // bool — 섬네일 보기의 구획 머리글 행. 타일 대신 보기 폭 전체의 제목 줄을 그린다
+    SectionCollapsedRole,         // bool — 구획 머리글이 접혔는지(머리글 행에서만 의미가 있다)
+    SecondaryTextRole,            // QString — 타일 이름 아래 보조 글자(예: 평면 보기의 상대 폴더 칩)
 };
 
 /// 종류 — 아이콘 모양과 종류 띠 색(--k-*)을 정한다.

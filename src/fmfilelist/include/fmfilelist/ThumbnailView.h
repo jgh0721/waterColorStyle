@@ -54,6 +54,10 @@ public:
 
     /// QListView가 줄바꿈에 쓰는 폭 — 스크롤 막대가 필요할 때 나타나는 방식이면 그 폭을 미리 뺀다.
     int layoutWidth() const;
+    /// 구획 모드 — 모델의 SectionHeaderRole 행을 보기 폭 전체 머리글로 그리고 타일을 그 아래에 둔다.
+    /// 머리글을 누르거나 머리글에서 Enter를 누르면 sectionToggled를 보낸다(접기는 모델이 행을 숨겨 처리한다).
+    void setSectionsEnabled(bool enabled);
+    bool sectionsEnabled() const noexcept { return m_sections; }
 
 Q_SIGNALS:
     void cursorRowChanged(int row);
@@ -61,6 +65,7 @@ Q_SIGNALS:
     void paneActivated();
     void sizeStepRequested(int delta);
     void upRequested();
+    void sectionToggled(int row);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -74,6 +79,7 @@ private:
     void updateGrid();
 
     ThumbnailAppearance m_appearance;
+    bool m_sections = false;
 };
 
 #if FM_WITH_QTITAN
@@ -180,6 +186,9 @@ public:
     int cursorRow() const;
     void setCursorRow(int row);
 
+    /// 구획 모드(Qt 목록 구현만). 카드 구현에서는 무시한다.
+    void setSectionsEnabled(bool enabled);
+
     ThumbnailListView *listView() const noexcept { return m_list; }
 #if FM_WITH_QTITAN
     ThumbnailCardView *cardView() const noexcept { return m_cards; }
@@ -195,6 +204,8 @@ Q_SIGNALS:
     void paneActivated();
     /// Ctrl+휠 — 크기 단계를 바꾸고 싶다(보통 이 보기가 appearance를 바꿔 반영한다).
     void sizeChanged(int size);
+    /// 구획 머리글을 눌렀다(행 번호는 모델 기준).
+    void sectionToggled(int row);
 
 private:
     ThumbnailBackend *current() const;
