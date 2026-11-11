@@ -16,6 +16,7 @@ inline constexpr char kRole[] = "fmRole";                  // "primary" | "dange
 inline constexpr char kSize[] = "fmSize";                  // "small" | "mini" | "thin" | "thick"
 inline constexpr char kSwitch[] = "fmSwitch";              // bool — QCheckBox를 스위치로
 inline constexpr char kSegment[] = "fmSegment";            // "first" | "middle" | "last" | "only"
+inline constexpr char kSegmentBreak[] = "fmSegmentBreak";  // bool — 조각 왼쪽 경계를 굵은 구분선으로(고르기 조각 | 켜고 끄는 조각)
 inline constexpr char kCard[] = "fmCard";                  // bool — QFrame을 카드로
 inline constexpr char kSoftSelection[] = "fmSoftSelection"; // bool — 항목 보기의 선택을 연한 강조 + 3 px 막대로(시안3 탐색 · 범주 목록)
 inline constexpr char kPaneActive[] = "fmPaneActive";      // bool — 활성 패널 (탭 줄 · 목록)
@@ -85,6 +86,11 @@ void setSwitch(QWidget *checkBox, bool on = true);
 /// 버튼들을 이어 붙인 세그먼트 컨트롤로 만든다. 레이아웃 간격은 0, 배타 선택은
 /// QButtonGroup으로 호출하는 쪽에서 묶는다.
 void setSegments(const QList<QAbstractButton *> &buttons);
+
+/// 세그먼트 조각의 왼쪽 경계를 굵은 구분선(앞 조각 테두리 옆에 시안1 · 3 짙은 2 px, 시안2 테두리색 1 px)으로
+/// — 성격이 다른 조각 묶음 사이.
+/// 첫 조각에는 효과가 없다.
+void setSegmentBreak(QAbstractButton *button, bool on = true);
 
 /// QFrame을 카드(목록 바탕 + 구분선 테두리, 시안1 모서리 6 px · 시안2 네모)로.
 void setCard(QWidget *frame, bool on = true);

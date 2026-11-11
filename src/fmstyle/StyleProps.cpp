@@ -160,6 +160,11 @@ void setSegments(const QList<QAbstractButton *> &buttons)
     }
 }
 
+void setSegmentBreak(QAbstractButton *button, bool on)
+{
+    setAndRefresh(button, props::kSegmentBreak, on ? QVariant(true) : QVariant(), false);
+}
+
 void setCard(QWidget *frame, bool on)
 {
     setAndRefresh(frame, props::kCard, on ? QVariant(true) : QVariant(), false);

@@ -2,16 +2,20 @@
 
 #include "fmwidgets/Glyph.h"
 
+#include <QPointer>
 #include <QStringList>
 #include <QWidget>
 
 class QAbstractButton;
 class QButtonGroup;
 class QHBoxLayout;
+class QMenu;
+class QPushButton;
 
 namespace fm::ui {
 
 /// 이어 붙인 버튼 가운데 하나를 고르는 세그먼트 컨트롤 (목업의 1줄 · 2줄 · 자동 · 섬네일).
+/// 오른쪽 끝에 고르기와 별개인 켜고 끄는 조각(+ 메뉴 ▾ 조각)을 붙일 수 있다(setToggleItem).
 class SegmentedControl : public QWidget
 {
     Q_OBJECT
@@ -55,14 +59,32 @@ public:
     int count() const noexcept { return int(m_items.size()); }
     QAbstractButton *button(int index) const;
 
+    /// 고르기 조각들 오른쪽에 켜고 끄는 조각 하나를 붙인다(고르기와 별개로 켜짐 · 꺼짐 — 목업의 1줄 · … · 섬네일 ‖ 평면).
+    /// 고르기 조각과의 경계는 굵은 구분선이다. menu를 주면 그 오른쪽에 ▾ 조각을 붙이고, ▾ 클릭 · 켜고 끄는 조각
+    /// 우클릭 · 두 조각에서 Alt+↓로 메뉴를 켜고 끄는 조각 왼쪽 아래에 연다. ▾ 조각은 체크 상태가 없고, 켜고 끄는
+    /// 조각이 켜지면 함께 켜진 모양으로, 메뉴가 열린 동안 눌린 모양으로 그린다. text가 비면 두 조각을 없앤다.
+    void setToggleItem(const QString &text, const QString &toolTip = QString(), QMenu *menu = nullptr);
+    QAbstractButton *toggleButton() const;
+    QAbstractButton *toggleMenuButton() const;
+    bool isToggleChecked() const;
+    /// 상태 동기화용 — toggleClicked를 내지 않는다.
+    void setToggleChecked(bool checked);
+    /// 켜고 끄는 조각과 ▾ 조각을 함께.
+    void setToggleEnabled(bool enabled);
+
 Q_SIGNALS:
     void currentIndexChanged(int index);
+    /// 사용자가 켜고 끄는 조각을 눌렀다. checked는 누른 뒤의 상태다.
+    void toggleClicked(bool checked);
 
 protected:
     void changeEvent(QEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void rebuild();
+    void placeToggle();
+    void showToggleMenu();
     void applyLook();
     void refreshIcons();
 
@@ -74,6 +96,10 @@ private:
     bool m_expanding = false;
     QHBoxLayout *m_layout = nullptr;
     QButtonGroup *m_group = nullptr;
+    QPushButton *m_toggle = nullptr;
+    QPushButton *m_toggleMenuButton = nullptr;
+    QPointer<QMenu> m_toggleMenu;
+    QString m_toggleToolTip;
 };
 
 } // namespace fm::ui

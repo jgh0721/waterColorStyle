@@ -824,6 +824,13 @@ void FmStyle::drawSegment(const QStyleOption *option, QPainter *p, const QWidget
     }
     p->setPen(QPen(enabled ? tc[T::BtnLine] : mix(tc[T::BtnLine], tc[T::Win], 0.4), 1.0));
     p->drawPath(path);
+    if (!first && boolProp(w, props::kSegmentBreak)) {
+        // 굵은 구분선: 앞 조각의 오른쪽 테두리 옆 두 열을 글자색 쪽으로 짙게 — 다른 조각 경계(1 px)와 구별된다.
+        const QColor line = enabled ? mix(tc[T::BtnLine], tc[T::Fg], 0.45) : mix(tc[T::BtnLine], tc[T::Win], 0.2);
+        p->setRenderHint(QPainter::Antialiasing, false);
+        p->fillRect(QRect(option->rect.left(), option->rect.top(), 2, option->rect.height()), line);
+        p->setRenderHint(QPainter::Antialiasing, true);
+    }
     if (enabled && keyboardFocus(s)) {
         const QRectF fr = QRectF(option->rect).adjusted(first ? 2 : 1, 2, -2, -2);
         p->setPen(QPen(tc[T::Focus], 2.0));

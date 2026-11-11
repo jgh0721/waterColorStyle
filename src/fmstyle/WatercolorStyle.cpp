@@ -672,6 +672,9 @@ void WatercolorStyle::drawSegment(const QStyleOption *option, QPainter *p, const
     p->save();
     p->setClipRect(r, Qt::IntersectClip);
     raised(p, first ? r : r.adjusted(-1, 0, 0, 0), x, look, border);
+    // 굵은 구분선: 앞 조각과 같이 쓰는 테두리 옆 첫 열도 테두리색 — 2 px 경계.
+    if (!first && boolProp(w, props::kSegmentBreak))
+        p->fillRect(QRect(r.left(), r.top(), 1, r.height()), border);
     p->restore();
     if (enabled && keyboardFocus(s))
         dottedRect(p, r.adjusted(first ? 3 : 2, 3, -3, -3), tc[T::Focus]);
