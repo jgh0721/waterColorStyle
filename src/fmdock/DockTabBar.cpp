@@ -324,9 +324,15 @@ void DockTab::mouseDoubleClickEvent(QMouseEvent *event)
 
 void DockTab::contextMenuEvent(QContextMenuEvent *event)
 {
+    event->accept();
+    if (!m_dock)
+        return;
+    // 앱이 메뉴를 대신 열면(문서 탭 메뉴 등) 기본 메뉴를 띄우지 않는다
+    if (DockManager *manager = m_dock->dockManager(); manager && manager->m_menuHook
+        && manager->m_menuHook(m_dock, event->globalPos()))
+        return;
     if (m_dock)
         execDockMenu(m_dock, event->globalPos(), this);
-    event->accept();
 }
 
 // =============================================================================================

@@ -13,6 +13,7 @@
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QDockWidget>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -274,6 +275,49 @@ private Q_SLOTS:
         settle();
         QVERIFY(f.doc2->isInCentralArea());
         QVERIFY(!f.manager->dockContainer()->centralPlaceholder()->isVisible());
+    }
+
+    void appHooks()
+    {
+        // 앱 연결점 — 중앙 자리 위젯(시작 페이지), 탭 메뉴 대신 열기, 다른 프로세스 창 포커스 알림
+        Fixture f;
+        QPointer<QLabel> start = new QLabel(u"시작 페이지"_s);
+        f.manager->setCentralPlaceholderWidget(start);
+        QWidget *placeholder = f.manager->dockContainer()->centralPlaceholder();
+        QCOMPARE(start->parentWidget(), placeholder);
+        f.manager->moveDockWidget(f.doc1, DropArea::Left);
+        f.manager->moveDockWidget(f.doc2, DropArea::Left);
+        settle();
+        QVERIFY(placeholder->isVisible());
+        QVERIFY(start->isVisible());
+        QCOMPARE(start->geometry(), placeholder->rect());
+        // 상태를 다시 짜도(자리가 새로 생겨도) 위젯은 살아서 새 자리에 들어간다
+        const QByteArray state = f.manager->saveState();
+        QVERIFY(f.manager->restoreState(state));
+        settle();
+        QVERIFY(start);
+        QCOMPARE(start->parentWidget(), f.manager->dockContainer()->centralPlaceholder());
+        // 탭 메뉴 연결점 — true면 기본 메뉴가 뜨지 않는다
+        QVERIFY(f.manager->moveDockWidget(f.doc1, DropArea::Center));
+        settle();
+        fd::DockWidget *menuDock = nullptr;
+        f.manager->setDockMenuHook([&](fd::DockWidget *dock, const QPoint &) { menuDock = dock; return true; });
+        auto *tab = f.doc1->dockArea()->titleBar()->findChild<fd::detail::DockTab *>();
+        QVERIFY(tab);
+        QContextMenuEvent menuEvent(QContextMenuEvent::Mouse, tab->rect().center(), tab->mapToGlobal(tab->rect().center()));
+        QApplication::sendEvent(tab, &menuEvent);
+        QCOMPARE(menuDock, tab->dock());
+        // 포커스 알림 — Qt 포커스와 관계없이 표시 · 신호가 따른다
+        QSignalSpy focusSpy(f.manager, &DockManager::focusedDockWidgetChanged);
+        f.manager->setFocusedDockWidget(f.outline);
+        QCOMPARE(f.manager->focusedDockWidget(), f.outline);
+        QVERIFY(f.outline->dockArea()->isActive());
+        QCOMPARE(focusSpy.size(), 1);
+        // 위젯을 거두면 앱 것이 된다(부모 없음)
+        f.manager->setCentralPlaceholderWidget(nullptr);
+        QVERIFY(start);
+        QVERIFY(!start->parentWidget());
+        delete start.data();
     }
 
     void closeAndReopen()

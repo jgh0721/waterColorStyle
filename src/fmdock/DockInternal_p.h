@@ -234,12 +234,16 @@ class CentralPlaceholder : public QWidget
     Q_OBJECT
 public:
     CentralPlaceholder(DockManager *manager, QWidget *parent);
+    ~CentralPlaceholder() override;
+    /// 관리자의 중앙 자리 위젯(setCentralPlaceholderWidget)을 이 자리에 채운다.
+    void adoptWidget();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
 
 private:
     QPointer<DockManager> m_manager;
+    QPointer<QWidget> m_adopted;
 };
 
 // ------------------------------------------------------------------------------------- 자동 숨김

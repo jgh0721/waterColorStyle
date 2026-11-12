@@ -103,6 +103,8 @@ DockManager::~DockManager()
 {
     m_dying = true;
     qApp->removeEventFilter(this);
+    // 중앙 자리 위젯은 관리자 것이다 — 자리(CentralPlaceholder)보다 먼저 지워 자리가 관리자를 만지지 않게 한다
+    delete m_placeholderWidget.data();
     if (m_drag)
         m_drag->deleteLater();
     // 떠 있는 창은 메인 창이 소유한다 — 관리자와 함께 지운다
@@ -286,6 +288,36 @@ void DockManager::setCentralPlaceholderText(const QString &text)
     m_placeholderText = text;
     if (QWidget *p = m_container->centralPlaceholder())
         p->update();
+}
+
+void DockManager::ensureCentralArea()
+{
+    m_container->ensureCentralRegion();
+}
+
+void DockManager::setCentralPlaceholderWidget(QWidget *widget)
+{
+    if (m_placeholderWidget == widget)
+        return;
+    if (m_placeholderWidget) {
+        // 앞 위젯은 앱에 돌려준다(부모 없음, 숨김)
+        m_placeholderWidget->hide();
+        m_placeholderWidget->setParent(nullptr);
+    }
+    m_placeholderWidget = widget;
+    if (widget) {
+        widget->hide();
+        widget->setParent(this);
+    }
+    if (auto *p = qobject_cast<detail::CentralPlaceholder *>(m_container->centralPlaceholder()))
+        p->adoptWidget();
+}
+
+void DockManager::setFocusedDockWidget(DockWidget *dock)
+{
+    if (m_restoring || m_dying || (dock && dock->m_manager != this))
+        return;
+    setFocusedDock(dock);
 }
 
 DockArea *DockManager::addDockWidget(DropArea where, DockWidget *dock, DockArea *target, int index)

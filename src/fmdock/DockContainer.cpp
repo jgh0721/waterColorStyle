@@ -621,6 +621,35 @@ CentralPlaceholder::CentralPlaceholder(DockManager *manager, QWidget *parent)
 {
     setObjectName(u"fmDockCentralPlaceholder"_s);
     setMinimumSize(80, 60);
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    adoptWidget();
+}
+
+CentralPlaceholder::~CentralPlaceholder()
+{
+    // 자리만 사라진다(분할 다시 짜기 · 상태 복원) — 위젯은 관리자에게 돌려준다. 관리자가 지워질 때는
+    // ~DockManager가 위젯을 먼저 지우므로 m_adopted가 비어 있다.
+    if (m_adopted && m_adopted->parentWidget() == this && m_manager) {
+        m_adopted->hide();
+        m_adopted->setParent(m_manager);
+    }
+}
+
+void CentralPlaceholder::adoptWidget()
+{
+    QWidget *widget = m_manager ? m_manager->centralPlaceholderWidget() : nullptr;
+    if (m_adopted && m_adopted != widget && m_adopted->parentWidget() == this) {
+        layout()->removeWidget(m_adopted);
+        m_adopted->hide();
+        m_adopted->setParent(m_manager);
+    }
+    m_adopted = widget;
+    if (widget) {
+        layout()->addWidget(widget);
+        widget->show();
+    }
+    update();
 }
 
 void CentralPlaceholder::paintEvent(QPaintEvent *)
@@ -628,6 +657,8 @@ void CentralPlaceholder::paintEvent(QPaintEvent *)
     QPainter p(this);
     const fs::ThemeColors &tc = colorsOf(this);
     p.fillRect(rect(), tc[fs::Token::Surface]);
+    if (m_adopted)
+        return;
     const QString text = m_manager ? m_manager->centralPlaceholderText() : QString();
     if (text.isEmpty())
         return;

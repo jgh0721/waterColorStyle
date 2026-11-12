@@ -23,6 +23,7 @@
 #include <QWidget>
 
 #include <array>
+#include <functional>
 #include <memory>
 
 class QGridLayout;
@@ -113,9 +114,18 @@ public:
     /// 중앙 영역을 만들고 central을 고정 위젯으로 넣는다(닫기 · 이동 · 떼어 내기 · 고정 없음, 탭 숨김).
     DockArea *setCentralWidget(DockWidget *central);
     DockWidget *centralWidget() const { return m_centralWidget; }
+    /// 중앙(문서) 영역을 미리 만든다 — 문서가 없어도 도구 도크를 그 둘레(가장자리)에 놓을 수 있다.
+    void ensureCentralArea();
     /// 중앙 영역이 비었을 때 보일 안내 글자.
     void setCentralPlaceholderText(const QString &text);
     QString centralPlaceholderText() const { return m_placeholderText; }
+    /// 중앙 영역이 비었을 때 글자 대신 보일 위젯(시작 페이지 등). 관리자가 소유한다. nullptr이면 글자로 돌아간다.
+    void setCentralPlaceholderWidget(QWidget *widget);
+    QWidget *centralPlaceholderWidget() const { return m_placeholderWidget; }
+
+    /// 도크 탭을 오른쪽 클릭하면 기본 메뉴 대신 앱이 메뉴를 연다. hook이 true를 돌려주면 기본 메뉴를 띄우지 않는다.
+    using DockMenuHook = std::function<bool(DockWidget *dock, const QPoint &globalPos)>;
+    void setDockMenuHook(DockMenuHook hook) { m_menuHook = std::move(hook); }
 
     /// where · target 규칙은 DropArea 참고. index는 탭 순서(−1 = 끝).
     DockArea *addDockWidget(DropArea where, DockWidget *dock, DockArea *target = nullptr, int index = -1);
@@ -130,6 +140,8 @@ public:
     DockWidget *findDockWidget(const QString &id) const;
     QList<DockWidget *> dockWidgets() const;
     DockWidget *focusedDockWidget() const { return m_focused; }
+    /// Qt 포커스가 오지 않는 내용(다른 프로세스 창)에 포커스가 간 것을 앱이 알린다 — 포커스 표시와 신호가 따른다.
+    void setFocusedDockWidget(DockWidget *dock);
     DockArea *lastActiveCentralArea() const;
 
     /// 마우스 없이 — 끌어 놓기와 같은 결과(where · target은 addDockWidget과 같다).
@@ -270,6 +282,8 @@ private:
     QPointer<detail::DragSession> m_drag;
     QPointer<QWidget> m_shortcutSource;
     QString m_placeholderText;
+    QPointer<QWidget> m_placeholderWidget;
+    DockMenuHook m_menuHook;
     QByteArray m_defaultLayout;
     QMap<QString, QByteArray> m_perspectives;
     ConfigFlags m_config = DefaultConfig;

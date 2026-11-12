@@ -296,6 +296,7 @@ settings.setValue("docks", docks->saveState());             // JSON — restoreS
 | 자동 숨김 | 사이드바 네 방향, 누르면 내용 위로 펼침(바깥을 누르거나 Esc면 접힘), 끌다가 사이드 탭 위에 머물면 펼침, 펼친 창 가장자리로 크기 조절 |
 | 상태 · 배치 | `saveState` · `restoreState`(JSON, 형식 · 판이 다르거나 한도를 넘으면 거절하고 그대로), 이름 붙인 배치(`addPerspective` · `openPerspective` · `perspectiveNames`), `lockFeatures`, 포커스가 들어 있는 도크 강조 |
 | 임베드 | `NoTopLevelWindows`면 최상위 창 없이 표시 · 미리보기도 자식 위젯으로(떠 있는 창 끔) |
+| 앱 연결점 | `ensureCentralArea`(문서가 없어도 중앙 영역을 먼저 만든다 — 도구 도크를 그 둘레에), `setCentralPlaceholderWidget`(빈 중앙 영역에 시작 페이지 등 위젯), `setDockMenuHook`(탭 오른쪽 클릭에 앱의 메뉴 — true면 기본 메뉴 생략), `setFocusedDockWidget`(다른 프로세스 창처럼 Qt 포커스가 오지 않는 내용의 포커스를 알림), 놓기 전후 `aboutToReparent` · `reparented` |
 
 성능(Release, 오프스크린, `tst_dock_bench`): 도크 50 · 영역 15 등록 + 첫 표시 약 9 ms, `restoreState` 약 10 ms,
 `saveState` 0.06 ms, 끄는 중 이동 1회 0.3 ms, 디자인 전환 약 8 ms, 도크 하나(탭) 약 6 KB · 영역 하나 약 21 KB.
