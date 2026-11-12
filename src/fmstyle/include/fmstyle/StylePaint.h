@@ -101,4 +101,68 @@ void paintDropPreview(QPainter *painter, const QRectF &rect, const ThemeColors &
 /// 자동 숨김 사이드바 바탕 — 창 바탕 + 안쪽(내용과 맞닿는) 변 1 px 선.
 void paintDockSideBar(QPainter *painter, const QRect &rect, Qt::Edge innerEdge, const ThemeColors &colors);
 
+// ------------------------------------------------------------------------------------- 도킹 2판 (07)
+
+/// 디자인별 도킹 치수(07 §6.4). 탭 높이는 스타일의 CT_TabBarTab이 정하고, 탭 줄 높이는 그 위에 stripTopGap을 더한다.
+struct DockMetrics
+{
+    int stripTopGap = 4;        // 탭 줄 위 여백 — 시안1 4(32 − 28), 시안2 2(28 − 26), 시안3 2(32 − 30)
+    int tabGap = 2;             // 탭 사이 — 시안2는 −1(테두리 겹침)
+    int areaButton = 22;        // 영역 단추 한 변
+    int splitter = 5;           // 분할 손잡이 두께
+    int sideBar = 28;           // 사이드바 두께
+    int sideTabPad = 10;        // 사이드 탭 긴 쪽 여백
+    int paneTitle = 30;         // 펼친 창 · 미리보기 창 제목 줄
+    int floatingTitle = 32;     // 떠 있는 창 제목 줄
+    QSize floatingButton{40, 32};
+    int floatingButtonGap = 0;
+    int floatingFrame = 1;      // 떠 있는 창 바깥 테두리
+    int areaRadius = 0;         // 영역 테두리 모서리(시안3 6)
+    int flyoutRadius = 0;       // 펼친 창 모서리(시안3 8)
+    bool areaBorder = false;    // 영역 전체 테두리(시안3)
+    bool contentBorder = false; // 내용 테두리(시안2 tabLine)
+};
+DockMetrics dockMetrics(const ThemeColors &colors);
+
+/// 탭 줄 바탕 — 시안1 · 2 Win, 시안3 Alt. 내용과 맞닿는 변(lineEdge)에 1 px 선(시안2 tabLine).
+/// 시안3은 영역 모서리에 맞춰 바깥쪽 두 모서리를 둥글게 깎는다.
+void paintDockStrip(QPainter *painter, const QRect &rect, Qt::Edge lineEdge, const ThemeColors &colors);
+
+/// 영역 테두리 — 시안3 둥근 Line(영역 전체), 시안2 내용 둘레 tabLine(contentRect, 탭 줄 쪽 변 제외).
+void paintDockAreaFrame(QPainter *painter, const QRect &areaRect, const QRect &contentRect, Qt::Edge stripEdge,
+                        const ThemeColors &colors);
+
+/// 분할 손잡이 — 마우스 올림이면 가운데 2 px 강조색, 시안2는 새긴 점 셋을 늘 그린다.
+void paintDockSplitterHandle(QPainter *painter, const QRect &rect, bool hover, const ThemeColors &colors);
+
+enum class DockTitleKind : std::uint8_t { Pane, Floating };
+
+/// 펼친 창 · 미리보기 창 제목 띠 — 시안1 Win + 위 2 px 강조(활성), 시안2 도구 캡션 그라데이션(ttl → cap),
+/// 시안3 Alt + 아래 2 px 강조(활성).
+void paintDockPaneTitle(QPainter *painter, const QRect &rect, bool active, const ThemeColors &colors);
+
+/// 떠 있는 창 제목 줄 — 시안1 Win, 시안2 도구 캡션(비활성 ttlInactive), 시안3 제목 워시(비활성 Head → Alt).
+void paintFloatingTitle(QPainter *painter, const QRect &rect, bool active, const ThemeColors &colors);
+
+/// 제목 글자(12 px) — 디자인별 굵기 · 색 · 그림자. 넘치면 줄임표.
+void paintDockTitleText(QPainter *painter, const QRect &rect, const QString &text, DockTitleKind kind, bool active,
+                        const ThemeColors &colors);
+/// 제목 글자 글꼴(넓이 계산용).
+QFont dockTitleFont(const QFont &base, const ThemeColors &colors);
+
+/// 떠 있는 창 바깥 테두리(시안1 Line, 시안2 frm, 시안3 title-2).
+void paintFloatingFrame(QPainter *painter, const QRect &rect, bool active, const ThemeColors &colors);
+
+/// 펼친 창 틀 — Win 바탕 + 1 px 테두리(시안2 out, 시안3 모서리 8).
+void paintDockFlyoutFrame(QPainter *painter, const QRect &rect, const ThemeColors &colors);
+
+enum class CaptionButton : std::uint8_t { Close, Maximize, Restore };
+
+/// 떠 있는 창 제목 줄 단추 — 시안1 · 3 글자형(닫기 올림 붉게), 시안2 캡션 단추(capFill · capLine).
+void paintCaptionButton(QPainter *painter, const QRect &rect, CaptionButton kind, bool hover, bool pressed, bool active,
+                        const ThemeColors &colors);
+
+/// 탭 줄 · 사이드바 끼워 넣기 캐럿(강조색 채움).
+void paintDropCaret(QPainter *painter, const QRectF &rect, const ThemeColors &colors);
+
 } // namespace fm::style

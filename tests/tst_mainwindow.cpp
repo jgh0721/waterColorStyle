@@ -761,16 +761,16 @@ void TestMainWindow::docks()
     m_window->loadBoardState();
     fm::dock::DockManager *docks = m_window->dockManager();
     QVERIFY(docks);
-    auto *host = m_window->findChild<QMainWindow *>(u"dockHost"_s);
-    QVERIFY(host);
-    QCOMPARE(docks->window(), host);
+    QCOMPARE(docks->objectName(), u"dockHost"_s);
+    QVERIFY(docks->centralWidget());  // 두 패널 영역이 중앙 위젯
     const QStringList ids = {u"folderTree"_s, u"preview"_s, u"properties"_s, u"jobs"_s};
     for (const QString &id : ids) {
-        QDockWidget *dock = docks->dock(id);
+        fm::dock::DockWidget *dock = docks->findDockWidget(id);
         QVERIFY2(dock, qPrintable(id));
-        QVERIFY2(!dock->isVisible() && !dock->toggleViewAction()->isChecked(), qPrintable(id));
+        QVERIFY2(dock->isClosed() && !dock->isVisible() && !dock->toggleViewAction()->isChecked(), qPrintable(id));
     }
-    QCOMPARE(host->centralWidget()->width(), host->width());  // 닫힌 도크는 자리를 차지하지 않는다
+    // 닫힌 도크는 자리를 차지하지 않는다
+    QCOMPARE(docks->centralWidget()->dockArea()->width(), docks->dockContainer()->width());
 
     // 보기 › 도크 — 켜기 · 끄기 넷과 배치 하위 메뉴
     QMenu *dockMenu = nullptr;
@@ -783,15 +783,17 @@ void TestMainWindow::docks()
         }
     }
     QVERIFY(dockMenu);
-    QVERIFY(dockMenu->actions().contains(docks->dock(u"preview"_s)->toggleViewAction()));
+    QVERIFY(dockMenu->actions().contains(docks->findDockWidget(u"preview"_s)->toggleViewAction()));
 
-    QDockWidget *preview = docks->dock(u"preview"_s);
-    QDockWidget *properties = docks->dock(u"properties"_s);
-    QDockWidget *jobs = docks->dock(u"jobs"_s);
+    fm::dock::DockWidget *preview = docks->findDockWidget(u"preview"_s);
+    fm::dock::DockWidget *properties = docks->findDockWidget(u"properties"_s);
+    fm::dock::DockWidget *jobs = docks->findDockWidget(u"jobs"_s);
     preview->toggleViewAction()->trigger();
     jobs->toggleViewAction()->trigger();
     QTRY_VERIFY(preview->isVisible() && jobs->isVisible());
-    QCOMPARE(host->dockWidgetArea(preview), Qt::RightDockWidgetArea);
+    // 미리보기는 두 패널 오른쪽(닫혔던 자리 그대로)
+    QVERIFY(preview->dockArea()->mapToGlobal(QPoint(0, 0)).x()
+            > docks->centralWidget()->dockArea()->mapToGlobal(QPoint(docks->centralWidget()->dockArea()->width(), 0)).x() - 1);
     // 아래 도크는 명령줄 · 기능 키 막대 위(패널 영역 안)
     auto *commandLine = m_window->findChild<fm::ui::CommandLine *>();
     QVERIFY(jobs->mapTo(m_window.get(), QPoint(0, jobs->height())).y() <= commandLine->mapTo(m_window.get(), QPoint()).y());
@@ -805,7 +807,7 @@ void TestMainWindow::docks()
 
     // 속성 탭을 앞으로 — 보일 때 채운다
     properties->toggleViewAction()->trigger();
-    properties->raise();
+    properties->setAsCurrentTab();
     QTRY_VERIFY(m_window->propertiesPane()->isVisible());
     QTRY_COMPARE(m_window->propertiesPane()->value(u"이름"_s), right->cursorIndex().data(fl::FullNameRole).toString());
     QCOMPARE(m_window->propertiesPane()->value(u"원본"_s), u"샘플 데이터"_s);
@@ -856,7 +858,7 @@ void TestMainWindow::docks()
     QVERIFY(right->isLocal());
     QCOMPARE(right->currentPath().compare(temp, Qt::CaseInsensitive), 0);
     QTRY_VERIFY(rowOf(right, u"notes.txt"_s) >= 0 && rowOf(right, u"red.png"_s) >= 0);
-    preview->raise();
+    preview->setAsCurrentTab();
     QTRY_VERIFY(m_window->previewPane()->isVisible());
     right->listView()->setCursorRow(rowOf(right, u"notes.txt"_s));
     m_window->updateDockPanes();
@@ -864,30 +866,39 @@ void TestMainWindow::docks()
     right->listView()->setCursorRow(rowOf(right, u"red.png"_s));
     m_window->updateDockPanes();
     QCOMPARE(m_window->previewPane()->content(), u"image"_s);
-    properties->raise();
+    properties->setAsCurrentTab();
     QTRY_COMPARE(m_window->propertiesPane()->value(u"그림 크기"_s), u"4 × 3 픽셀"_s);
     QCOMPARE(m_window->propertiesPane()->value(u"원본"_s), u"이 PC (읽기 전용)"_s);
     right->goBack();
 
     // 세션 — 배치와 이름 붙인 배치가 설정 JSON을 거쳐 되살아난다
-    docks->saveLayout(u"검토"_s);
+    docks->addPerspective(u"검토"_s);
     st::AppSettings settings;
     settings.session = m_window->sessionState();
     QVERIFY(!settings.session.docks.isEmpty());
     const st::AppSettings loaded = st::AppSettings::fromJson(settings.toJson());
     QCOMPARE(loaded.session.docks, settings.session.docks);
     QCOMPARE(loaded.session.dockLayouts.keys(), QStringList{u"검토"_s});
-    for (QDockWidget *dock : docks->docks())
-        dock->hide();
-    docks->setLayouts({});
+    const auto closeAll = [docks] {
+        for (fm::dock::DockWidget *dock : docks->dockWidgets()) {
+            if (dock != docks->centralWidget())
+                dock->toggleView(false);
+        }
+    };
+    closeAll();
+    docks->setPerspectives({});
     m_window->restoreDocks(loaded.session);
     QTRY_VERIFY(preview->isVisible() || properties->isVisible());
     QVERIFY(jobs->isVisible());
-    QCOMPARE(docks->layoutNames(), QStringList{u"검토"_s});
+    QCOMPARE(docks->perspectiveNames(), QStringList{u"검토"_s});
+    // 1판(QMainWindow) 상태는 버린다 — 거절되고 지금 배치 그대로
+    st::SessionState old = loaded.session;
+    old.docks = QByteArray("FMDK\x00\x01", 6);
+    m_window->restoreDocks(old);
+    QVERIFY(jobs->isVisible());
 
-    docks->setLayouts({});
-    for (QDockWidget *dock : docks->docks())
-        dock->hide();
+    docks->setPerspectives({});
+    closeAll();
     m_window->loadBoardState();
 }
 

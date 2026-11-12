@@ -30,7 +30,8 @@ inline constexpr char kInvalid[] = "fmInvalid";            // bool — 입력 ·
 inline constexpr char kCell[] = "fmCell";                  // bool — 표 셀 안 편집기(콤보 · 단추 · 도구 단추)를 입력처럼 평면으로
 inline constexpr char kBusyPhase[] = "fmBusyPhase";        // qreal 0 ~ 1 — 불확정 진행 막대의 위치(fm::ui::ProgressBar가 움직임)
 inline constexpr char kStyledFont[] = "fmStyledFont";      // bool — 스타일이 polish에서 준 글꼴(unpolish에서 되돌림)
-inline constexpr char kDockButton[] = "fmDockButton";      // "close" | "float" | "pin" | "unpin" | "menu" — 도크 제목 줄 단추
+inline constexpr char kDockButton[] = "fmDockButton";      // "close" | "float" | "pin" | "unpin" | "menu" | "minimize" — 도크 제목 줄 단추
+inline constexpr char kDockButtonFlat[] = "fmDockButtonFlat";  // bool — 탭 줄 위 영역 단추(시안2: 캡션 단추 대신 납작 · 올림 빗면)
 inline constexpr char kDockExtraButtons[] = "fmDockExtraButtons";  // int — 사용자 제목 줄이 닫기 · 떼어 내기 밖에 둔 단추 수
 inline constexpr char kOwnPanel[] = "fmOwnPanel";          // bool — 위젯이 바탕 · 틀을 직접 그린다(그림자 있는 메뉴) — PE_PanelMenu · PE_FrameMenu를 건너뜀
 inline constexpr char kMenuItemHeight[] = "fmMenuItemHeight"; // int — 메뉴 항목 높이(0 = 디자인 값, fm::ui::Menu::setItemHeight)

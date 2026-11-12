@@ -103,9 +103,22 @@ fm_set_compile_options(tst_style)
 add_test(NAME tst_style COMMAND tst_style)
 set_tests_properties(tst_style PROPERTIES ENVIRONMENT "${_testEnv}")
 
-# 도크 — QDockWidget 스타일 치수(두 디자인), 도킹 관리자(끌어 놓기 · 자동 숨김 · 상태 · 활성 도크 · 탭 닫기)
+# 도크 — QDockWidget 스타일 치수(세 디자인)와 fmdock 2(배치 · 끌어 놓기 판정 · 떠 있는 창 · 자동 숨김 · 상태 · 포커스).
+# 내부 판정(DropResolver) · 상태 코덱(StateCodec)도 직접 검사한다.
 qt_add_executable(tst_dock tst_dock.cpp)
 target_link_libraries(tst_dock PRIVATE Fm::dock Fm::style Qt6::Test)
+target_include_directories(tst_dock PRIVATE ${PROJECT_SOURCE_DIR}/src/fmdock)
 fm_set_compile_options(tst_dock)
 add_test(NAME tst_dock COMMAND tst_dock)
 set_tests_properties(tst_dock PROPERTIES ENVIRONMENT "${_testEnv}")
+
+# 도크 성능(07 §8) — 도크 50개 등록 · 첫 표시, 상태 저장 · 복원, 디자인 전환. 수치를 출력하고 목표를 넘으면 실패한다.
+qt_add_executable(tst_dock_bench tst_dock_bench.cpp)
+target_link_libraries(tst_dock_bench PRIVATE Fm::dock Fm::style Qt6::Test)
+target_include_directories(tst_dock_bench PRIVATE ${PROJECT_SOURCE_DIR}/src/fmdock)
+if(WIN32)
+    target_link_libraries(tst_dock_bench PRIVATE psapi)
+endif()
+fm_set_compile_options(tst_dock_bench)
+add_test(NAME tst_dock_bench COMMAND tst_dock_bench)
+set_tests_properties(tst_dock_bench PROPERTIES ENVIRONMENT "${_testEnv}" LABELS "bench")

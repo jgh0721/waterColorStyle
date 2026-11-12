@@ -319,6 +319,8 @@ ChromeGlyph dockButtonGlyph(const QString &kind)
         return ChromeGlyph::Unpin;
     if (kind == u"menu")
         return ChromeGlyph::ChevronDown;
+    if (kind == u"minimize")
+        return ChromeGlyph::Minimize;
     return ChromeGlyph::Close;
 }
 

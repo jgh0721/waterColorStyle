@@ -1287,6 +1287,14 @@ void WatercolorStyle::drawDockButton(const QStyleOption *option, QPainter *p, co
     const bool hover = enabled && (s & (State_Raised | State_MouseOver));
     const QString kind = dockButtonKind(w);
     const QRect r = option->rect;
+    if (w && w->property(props::kDockButtonFlat).toBool()) {
+        // 탭 줄 위 영역 단추(07 §6.3): 평소 바탕 없음, 올림 · 누름은 도구 단추와 같은 빗면(h1 ~ h3 · out 테두리)
+        const ThemeColors &tc = colorsFor(w);
+        if (enabled && (hover || pressed))
+            raised(p, r, x, pressed ? Look::Pressed : Look::Hover, x.out);
+        paintChromeGlyph(p, dockButtonGlyph(kind), QRectF(r), enabled ? tc[T::Fg] : tc[T::Fg3], true);
+        return;
+    }
     const QColor glyph = captionButtonFace(p, r, x, kind == u"close", dockActive(w) && enabled, hover, pressed);
     if (kind == u"close")
         captionGlyph(p, r, Caption::Close, glyph);

@@ -166,8 +166,7 @@ private:
     QSystemTrayIcon *m_tray = nullptr;
     bool m_trayHold = false;  // 완료 알림을 보이는 동안 작업 중에만 모드에서도 잠시 남긴다
     QMenu *m_viewMenu = nullptr;
-    QMainWindow *m_dockHost = nullptr;  // 두 패널 영역만 담는 안쪽 창 — 아래 도크가 명령줄 · 기능 키 막대 위에 붙는다
-    fm::dock::DockManager *m_docks = nullptr;
+    fm::dock::DockManager *m_docks = nullptr;  // 두 패널 영역이 중앙 위젯 — 아래 도크가 명령줄 · 기능 키 막대 위에 붙는다
     FolderTreePane *m_folderTree = nullptr;
     PreviewPane *m_previewPane = nullptr;
     PropertiesPane *m_propertiesPane = nullptr;

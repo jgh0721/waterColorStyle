@@ -33,7 +33,6 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QDir>
-#include <QDockWidget>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -479,13 +478,14 @@ void MainWindow::createCentral()
         button->setProperty("fmCommand", id);  // 단축키를 바꾸면 글자도(applyKeyBindings)
         connect(button, &QPushButton::clicked, a, &QAction::trigger);
     }
-    // 도크 자리(07 §6) — 두 패널 영역만 안쪽 QMainWindow에 둔다. 도크가 닫혀 있으면 패널이 그 자리를 다 쓴다.
-    m_dockHost = new QMainWindow;
-    m_dockHost->setObjectName(u"dockHost"_s);
-    m_dockHost->setWindowFlags(Qt::Widget);
-    m_dockHost->setDockOptions(QMainWindow::AnimatedDocks | QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks);
-    m_dockHost->setCentralWidget(m_splitter);
-    v->addWidget(m_dockHost, 1);
+    // 도크 자리(07) — 두 패널 영역을 도킹 관리자의 중앙 위젯으로 둔다. 도크가 닫혀 있으면 패널이 그 자리를 다 쓴다.
+    // 명령줄 · 기능 키 막대는 관리자 바깥(아래)이라 아래 도크는 늘 그 위에 붙는다.
+    m_docks = new fm::dock::DockManager;
+    m_docks->setObjectName(u"dockHost"_s);
+    auto *panels = new fm::dock::DockWidget(u"panels"_s, u"파일 패널"_s);
+    panels->setWidget(m_splitter, fm::dock::DockWidget::InsertMode::ForceNoScrollArea);
+    m_docks->setCentralWidget(panels);
+    v->addWidget(m_docks, 1);
     v->addWidget(m_commandLine);
     v->addWidget(m_functionKeys);
     setCentralWidget(central);
@@ -519,25 +519,35 @@ void MainWindow::createDocks()
 {
     // 도크(07 §6) — 왼쪽 폴더 트리, 오른쪽 미리보기 · 속성(탭 묶음), 아래 작업 대기열. 처음에는 모두 닫혀 있고
     // (보드 스냅숏 그대로) 보기 › 도크로 열면 이 자리에 붙는다. 끌어 옮긴 배치는 끝낼 때 세션에 저장한다.
-    m_docks = new fm::dock::DockManager(m_dockHost);
+    namespace fd = fm::dock;
     m_folderTree = new FolderTreePane;
     m_previewPane = new PreviewPane;
     m_propertiesPane = new PropertiesPane;
     m_jobsPane = new JobsPane([this] { return jobs(); });
-    QDockWidget *tree = m_docks->addDock(u"folderTree"_s, u"폴더 트리"_s, m_folderTree, Qt::LeftDockWidgetArea);
-    QDockWidget *preview = m_docks->addDock(u"preview"_s, u"미리보기"_s, m_previewPane, Qt::RightDockWidgetArea);
-    QDockWidget *properties = m_docks->addDock(u"properties"_s, u"속성"_s, m_propertiesPane, Qt::RightDockWidgetArea);
-    QDockWidget *jobsDock = m_docks->addDock(u"jobs"_s, u"작업 대기열"_s, m_jobsPane, Qt::BottomDockWidgetArea);
-    m_docks->dropOnto(properties, preview, fm::dock::DockManager::DropSide::Center);
-    preview->raise();
-    m_dockHost->resizeDocks({tree, preview}, {240, 300}, Qt::Horizontal);
-    m_dockHost->resizeDocks({jobsDock}, {150}, Qt::Vertical);
-    for (QDockWidget *dock : m_docks->docks()) {
-        dock->hide();
-        dock->toggleViewAction()->setChecked(false);  // 창을 보이기 전이라 Hide 이벤트가 없다
+    const auto make = [](const QString &id, const QString &title, QWidget *content) {
+        auto *dock = new fd::DockWidget(id, title);
+        dock->setWidget(content, fd::DockWidget::InsertMode::ForceNoScrollArea);
+        return dock;
+    };
+    fd::DockWidget *tree = make(u"folderTree"_s, u"폴더 트리"_s, m_folderTree);
+    fd::DockWidget *preview = make(u"preview"_s, u"미리보기"_s, m_previewPane);
+    fd::DockWidget *properties = make(u"properties"_s, u"속성"_s, m_propertiesPane);
+    fd::DockWidget *jobsDock = make(u"jobs"_s, u"작업 대기열"_s, m_jobsPane);
+    m_docks->addDockWidget(fd::DropArea::Left, tree);
+    fd::DockArea *right = m_docks->addDockWidget(fd::DropArea::Right, preview);
+    m_docks->addDockWidgetTab(properties, right);
+    m_docks->addDockWidget(fd::DropArea::Bottom, jobsDock);
+    preview->setAsCurrentTab();
+    m_docks->setAreaSize(tree->dockArea(), Qt::Horizontal, 240);
+    m_docks->setAreaSize(right, Qt::Horizontal, 300);
+    m_docks->setAreaSize(jobsDock->dockArea(), Qt::Vertical, 150);
+    m_docks->setDefaultLayout(m_docks->saveState());   // 보기 › 도크 › 기본 배치로 되돌리기
+    for (fd::DockWidget *dock : m_docks->dockWidgets()) {
+        if (dock != m_docks->centralWidget())
+            dock->toggleView(false);
     }
     m_viewMenu->addSeparator();
-    m_docks->populateMenu(m_viewMenu->addMenu(u"도크(&D)"_s));
+    m_docks->populateViewMenu(m_viewMenu->addMenu(u"도크(&D)"_s));
 
     // 커서를 빠르게 옮기면 미리보기는 멈춘 뒤 한 번만 읽는다
     m_paneTimer = new QTimer(this);
@@ -548,9 +558,9 @@ void MainWindow::createDocks()
         connect(panel, &FilePanel::cursorChanged, m_paneTimer, qOverload<>(&QTimer::start));
         connect(panel, &FilePanel::locationChanged, m_paneTimer, qOverload<>(&QTimer::start));
     }
-    for (QDockWidget *dock : m_docks->docks()) {
+    for (fm::dock::DockWidget *dock : m_docks->dockWidgets()) {
         // 열거나 탭으로 앞에 올 때 — 숨은 동안에는 읽지 않았다
-        connect(dock, &QDockWidget::visibilityChanged, m_paneTimer, [this](bool visible) {
+        connect(dock, &fm::dock::DockWidget::visibilityChanged, m_paneTimer, [this](bool visible) {
             if (visible)
                 m_paneTimer->start();
         });
@@ -576,19 +586,20 @@ void MainWindow::updateDockPanes()
 
 void MainWindow::openAllDocks()
 {
-    for (QDockWidget *dock : m_docks->docks()) {
-        if (m_docks->isAutoHidden(dock))
+    for (fm::dock::DockWidget *dock : m_docks->dockWidgets()) {
+        if (dock->isAutoHidden())
             m_docks->setAutoHidden(dock, false);
-        dock->show();
+        dock->toggleView(true);
     }
-    if (QDockWidget *preview = m_docks->dock(u"preview"_s))
-        preview->raise();
+    if (fm::dock::DockWidget *preview = m_docks->findDockWidget(u"preview"_s))
+        preview->setAsCurrentTab();
     m_paneTimer->start();
 }
 
 void MainWindow::restoreDocks(const st::SessionState &session)
 {
-    m_docks->setLayouts(session.dockLayouts);
+    // 1판(QMainWindow) 배치 · 이름 붙인 배치는 읽지 않는다 — 거절되면 기본 배치 그대로(07 §12-3)
+    m_docks->setPerspectives(session.dockLayouts);
     if (!session.docks.isEmpty())
         m_docks->restoreState(session.docks);
 }
@@ -1198,7 +1209,7 @@ st::SessionState MainWindow::sessionState() const
     }
     session.rightActive = m_active == m_right;
     session.docks = m_docks->saveState();
-    session.dockLayouts = m_docks->layouts();
+    session.dockLayouts = m_docks->perspectives();
     return session;
 }
 

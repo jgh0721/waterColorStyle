@@ -1,6 +1,8 @@
 #include "fmstyle/StylePaint.h"
 
 #include "ColorMath_p.h"
+#include "StyleShared_p.h"
+#include "fmstyle/PaperFluentChrome.h"
 #include "fmstyle/ThemeManager.h"
 #include "fmstyle/WatercolorChrome.h"
 
@@ -240,14 +242,15 @@ void paintDropIndicator(QPainter *p, const QRectF &rect, DropSpot spot, bool hov
     const bool outer = outerArrow(spot) != Qt::NoArrow;
     const QRectF regionUnit = dropRegion(spot);
     if (!tc.isWatercolor()) {
-        // 단추: 카드(Surface · Line, 모서리 6) + 옅은 그림자. 마우스 올림이면 강조 테두리 · 강조색 10 % 바탕.
+        // 단추: 카드(Surface · Line, 모서리 6 · 시안3 8) + 옅은 그림자. 마우스 올림이면 강조 테두리 · 강조색 10 % 바탕.
         const QRectF b = rect.adjusted(0.5, 0.5, -0.5, -0.5);
+        const qreal radius = tc.isPaperFluent() ? 8.0 : 6.0;
         p->setPen(Qt::NoPen);
         p->setBrush(withAlpha(tc[T::Shadow], 0.18));
-        p->drawRoundedRect(b.translated(0, 1.5), 6, 6);
+        p->drawRoundedRect(b.translated(0, 1.5), radius, radius);
         p->setBrush(hover ? mix(tc[T::Surface], tc[T::Accent], 0.10) : tc[T::Surface]);
         p->setPen(QPen(hover ? tc[T::Accent] : tc[T::Line], hover ? 1.5 : 1.0));
-        p->drawRoundedRect(b, 6, 6);
+        p->drawRoundedRect(b, radius, radius);
         // 창 모양: 18 × 16 둥근 2, 놓일 쪽을 강조색으로
         QRectF win(0, 0, 18, 16);
         win.moveCenter(rect.center());
@@ -332,10 +335,11 @@ void paintDropPreview(QPainter *p, const QRectF &rect, const ThemeColors &tc)
         p->drawRect(r.adjusted(0, 0, -1, -1));
         p->drawRect(r.adjusted(1, 1, -2, -2));
     } else {
+        const qreal radius = tc.isPaperFluent() ? 6.0 : 4.0;
         p->setRenderHint(QPainter::Antialiasing, true);
         p->setPen(QPen(tc[T::Accent], 2.0));
         p->setBrush(withAlpha(tc[T::Accent], 0.16));
-        p->drawRoundedRect(rect.adjusted(1, 1, -1, -1), 4, 4);
+        p->drawRoundedRect(rect.adjusted(1, 1, -1, -1), radius, radius);
     }
     p->restore();
 }
@@ -350,6 +354,322 @@ void paintDockSideBar(QPainter *p, const QRect &rect, Qt::Edge innerEdge, const 
     case Qt::TopEdge: p->fillRect(QRect(rect.left(), rect.top(), rect.width(), 1), line); break;
     case Qt::BottomEdge: p->fillRect(QRect(rect.left(), rect.bottom(), rect.width(), 1), line); break;
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// 도킹 2판 (07 §6)
+
+namespace {
+
+const QColor kCloseHover(0xC4, 0x2B, 0x1C);    // 시안1 · 3 제목 줄 닫기 올림(Windows 11)
+const QColor kClosePressed(0xA8, 0x26, 0x18);
+
+QColor overlayOn(const ThemeColors &tc, qreal amount)
+{
+    return tc.isDark() ? QColor(255, 255, 255, qRound(255 * amount)) : QColor(0, 0, 0, qRound(255 * amount));
+}
+
+void hline(QPainter *p, const QRect &r, int y, const QColor &c)
+{
+    p->fillRect(QRect(r.left(), y, r.width(), 1), c);
+}
+
+} // namespace
+
+DockMetrics dockMetrics(const ThemeColors &tc)
+{
+    DockMetrics m;
+    if (tc.isWatercolor()) {
+        m.stripTopGap = 2;
+        m.tabGap = -1;
+        m.areaButton = 19;
+        m.splitter = 4;
+        m.sideBar = 24;
+        m.paneTitle = 22;
+        m.floatingTitle = 23;
+        m.floatingButton = QSize(17, 17);
+        m.floatingButtonGap = 2;
+        m.contentBorder = true;
+    } else if (tc.isPaperFluent()) {
+        m.stripTopGap = 2;
+        m.splitter = 6;
+        m.paneTitle = 32;
+        m.floatingTitle = 30;
+        m.floatingButton = QSize(36, 30);
+        m.areaRadius = 6;
+        m.flyoutRadius = 8;
+        m.areaBorder = true;
+    }
+    return m;
+}
+
+void paintDockStrip(QPainter *p, const QRect &rect, Qt::Edge lineEdge, const ThemeColors &tc)
+{
+    const QColor fill = tc.isPaperFluent() ? tc[T::Alt] : tc[T::Win];
+    const QColor line = tc.isWatercolor() ? watercolorChrome(tc.variant()).tabLine : tc[T::Line];
+    p->save();
+    if (tc.isPaperFluent()) {
+        // 영역 테두리(모서리 6) 안쪽 — 바깥쪽 두 모서리를 5로 깎는다
+        const qreal radius = dockMetrics(tc).areaRadius - 1.0;
+        QPainterPath path;
+        const QRectF r(rect);
+        if (lineEdge == Qt::TopEdge) {
+            path.moveTo(r.left(), r.top());
+            path.lineTo(r.right() + 1, r.top());
+            path.lineTo(r.right() + 1, r.bottom() + 1 - radius);
+            path.quadTo(r.right() + 1, r.bottom() + 1, r.right() + 1 - radius, r.bottom() + 1);
+            path.lineTo(r.left() + radius, r.bottom() + 1);
+            path.quadTo(r.left(), r.bottom() + 1, r.left(), r.bottom() + 1 - radius);
+        } else {
+            path.moveTo(r.left(), r.bottom() + 1);
+            path.lineTo(r.left(), r.top() + radius);
+            path.quadTo(r.left(), r.top(), r.left() + radius, r.top());
+            path.lineTo(r.right() + 1 - radius, r.top());
+            path.quadTo(r.right() + 1, r.top(), r.right() + 1, r.top() + radius);
+            path.lineTo(r.right() + 1, r.bottom() + 1);
+        }
+        path.closeSubpath();
+        p->setRenderHint(QPainter::Antialiasing, true);
+        p->fillPath(path, fill);
+        p->setRenderHint(QPainter::Antialiasing, false);
+    } else {
+        p->fillRect(rect, fill);
+    }
+    if (lineEdge == Qt::TopEdge)
+        hline(p, rect, rect.top(), line);
+    else
+        hline(p, rect, rect.bottom(), line);
+    p->restore();
+}
+
+void paintDockAreaFrame(QPainter *p, const QRect &areaRect, const QRect &contentRect, Qt::Edge stripEdge,
+                        const ThemeColors &tc)
+{
+    p->save();
+    if (tc.isPaperFluent()) {
+        const qreal radius = dockMetrics(tc).areaRadius;
+        p->setRenderHint(QPainter::Antialiasing, true);
+        p->setPen(QPen(tc[T::Line], 1.0));
+        p->setBrush(tc[T::Surface]);
+        p->drawRoundedRect(QRectF(areaRect).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
+    } else if (tc.isWatercolor() && contentRect.isValid()) {
+        // 내용 둘레 tabLine — 탭 줄 쪽 변은 탭 줄 선이 대신한다
+        const QColor line = watercolorChrome(tc.variant()).tabLine;
+        const QRect r = contentRect;
+        p->fillRect(QRect(r.left(), r.top(), 1, r.height()), line);
+        p->fillRect(QRect(r.right(), r.top(), 1, r.height()), line);
+        if (stripEdge == Qt::TopEdge)
+            hline(p, r, r.bottom(), line);
+        else
+            hline(p, r, r.top(), line);
+    }
+    p->restore();
+}
+
+void paintDockSplitterHandle(QPainter *p, const QRect &r, bool hover, const ThemeColors &tc)
+{
+    const bool vertical = r.width() < r.height();  // 세로 손잡이(가로 분할)
+    if (hover) {
+        if (vertical)
+            p->fillRect(QRect(r.center().x(), r.top(), 2, r.height()), tc[T::Accent]);
+        else
+            p->fillRect(QRect(r.left(), r.center().y(), r.width(), 2), tc[T::Accent]);
+        return;
+    }
+    if (!tc.isWatercolor())
+        return;
+    // 시안2: 새긴 점 셋(2 × 2 lo + 1 × 1 hi), 긴 쪽 가운데에 4 px 간격
+    const WatercolorChrome &x = watercolorChrome(tc.variant());
+    const QPoint c = r.center();
+    for (int i = -1; i <= 1; ++i) {
+        const QPoint d = vertical ? QPoint(c.x() - 1, c.y() + 4 * i - 1) : QPoint(c.x() + 4 * i - 1, c.y() - 1);
+        p->fillRect(QRect(d, QSize(2, 2)), x.lo);
+        p->fillRect(QRect(d + QPoint(1, 1), QSize(1, 1)), x.hi);
+    }
+}
+
+void paintDockPaneTitle(QPainter *p, const QRect &r, bool active, const ThemeColors &tc)
+{
+    p->save();
+    if (tc.isWatercolor()) {
+        const WatercolorChrome &x = watercolorChrome(tc.variant());
+        if (active) {
+            QLinearGradient g(QPointF(r.left(), 0), QPointF(r.right() + 1, 0));
+            g.setColorAt(0.0, x.title);
+            g.setColorAt(1.0, x.titleCap);
+            p->fillRect(r, g);
+            hline(p, r, r.top(), x.titleHi);
+            hline(p, r, r.bottom(), x.titleLo);
+        } else {
+            p->fillRect(r, x.titleInactive);
+            hline(p, r, r.top(), x.titleInactiveHi);
+        }
+    } else if (tc.isPaperFluent()) {
+        p->fillRect(r, tc[T::Alt]);
+        hline(p, r, r.bottom(), tc[T::Line]);
+        if (active)
+            p->fillRect(QRect(r.left(), r.bottom() - 1, r.width(), 2), tc[T::Accent]);
+    } else {
+        p->fillRect(r, tc[T::Win]);
+        hline(p, r, r.bottom(), tc[T::Line]);
+        if (active)
+            p->fillRect(QRect(r.left(), r.top(), r.width(), 2), tc[T::Accent]);
+    }
+    p->restore();
+}
+
+void paintFloatingTitle(QPainter *p, const QRect &r, bool active, const ThemeColors &tc)
+{
+    p->save();
+    if (tc.isWatercolor()) {
+        const WatercolorChrome &x = watercolorChrome(tc.variant());
+        if (active) {
+            QLinearGradient g(QPointF(r.left(), 0), QPointF(r.right() + 1, 0));
+            g.setColorAt(0.0, x.title);
+            g.setColorAt(1.0, x.titleCap);
+            p->fillRect(r, g);
+            hline(p, r, r.top(), x.titleHi);
+            hline(p, r, r.bottom() - 1, x.titleLo2);
+            hline(p, r, r.bottom(), x.titleLo);
+        } else {
+            p->fillRect(r, x.titleInactive);
+            hline(p, r, r.top(), x.titleInactiveHi);
+        }
+    } else if (tc.isPaperFluent()) {
+        const PaperFluentChrome x = paperFluentChrome(tc);
+        QLinearGradient g(QPointF(0, r.top()), QPointF(0, r.bottom() + 1));
+        g.setColorAt(0.0, active ? x.titleTop : tc[T::Head]);
+        g.setColorAt(1.0, active ? x.titleBottom : tc[T::Alt]);
+        p->fillRect(r, g);
+        if (!active)
+            hline(p, r, r.bottom(), tc[T::Line]);
+    } else {
+        p->fillRect(r, tc[T::Win]);
+        hline(p, r, r.bottom(), tc[T::Line]);
+    }
+    p->restore();
+}
+
+QFont dockTitleFont(const QFont &base, const ThemeColors &tc)
+{
+    QFont f = base;
+    f.setPixelSize(12);
+    f.setWeight(tc.isWatercolor() ? QFont::Bold : QFont::DemiBold);
+    return f;
+}
+
+void paintDockTitleText(QPainter *p, const QRect &r, const QString &text, DockTitleKind kind, bool active,
+                        const ThemeColors &tc)
+{
+    if (text.isEmpty() || r.width() <= 0)
+        return;
+    p->save();
+    const QFont f = dockTitleFont(p->font(), tc);
+    p->setFont(f);
+    const QString shown = QFontMetrics(f).elidedText(text, Qt::ElideRight, r.width());
+    const int flags = Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine | Qt::TextHideMnemonic;
+    QColor color;
+    if (tc.isWatercolor()) {
+        // 캡션 글자: 흰 굵은 글자 + 오른쪽 아래 그림자
+        p->setPen(QColor(0, 0, 0, active ? 115 : 64));
+        p->drawText(r.translated(1, 1), flags, shown);
+        color = active ? QColor(0xFF, 0xFF, 0xFF) : QColor(0xF0, 0xF0, 0xF0);
+    } else if (tc.isPaperFluent() && kind == DockTitleKind::Floating) {
+        color = active ? paperFluentChrome(tc).titleFg : tc[T::Fg2];
+    } else {
+        color = active ? tc[T::Fg] : (kind == DockTitleKind::Floating ? tc[T::Fg3] : tc[T::Fg2]);
+    }
+    p->setPen(color);
+    p->drawText(r, flags, shown);
+    p->restore();
+}
+
+void paintFloatingFrame(QPainter *p, const QRect &r, bool active, const ThemeColors &tc)
+{
+    QColor line = tc[T::Line];
+    if (tc.isWatercolor()) {
+        const WatercolorChrome &x = watercolorChrome(tc.variant());
+        line = active ? x.frame : x.titleInactive;
+    } else if (tc.isPaperFluent() && active) {
+        line = paperFluentChrome(tc).titleBottom;
+    }
+    p->save();
+    p->setPen(line);
+    p->setBrush(Qt::NoBrush);
+    p->drawRect(r.adjusted(0, 0, -1, -1));
+    p->restore();
+}
+
+void paintDockFlyoutFrame(QPainter *p, const QRect &r, const ThemeColors &tc)
+{
+    p->save();
+    const QColor border = tc.isWatercolor() ? watercolorChrome(tc.variant()).out : tc[T::Line];
+    if (tc.isPaperFluent()) {
+        const qreal radius = dockMetrics(tc).flyoutRadius;
+        p->setRenderHint(QPainter::Antialiasing, true);
+        p->setPen(QPen(border, 1.0));
+        p->setBrush(tc[T::Win]);
+        p->drawRoundedRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
+    } else {
+        p->fillRect(r, tc[T::Win]);
+        p->setPen(border);
+        p->setBrush(Qt::NoBrush);
+        p->drawRect(r.adjusted(0, 0, -1, -1));
+    }
+    p->restore();
+}
+
+void paintCaptionButton(QPainter *p, const QRect &r, CaptionButton kind, bool hover, bool pressed, bool active,
+                        const ThemeColors &tc)
+{
+    const bool close = kind == CaptionButton::Close;
+    const detail::ChromeGlyph glyph = close                           ? detail::ChromeGlyph::Close
+                                    : kind == CaptionButton::Maximize ? detail::ChromeGlyph::Maximize
+                                                                      : detail::ChromeGlyph::Restore;
+    p->save();
+    if (tc.isWatercolor()) {
+        // 캡션 단추(captionButtonFace와 같은 규칙) — 닫기 올림은 붉게
+        const WatercolorChrome &x = watercolorChrome(tc.variant());
+        QColor fill = active ? x.capFill : x.titleInactive;
+        QColor line = active ? x.capLine : x.capInactiveLine;
+        QColor fg = active ? x.capGlyph : x.capInactiveGlyph;
+        if (close && (hover || pressed)) {
+            fill = pressed ? QColor(0xB0, 0x4A, 0x4A) : QColor(0xC9, 0x62, 0x62);
+            line = QColor(0xDF, 0xA2, 0xA2);
+            fg = QColor(0xFF, 0xFF, 0xFF);
+        } else if (pressed) {
+            fill = mix(fill, QColor(0, 0, 0), 0.18);
+            line = x.capHoverLine;
+        } else if (hover) {
+            line = x.capHoverLine;
+        }
+        p->fillRect(r, fill);
+        p->setPen(line);
+        p->drawRect(r.adjusted(0, 0, -1, -1));
+        detail::paintChromeGlyph(p, glyph, QRectF(r).adjusted(2, 2, -2, -2), fg, true);
+        p->restore();
+        return;
+    }
+    const bool onWash = tc.isPaperFluent() && active;
+    QColor fg = onWash ? paperFluentChrome(tc).titleFg : (active ? tc[T::Fg2] : tc[T::Fg3]);
+    if (close && (hover || pressed)) {
+        p->fillRect(r, pressed ? kClosePressed : kCloseHover);
+        fg = QColor(0xFF, 0xFF, 0xFF);
+    } else if (hover || pressed) {
+        const qreal amount = pressed ? 0.12 : 0.07;
+        p->fillRect(r, onWash ? QColor(255, 255, 255, qRound(255 * amount * 2)) : overlayOn(tc, amount));
+        if (!onWash)
+            fg = tc[T::Fg];
+    }
+    QRectF box(0, 0, 14, 14);
+    box.moveCenter(QRectF(r).center());
+    detail::paintChromeGlyph(p, glyph, box, fg, false);
+    p->restore();
+}
+
+void paintDropCaret(QPainter *p, const QRectF &rect, const ThemeColors &tc)
+{
+    p->fillRect(rect, tc[T::Accent]);
 }
 
 } // namespace fm::style

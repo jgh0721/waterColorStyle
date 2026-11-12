@@ -14,7 +14,7 @@
 | `src/fmfilelist` | `Fm::filelist` — 파일 목록(Qtitan 1줄 · 2줄 밴드 보기), 섬네일(Qt 목록 · Qtitan 카드 두 구현), 모델 · 원본. Qtitan 없이 빌드하면 파일 목록은 자리 표시, 섬네일은 Qt 목록만 |
 | `src/fmdialogs` | `Fm::dialogs` — 파일 작업 · 관리자 권한 대화상자, 설정 창, 대화상자 변형 카탈로그 |
 | `src/fmsettings` | `Fm::settings` — 설정 모델 · 보관소(JSON) |
-| `src/fmdock` | `Fm::dock` — 도킹 관리자(`DockManager`): QMainWindow · QDockWidget 위에 끌어 놓기 표시 · 자동 숨김 사이드바 · 이름 붙인 배치 등을 얹는다(아래 [도크](#도크--fmdock)) |
+| `src/fmdock` | `Fm::dock` — 도킹 관리자(`DockManager`): 영역 · 탭 · 분할 · 중앙 영역 · 떠 있는 창 · 자동 숨김 사이드바 · JSON 배치를 직접 관리한다(아래 [도크](#도크--fmdock)) |
 | `src/designer` | Qt Widgets Designer 플러그인 (`fmdesignerplugin`) |
 | `app/fmdemo` | 데모 앱 — 메인 창 · 도크(폴더 트리 · 미리보기 · 속성 · 작업 대기열) · 대화상자 · 설정 · 도구 창(카탈로그 · 섬네일 비교) · 일괄 스냅숏 |
 | `third_party/QtitanDataGrid` | 저장소에 없음 — QtitanDataGrid 비공개 저장소를 두는 자리(아래 [QtitanDataGrid](#qtitandatagrid--상용-컴포넌트-선택)) |
@@ -96,9 +96,11 @@ tools\run.cmd build\release\fmdemo.exe --design watercolor --scheme navy
 | 속성(오른쪽, 미리보기와 탭 묶음) | 이름 · 종류 · 크기(바이트) · 날짜 · 속성 · 위치 · 원본, 실제 그림은 픽셀 크기 |
 | 작업 대기열(아래) | 진행 창마다 한 줄 — 작업 · 진행 막대(일시 중지 색) · 상태. 두 번 누르면 그 진행 창을 앞으로 |
 
-제목 줄을 끌면 끌어 놓기 표시가 나오고(가장자리 넷 · 도크 십자, Esc 취소), 압정으로 사이드바에 접는다.
-배치는 **보기 › 도크 › 배치**로 이름 붙여 저장하고, 지금 배치와 저장한 배치는 끝낼 때 설정 파일(`session.docks` ·
-`session.dockLayouts`)에 남아 다음 시작에 되살아난다(시작할 때 설정과 무관).
+탭이나 제목 줄을 끌면 반투명 미리보기와 끌어 놓기 표시(가장자리 넷 · 영역 십자 · 탭 줄 끼워 넣기 · 사이드바)가 나오고,
+표시 밖에 놓으면 떠 있는 창이 된다(Esc 취소). 압정으로 사이드바에 접는다.
+배치는 **보기 › 도크 › 배치**로 이름 붙여 저장하고, 같은 메뉴에 도크 잠금 · 기본 배치로 되돌리기가 있다. 지금 배치와
+저장한 배치는 끝낼 때 설정 파일(`session.docks` · `session.dockLayouts`, JSON)에 남아 다음 시작에 되살아난다(시작할 때
+설정과 무관). 1판(QMainWindow) 배치는 읽지 않고 기본 배치로 시작한다.
 
 ### 설정의 반영
 
@@ -262,25 +264,41 @@ theme.install(app);
 
 ## 도크 — fmdock
 
-`Fm::dock`의 `fm::dock::DockManager`는 QMainWindow · QDockWidget을 그대로 쓰면서 KDDockWidgets의 기능을 옮겨 얹는다
-(코드는 가져오지 않고 동작을 다시 구현 — KDDockWidgets는 GPL). 모양은 `Fm::style`의 두 디자인이 그린다.
+`Fm::dock`의 `fm::dock::DockManager`(fmdock 2)는 QMainWindow · QDockWidget을 쓰지 않고 컨테이너 → 분할 → 영역(탭
+묶음) → 도크를 직접 관리한다. Qt-Advanced-Docking-System(LGPL)의 동작 · 설계를 참고해 다시 구현했고(코드는 가져오지
+않음), 모양은 `Fm::style`의 세 디자인(시안1 · 2 · 3) × 라이트 · 다크 · 남색이 그린다 — 스타일시트를 쓰지 않는다.
 
 ```cpp
-auto *docks = new fm::dock::DockManager(mainWindow);
-QDockWidget *tree = docks->addDock(u"folders"_s, u"폴더"_s, new QTreeView, Qt::LeftDockWidgetArea);
-docks->addDock(u"log"_s, u"로그"_s, new QPlainTextEdit, Qt::BottomDockWidgetArea);
-docks->setAutoHidden(docks->dock(u"log"_s), true);   // 아래 사이드바 탭으로 접기
-docks->populateMenu(viewMenu->addMenu(u"도크"_s));   // 켜기 · 끄기 + 배치 저장 · 적용 · 삭제
-settings.setValue("docks", docks->saveState());       // restoreState로 되살린다(자동 숨김 포함)
+using namespace fm::dock;
+auto *docks = new DockManager(mainWindow);                 // QMainWindow면 central widget이 된다
+auto *panels = new DockWidget(u"panels"_s, u"패널"_s);
+panels->setWidget(boardWidget, DockWidget::InsertMode::ForceNoScrollArea);
+docks->setCentralWidget(panels);                            // 중앙(문서) 영역 — 창 크기 변화를 받는다
+auto *tree = new DockWidget(u"folders"_s, u"폴더"_s);
+tree->setWidget(new QTreeView);
+DockArea *left = docks->addDockWidget(DropArea::Left, tree);
+docks->setAreaSize(left, Qt::Horizontal, 240);
+auto *props = new DockWidget(u"properties"_s, u"속성"_s);
+docks->addDockWidgetTab(props, left);                       // 같은 영역에 탭으로
+auto *log = new DockWidget(u"log"_s, u"로그"_s);
+docks->addAutoHideDockWidget(SideBarLocation::Bottom, log); // 아래 사이드바 탭으로 접어 둔다
+docks->setDefaultLayout(docks->saveState());                // 보기 › 도크 › 기본 배치로 되돌리기
+docks->populateViewMenu(viewMenu->addMenu(u"도크"_s));     // 켜기 · 끄기 + 배치 · 잠금 · 되돌리기
+settings.setValue("docks", docks->saveState());             // JSON — restoreState로 되살린다
 ```
 
 | 기능 | 내용 |
 |---|---|
-| 제목 줄 | 압정(자동 숨김) · 떼어 내기 · 닫기 단추, 두 번 눌러 떼기 · 붙이기, 포커스가 들어 있는 도크를 활성으로 강조 |
-| 끌어 놓기 | 메인 창 가장자리 넷 + 마우스 아래 도크의 십자(왼 · 위 · 오른 · 아래 · 탭), 놓일 자리 미리보기, Esc 취소, 표시 밖에 놓으면 떠 있는 창. 마우스 없이 `dropOnto` · `dropToEdge` |
-| 자동 숨김 | 창 가장자리 사이드바의 탭, 누르면 내용 위로 펼침(바깥을 누르거나 Esc면 접힘), 펼친 창의 안쪽 가장자리로 폭 조절 |
-| 도크 탭 | 탭 묶음에 닫기 단추, 활성 도크 탭 강조 |
-| 상태 · 배치 | `saveState` · `restoreState`(판이 다르면 거절), 이름 붙인 배치(`saveLayout` · `applyLayout` · `layouts`) |
+| 영역 · 탭 | 영역마다 탭 줄(활성 탭 닫기 단추, 가운데 단추로 닫기, 끌어 순서 바꾸기, 넘치면 목록 단추) · 떼어 내기 · 압정 · 닫기 단추. 키보드 Ctrl+PgUp/PgDn · Ctrl+F4 |
+| 분할 · 중앙 영역 | 임의 깊이 분할, 분할선은 놓을 때 크기 반영(`OpaqueSplitterResize`로 바로 반영). 중앙 영역은 나누어도 중앙이고 창 크기 변화를 받는다. 도구 · 문서 도크는 자유롭게 섞인다(`CentralRejectsTools` · `DocumentsStayCentral`로 제한) |
+| 끌어 놓기 | 반투명 미리보기 창(놓을 때 한 번만 옮긴다) + 컨테이너 가장자리 넷 · 영역 십자 다섯 · 탭 줄 끼워 넣기 · 사이드바 놓기, 표시 밖이면 떠 있는 창, Esc · Ctrl은 취소 · 표시 끄기. 마우스 없이 `moveDockWidget` |
+| 떠 있는 창 | 디자인이 그린 제목 줄 + OS 이동 · 크기 조절 · Aero 스냅(`FloatingNativeFrame`이면 OS 틀), 창을 끌어 다른 컨테이너에 붙이기, 내부 분할 |
+| 자동 숨김 | 사이드바 네 방향, 누르면 내용 위로 펼침(바깥을 누르거나 Esc면 접힘), 끌다가 사이드 탭 위에 머물면 펼침, 펼친 창 가장자리로 크기 조절 |
+| 상태 · 배치 | `saveState` · `restoreState`(JSON, 형식 · 판이 다르거나 한도를 넘으면 거절하고 그대로), 이름 붙인 배치(`addPerspective` · `openPerspective` · `perspectiveNames`), `lockFeatures`, 포커스가 들어 있는 도크 강조 |
+| 임베드 | `NoTopLevelWindows`면 최상위 창 없이 표시 · 미리보기도 자식 위젯으로(떠 있는 창 끔) |
+
+성능(Release, 오프스크린, `tst_dock_bench`): 도크 50 · 영역 15 등록 + 첫 표시 약 9 ms, `restoreState` 약 10 ms,
+`saveState` 0.06 ms, 끄는 중 이동 1회 0.3 ms, 디자인 전환 약 8 ms, 도크 하나(탭) 약 6 KB · 영역 하나 약 21 KB.
 
 ## 진행 고리 · 도구 설명 · 메뉴 · 내용 대화상자
 

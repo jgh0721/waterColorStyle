@@ -2518,36 +2518,38 @@ protected:
     }
 };
 
-// 도킹 관리자(fmdock — KDDockWidgets의 기능을 옮김): 사용자 제목 줄(압정 · 떼어 내기 · 닫기), 활성 도크, 탭 닫기 단추,
+// 도킹 관리자(fmdock 2 — 07-docking.md): 영역 · 탭 · 분할, 중앙 영역, 활성 영역, 탭 닫기 단추, 영역 단추,
 // 자동 숨김 사이드바와 펼친 창, 끌어 놓기 표시.
 QWidget *qtDockManagerSection(const fs::ThemeColors &tc)
 {
+    namespace fd = fm::dock;
     auto *box = section(u"도킹 관리자 (fmdock)"_s);
     auto *v = new QVBoxLayout(box);
     v->setContentsMargins(14, 12, 14, 14);
     v->setSpacing(6);
 
-    v->addWidget(caption(u"사용자 제목 줄 · 활성 도크(폴더) · 도크 탭 닫기 단추 · 왼쪽 사이드바의 자동 숨김 도크 '로그'를 펼친 모습"_s, tc));
-    auto *mw = new QMainWindow;
-    mw->setWindowFlags(Qt::Widget);
+    v->addWidget(caption(u"영역 · 탭 · 분할 · 활성 영역(폴더) · 탭 닫기 · 영역 단추 · 왼쪽 사이드바의 자동 숨김 도크 '로그'를 펼친 모습"_s, tc));
+    auto *manager = new fd::DockManager;
+    auto dock = [](const QString &id, const QString &title, QWidget *content) {
+        auto *d = new fd::DockWidget(id, title);
+        d->setWidget(content, fd::DockWidget::InsertMode::ForceNoScrollArea);
+        return d;
+    };
     auto *center = caption(u"  중앙 위젯"_s, tc);
     center->setAutoFillBackground(true);
-    mw->setCentralWidget(center);
-    auto *manager = new fm::dock::DockManager(mw);
-    QDockWidget *folders = manager->addDock(u"folders"_s, u"폴더"_s, qtPage(u"C:\\  D:\\  E:\\"_s, tc), Qt::LeftDockWidgetArea);
-    QDockWidget *preview = manager->addDock(u"preview"_s, u"미리보기"_s, qtPage(u"사진_001.jpg"_s, tc), Qt::RightDockWidgetArea);
-    QDockWidget *props = manager->addDock(u"properties"_s, u"속성"_s, qtPage(u"크기 5.1 MB"_s, tc), Qt::RightDockWidgetArea);
-    manager->dropOnto(props, preview, fm::dock::DockManager::DropSide::Center);
-    manager->addDock(u"jobs"_s, u"작업 대기열"_s, qtPage(u"복사 · 3개 항목 — 37 %"_s, tc), Qt::BottomDockWidgetArea);
-    QDockWidget *log = manager->addDock(u"log"_s, u"로그"_s, qtPage(u"12:01  복사 시작 — D:\\Downloads"_s, tc),
-                                        Qt::LeftDockWidgetArea);
-    manager->setAutoHidden(log, true);
-    fs::setPaneActive(folders, true);
-    mw->resizeDocks({folders, preview}, {150, 170}, Qt::Horizontal);
-    mw->setFixedHeight(300);
-    v->addWidget(mw);
+    manager->setCentralWidget(dock(u"center"_s, u"중앙"_s, center));
+    fd::DockWidget *folders = dock(u"folders"_s, u"폴더"_s, qtPage(u"C:\\  D:\\  E:\\"_s, tc));
+    manager->addDockWidget(fd::DropArea::Left, folders);
+    fd::DockArea *right = manager->addDockWidget(fd::DropArea::Right, dock(u"preview"_s, u"미리보기"_s, qtPage(u"사진_001.jpg"_s, tc)));
+    manager->addDockWidgetTab(dock(u"properties"_s, u"속성"_s, qtPage(u"크기 5.1 MB"_s, tc)), right);
+    manager->addDockWidget(fd::DropArea::Bottom, dock(u"jobs"_s, u"작업 대기열"_s, qtPage(u"복사 · 3개 항목 — 37 %"_s, tc)));
+    fd::DockWidget *log = dock(u"log"_s, u"로그"_s, qtPage(u"12:01  복사 시작 — D:\\Downloads"_s, tc));
+    manager->addAutoHideDockWidget(fd::SideBarLocation::Left, log);
+    fs::setPaneActive(folders->dockArea(), true);
+    manager->setFixedHeight(300);
+    v->addWidget(manager);
     // 펼친 창은 배치가 끝난 뒤에 자리를 잡는다
-    QTimer::singleShot(100, mw, [manager, log] { manager->showAutoHidden(log); });
+    QTimer::singleShot(100, manager, [manager, log] { manager->expandAutoHide(log); });
 
     v->addSpacing(6);
     v->addWidget(caption(u"끌어 놓기 표시 — 바깥 가장자리 넷과 도크 십자, 십자 오른쪽에 놓을 때의 미리보기"_s, tc));
