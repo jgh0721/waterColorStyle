@@ -76,6 +76,21 @@ QStringList pathPieces(const QString &path)
     return pieces;
 }
 
+/// 탭 줄의 탭 막대 — 줄임 표시를 켜도 짧은 이름 탭이 스크롤 단추를 부르지 않게 한다.
+/// QTabBar는 최소 폭을 "앞 두 글자 + ..."로 재므로 ".oit"처럼 짧은 이름은 최소 폭이 원래 폭보다
+/// 넓어지고, 막대 폭을 원래 폭에 맞춘 패널에서는 그 차이만큼 넘쳐 스크롤 단추가 나온다.
+class PanelTabBar final : public QTabBar
+{
+public:
+    using QTabBar::QTabBar;
+
+protected:
+    QSize minimumTabSizeHint(int index) const override
+    {
+        return QTabBar::minimumTabSizeHint(index).boundedTo(tabSizeHint(index));
+    }
+};
+
 } // namespace
 
 // ---------------------------------------------------------------- PanelTabStrip
@@ -83,7 +98,7 @@ QStringList pathPieces(const QString &path)
 PanelTabStrip::PanelTabStrip(QWidget *parent)
     : QWidget(parent)
     , m_layout(new QHBoxLayout(this))
-    , m_tabs(new QTabBar(this))
+    , m_tabs(new PanelTabBar(this))
     , m_add(new QToolButton(this))
 {
     m_tabs->setDocumentMode(true);
