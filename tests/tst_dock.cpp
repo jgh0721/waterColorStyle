@@ -672,7 +672,7 @@ private Q_SLOTS:
 
     void nativeFloatingFrame()
     {
-        // 실제 Windows 창에서만(VM 대화형 세션) — 프레임 없는 떠 있는 창의 적중 판정과 OS 이동 중 붙이기(07 §4.5)
+        // 실제 Windows 창에서만(VM 대화형 세션) — 떠 있는 창의 적중 판정과 OS 이동 중 붙이기(07 §4.5)
 #ifndef Q_OS_WIN
         QSKIP("Windows only");
 #else
@@ -683,24 +683,39 @@ private Q_SLOTS:
         settle();
         fd::FloatingWindow *w = f.outline->floatingWindow();
         QVERIFY(w && QTest::qWaitForWindowExposed(w));
+        // 안의 위젯이 네이티브 창이어도(다른 프로세스 미리보기 · winId()) 테두리 판정은 떠 있는 창이 한다.
+        // Qt는 형제 · 조상도 네이티브로 만들어 제목 줄까지 자식 창이 된다.
+        f.outline->widget()->winId();
         settle();
         const HWND hwnd = reinterpret_cast<HWND>(w->winId());
         QVERIFY(GetWindowLongPtrW(hwnd, GWL_STYLE) & WS_THICKFRAME);
+        QVERIFY(!w->windowFlags().testFlag(Qt::FramelessWindowHint));
         RECT wr;
         GetWindowRect(hwnd, &wr);
+        POINT origin{0, 0};
+        ClientToScreen(hwnd, &origin);
         const qreal dpr = w->devicePixelRatioF();
-        const auto hit = [&](const QPoint &local) {
-            const LPARAM lp = MAKELPARAM(wr.left + qRound(local.x() * dpr), wr.top + qRound(local.y() * dpr));
-            return SendMessageW(hwnd, WM_NCHITTEST, 0, lp);
+        const auto screen = [&](const QPoint &local) {
+            return POINT{origin.x + qRound(local.x() * dpr), origin.y + qRound(local.y() * dpr)};
+        };
+        const auto hit = [&](POINT p) { return SendMessageW(hwnd, WM_NCHITTEST, 0, MAKELPARAM(p.x, p.y)); };
+        // Windows가 실제로 묻는 창 — 가장 깊은 자식, HTTRANSPARENT면 그 아래 창(같은 스레드)
+        const auto routed = [&](POINT p) {
+            const HWND target = WindowFromPoint(p);
+            return GetAncestor(target, GA_ROOT) == hwnd ? SendMessageW(target, WM_NCHITTEST, 0, MAKELPARAM(p.x, p.y))
+                                                        : LRESULT(-100);
         };
         auto *title = w->findChild<dd::FloatingTitleBar *>();
         QVERIFY(title);
-        QCOMPARE(hit(title->geometry().center() - QPoint(title->width() / 4, 0)), LRESULT(HTCAPTION));
-        QCOMPARE(hit(QPoint(1, w->height() / 2)), LRESULT(HTLEFT));
-        QCOMPARE(hit(QPoint(w->width() - 2, w->height() - 2)), LRESULT(HTBOTTOMRIGHT));
+        QCOMPARE(routed(screen(title->geometry().center() - QPoint(title->width() / 4, 0))), LRESULT(HTCAPTION));
+        // 좌 · 우 · 아래 크기 조절 테두리는 보이는 가장자리 바깥(비클라이언트), 위 테두리는 클라이언트 위쪽 띠
+        QVERIFY(origin.x > wr.left);
+        QCOMPARE(routed(POINT{wr.left + 1, (wr.top + wr.bottom) / 2}), LRESULT(HTLEFT));
+        QCOMPARE(routed(POINT{wr.right - 2, wr.bottom - 2}), LRESULT(HTBOTTOMRIGHT));
+        QCOMPARE(routed(screen(QPoint(w->width() / 2, 0))), LRESULT(HTTOP));
         auto *close = title->findChildren<dd::CaptionButtonWidget *>().last();
-        QCOMPARE(hit(close->mapTo(w, close->rect().center())), LRESULT(HTCLIENT));
-        QCOMPARE(hit(QPoint(w->width() / 2, w->height() / 2)), LRESULT(HTCLIENT));
+        QCOMPARE(hit(screen(close->mapTo(w, close->rect().center()))), LRESULT(HTCLIENT));
+        QCOMPARE(hit(screen(QPoint(w->width() / 2, w->height() / 2))), LRESULT(HTCLIENT));
 
         // OS 이동 흉내 — 커서를 메인 컨테이너 오른쪽 가장자리 표시에 두고 창을 옮겼다 놓는다
         const QRect container = globalRect(f.manager->dockContainer());

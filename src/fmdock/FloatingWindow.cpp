@@ -1,5 +1,7 @@
 ﻿#include "DockInternal_p.h"
 
+#include <fmwidgets/WindowFrame.h>
+
 #include <QApplication>
 #include <QCloseEvent>
 #include <QContextMenuEvent>
@@ -12,8 +14,6 @@
 
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
-#include <dwmapi.h>
-#include <windowsx.h>
 #endif
 
 #include <algorithm>
@@ -31,14 +31,27 @@ FloatingWindow::FloatingWindow(DockManager *manager)
     , m_manager(manager)
 {
     setObjectName(u"fmFloatingWindow"_s);
-    if (useCustomFrame())
-        setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     m_layout = new QVBoxLayout(this);
     m_layout->setSpacing(0);
     m_titleBar = new detail::FloatingTitleBar(this);
     m_container = new DockContainer(manager, this, this);
     m_layout->addWidget(m_titleBar);
     m_layout->addWidget(m_container, 1);
+    if (useCustomFrame()) {
+        // 직접 그린 제목 줄 + 네이티브 테두리 — 좌 · 우 · 아래 크기 조절 테두리는 창 바깥(비클라이언트)에 있어
+        // 안에 든 네이티브 · 다른 프로세스 창이 가로채지 못한다. 이동 · Aero 스냅 · DWM 그림자는 OS가 한다.
+        auto *frame = new fm::ui::WindowFrame(this, {false, true});
+#ifdef Q_OS_WIN
+        frame->setCaptionHitTest([this](const QPoint &local) {
+            return m_titleBar->isVisible() && m_titleBar->geometry().contains(local)
+                    && m_titleBar->isCaptionArea(local - m_titleBar->pos())
+                ? int(HTCAPTION)
+                : 0;
+        });
+#else
+        Q_UNUSED(frame)
+#endif
+    }
     updateFrame();
     manager->shareShortcuts(this);
 }
@@ -162,20 +175,6 @@ void FloatingWindow::changeEvent(QEvent *event)
 
 bool FloatingWindow::event(QEvent *event)
 {
-#ifdef Q_OS_WIN
-    if (event->type() == QEvent::Show && !m_nativeSetupDone && useCustomFrame() && !detail::isHeadlessPlatform()) {
-        // 프레임 없는 창에 크기 조절 · 캡션 스타일을 더한다 — Aero 스냅 · 최대화 · DWM 그림자는 OS가 한다
-        m_nativeSetupDone = true;
-        HWND hwnd = reinterpret_cast<HWND>(winId());
-        LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-        style |= WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MAXIMIZEBOX;
-        SetWindowLongPtrW(hwnd, GWL_STYLE, style);
-        const MARGINS margins{1, 1, 1, 1};
-        DwmExtendFrameIntoClientArea(hwnd, &margins);
-        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
-                     SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
-    }
-#endif
     if (event->type() == QEvent::WindowActivate || event->type() == QEvent::WindowDeactivate)
         setActive(event->type() == QEvent::WindowActivate);
     return QWidget::event(event);
@@ -185,73 +184,9 @@ bool FloatingWindow::nativeEvent(const QByteArray &eventType, void *message, qin
 {
 #ifdef Q_OS_WIN
     if (eventType == "windows_generic_MSG" && !detail::isHeadlessPlatform()) {
+        // 프레임 · 적중 판정(WM_NCCALCSIZE · WM_NCHITTEST)은 fm::ui::WindowFrame이 맡는다.
         MSG *msg = static_cast<MSG *>(message);
-        HWND hwnd = msg->hwnd;
         switch (msg->message) {
-        case WM_NCCALCSIZE:
-            if (useCustomFrame() && msg->wParam == TRUE) {
-                if (IsZoomed(hwnd)) {
-                    // 최대화하면 창이 프레임 두께만큼 화면 밖으로 나간다 — 그만큼 안쪽을 클라이언트로
-                    auto *params = reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam);
-                    const UINT dpi = GetDpiForWindow(hwnd);
-                    const int fx = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
-                    const int fy = GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
-                    params->rgrc[0].left += fx;
-                    params->rgrc[0].top += fy;
-                    params->rgrc[0].right -= fx;
-                    params->rgrc[0].bottom -= fy;
-                }
-                *result = 0;
-                return true;
-            }
-            break;
-        case WM_NCHITTEST:
-            if (useCustomFrame()) {
-                RECT wr;
-                GetWindowRect(hwnd, &wr);
-                const int x = GET_X_LPARAM(msg->lParam) - wr.left;
-                const int y = GET_Y_LPARAM(msg->lParam) - wr.top;
-                const int w = wr.right - wr.left;
-                const int h = wr.bottom - wr.top;
-                const qreal dpr = devicePixelRatioF();
-                const int border = qRound(6 * dpr);
-                if (!IsZoomed(hwnd)) {
-                    const bool left = x < border;
-                    const bool right = x >= w - border;
-                    const bool top = y < border;
-                    const bool bottom = y >= h - border;
-                    LRESULT hit = 0;
-                    if (top && left)
-                        hit = HTTOPLEFT;
-                    else if (top && right)
-                        hit = HTTOPRIGHT;
-                    else if (bottom && left)
-                        hit = HTBOTTOMLEFT;
-                    else if (bottom && right)
-                        hit = HTBOTTOMRIGHT;
-                    else if (left)
-                        hit = HTLEFT;
-                    else if (right)
-                        hit = HTRIGHT;
-                    else if (top)
-                        hit = HTTOP;
-                    else if (bottom)
-                        hit = HTBOTTOM;
-                    if (hit) {
-                        *result = hit;
-                        return true;
-                    }
-                }
-                const QPoint local(qRound(x / dpr), qRound(y / dpr));
-                if (m_titleBar->isVisible() && m_titleBar->geometry().contains(local)
-                    && m_titleBar->isCaptionArea(local - m_titleBar->pos())) {
-                    *result = HTCAPTION;
-                    return true;
-                }
-                *result = HTCLIENT;
-                return true;
-            }
-            break;
         case WM_ENTERSIZEMOVE:
             m_moveStart = pos();
             m_sizing = false;

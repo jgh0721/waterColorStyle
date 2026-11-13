@@ -59,7 +59,6 @@ private:
     detail::FloatingTitleBar *m_titleBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
     bool m_active = false;
-    bool m_nativeSetupDone = false;
     // OS 이동(WM_MOVING) 중 끌어 놓기
     QPointer<detail::DragSession> m_moveSession;
     QPoint m_moveStart;

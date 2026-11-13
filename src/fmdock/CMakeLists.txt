@@ -32,7 +32,7 @@ target_include_directories(fmdock
 )
 
 # 모양은 fm::style(세 디자인)이 그린다 — 탭 · 단추 · 표시 · 제목 줄은 QStyle 요소와 StylePaint 도우미.
-# 메뉴는 fm::ui::Menu(Fm::widgets).
+# 메뉴는 fm::ui::Menu, 떠 있는 창의 네이티브 테두리는 fm::ui::WindowFrame(Fm::widgets).
 target_link_libraries(fmdock
     PUBLIC
         Qt6::Widgets
@@ -40,9 +40,5 @@ target_link_libraries(fmdock
         Fm::style
         Fm::widgets
 )
-if(WIN32)
-    # 떠 있는 창 — 프레임 없는 창의 DWM 그림자 · 스냅(07 §4.5)
-    target_link_libraries(fmdock PRIVATE dwmapi)
-endif()
 
 fm_set_compile_options(fmdock)

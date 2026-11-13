@@ -5,6 +5,7 @@ qt_add_library(fmwidgets STATIC
     include/fmwidgets/BarListCard.h
     include/fmwidgets/ReorderList.h
     include/fmwidgets/WindowChrome.h
+    include/fmwidgets/WindowFrame.h
     include/fmwidgets/BreadcrumbBar.h
     include/fmwidgets/WrapCheckBox.h
     include/fmwidgets/WrapLayout.h
@@ -58,6 +59,7 @@ qt_add_library(fmwidgets STATIC
     PanelChrome.cpp
     ReorderList.cpp
     WindowChrome.cpp
+    WindowFrame.cpp
     ProgressRing.cpp
     SegmentedControl.cpp
     SettingsWidgets.cpp

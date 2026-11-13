@@ -1,4 +1,5 @@
 ﻿#include "fmwidgets/WindowChrome.h"
+#include "fmwidgets/WindowFrame.h"
 #include <fmstyle/Glyphs.h>
 #include <fmstyle/StylePaint.h>
 #include <fmstyle/ThemeManager.h>
@@ -14,7 +15,6 @@
 #include <QWindow>
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
-#include <windowsx.h>
 #endif
 
 namespace fm::ui {
@@ -49,10 +49,11 @@ int chromeHeight(const QWidget* Widget)
 WindowChrome::WindowChrome(QWidget* Window, QWidget* Parent, WindowChromeOptions Options)
     : QWidget(Parent), window_(Window), options_(Options)
 {
-    Window->setWindowFlag(Qt::FramelessWindowHint);
+    // The frame dies with the chrome: its caption test reads the maximize button.
+    frame_ = new WindowFrame(Window, {Options.minimizeButton, Options.maximizeButton});
+    frame_->setParent(this);
     Window->installEventFilter(this);
     installEventFilter(this);
-    qApp->installNativeEventFilter(this);
     setFixedHeight(chromeHeight(this));
     auto* Layout = new QHBoxLayout(this);
     Layout->setContentsMargins(4, 3, 4, 3);
@@ -76,9 +77,17 @@ WindowChrome::WindowChrome(QWidget* Window, QWidget* Parent, WindowChromeOptions
     connect(&fm::style::ThemeManager::instance(), &fm::style::ThemeManager::changed, this, &WindowChrome::refresh);
     auto* MenuKey = new QShortcut(QKeySequence(Qt::ALT | Qt::Key_Space), Window);
     connect(MenuKey, &QShortcut::activated, this, [this] { systemMenu(mapToGlobal(QPoint(0, height()))); });
+#ifdef Q_OS_WIN
+    // The maximize button answers HTMAXBUTTON, which opens the Windows 11 Snap layouts on hover.
+    frame_->setCaptionHitTest([this](const QPoint& Local) {
+        if (!window_ || !options_.maximizeButton || !maximize_->isVisible()) return 0;
+        return QRect(maximize_->mapTo(window_, QPoint()), maximize_->size()).contains(Local) ? int(HTMAXBUTTON) : 0;
+    });
+#endif
+    frame_->setMaximizeButtonHandler([this] { toggleMaximized(); });
     refresh();
 }
-WindowChrome::~WindowChrome() { if (qApp) qApp->removeNativeEventFilter(this); }
+WindowChrome::~WindowChrome() = default;
 void WindowChrome::setAccessoryWidget(QWidget* Widget)
 {
     if (accessory_ == Widget) return;
@@ -196,52 +205,7 @@ void WindowChrome::mouseDoubleClickEvent(QMouseEvent* Event)
 bool WindowChrome::eventFilter(QObject* Object, QEvent* Event)
 {
     if (Object == this && Event->type() == QEvent::FontChange) setFixedHeight(chromeHeight(this));
-    if (Object == window_) {
-#ifdef Q_OS_WIN
-        if (Event->type() == QEvent::Show || Event->type() == QEvent::WinIdChange) {
-            const auto Handle = reinterpret_cast<HWND>(window_->winId());
-            const auto Flags = GetWindowLongPtrW(Handle, GWL_STYLE);
-            SetWindowLongPtrW(Handle, GWL_STYLE, (Flags | WS_THICKFRAME | WS_SYSMENU) | (options_.minimizeButton ? WS_MINIMIZEBOX : 0) | (options_.maximizeButton ? WS_MAXIMIZEBOX : 0));
-            SetWindowPos(Handle, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-        }
-#endif
-        if (Event->type() == QEvent::WindowStateChange || Event->type() == QEvent::ActivationChange) refresh();
-    }
+    if (Object == window_ && (Event->type() == QEvent::WindowStateChange || Event->type() == QEvent::ActivationChange)) refresh();
     return QWidget::eventFilter(Object, Event);
-}
-bool WindowChrome::nativeEventFilter(const QByteArray&, void* Message, qintptr* Result)
-{
-#ifdef Q_OS_WIN
-    const auto* Msg = static_cast<MSG*>(Message);
-    if (!window_ || Msg->hwnd != reinterpret_cast<HWND>(window_->internalWinId())) return false;
-    if (Msg->message == WM_NCHITTEST) {
-        RECT Bounds; GetWindowRect(Msg->hwnd, &Bounds);
-        const int X = GET_X_LPARAM(Msg->lParam), Y = GET_Y_LPARAM(Msg->lParam);
-        const int Border = qRound(6 * window_->devicePixelRatioF());
-        if (!window_->isMaximized()) {
-            const bool Left = X < Bounds.left + Border, Right = X >= Bounds.right - Border;
-            const bool Top = Y < Bounds.top + Border, Bottom = Y >= Bounds.bottom - Border;
-            if (Top || Bottom || Left || Right) {
-                if (Result) *Result = Top ? (Left ? HTTOPLEFT : Right ? HTTOPRIGHT : HTTOP) : Bottom ? (Left ? HTBOTTOMLEFT : Right ? HTBOTTOMRIGHT : HTBOTTOM) : Left ? HTLEFT : HTRIGHT;
-                return true;
-            }
-        }
-        // Map native client coordinates (physical pixels) through Qt for mixed-DPI monitors.
-        POINT Client{X, Y}; ScreenToClient(Msg->hwnd, &Client);
-        const auto Scale = window_->devicePixelRatioF();
-        const QPoint Local(qRound(Client.x / Scale), qRound(Client.y / Scale));
-        const auto MaxRect = QRect(maximize_->mapTo(window_, QPoint()), maximize_->size());
-        if (options_.maximizeButton && MaxRect.contains(Local)) { if (Result) *Result = HTMAXBUTTON; return true; }
-    }
-    // The dispatcher passes no result pointer for queued mouse messages.
-    // Synchronous hit-test calls do supply one. Both paths reach this filter.
-    if (Msg->message == WM_NCLBUTTONDOWN && Msg->wParam == HTMAXBUTTON) { if (Result) *Result = 0; return true; }
-    if (Msg->message == WM_NCLBUTTONUP && Msg->wParam == HTMAXBUTTON) {
-        toggleMaximized(); if (Result) *Result = 0; return true;
-    }
-#else
-    Q_UNUSED(Message); Q_UNUSED(Result);
-#endif
-    return false;
 }
 }
