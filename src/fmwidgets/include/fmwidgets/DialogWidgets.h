@@ -124,15 +124,20 @@ private:
 /// 선택 카드(02 §5.2 새 파일 템플릿) — [라디오][파일 아이콘(종류 띠)][이름 · 말줄임][확장자 고정폭][키 칩].
 /// 높이 40 · 좌우 12 · 모서리 6(시안2 0), 선택: 테두리 --accent · 바탕 --accent-soft.
 /// Alt+1 ~ 8은 QAbstractButton::shortcut으로 준다(누르면 선택 · 포커스).
+/// 두 줄 카드: description이 있으면 이름 아래 둘째 줄(11.5 px --fg3, 말줄임)을 그리고 높이 48.
+/// tag는 이름 바로 뒤의 작은 칩(선택: --accent 테두리 · 글, 아니면 --alt 바탕 · --fg2 글).
+/// NoKind는 아이콘 없이 라디오 바로 뒤에 이름을 쓴다. FolderKind는 폴더 아이콘.
 class ChoiceCard : public QRadioButton
 {
     Q_OBJECT
     Q_PROPERTY(QString detail READ detail WRITE setDetail)
     Q_PROPERTY(QString keyHint READ keyHint WRITE setKeyHint)
+    Q_PROPERTY(QString description READ description WRITE setDescription)
+    Q_PROPERTY(QString tag READ tag WRITE setTag)
     Q_PROPERTY(FileKind fileKind READ fileKind WRITE setFileKind)
 
 public:
-    enum FileKind { DocKind, CodeKind, ImageKind, ExeKind, PdfKind, ArchiveKind, SystemKind };
+    enum FileKind { DocKind, CodeKind, ImageKind, ExeKind, PdfKind, ArchiveKind, SystemKind, FolderKind, NoKind };
     Q_ENUM(FileKind)
 
     explicit ChoiceCard(QWidget *parent = nullptr);
@@ -142,6 +147,10 @@ public:
     void setDetail(const QString &detail);
     QString keyHint() const { return m_keyHint; }
     void setKeyHint(const QString &keys);
+    QString description() const { return m_description; }
+    void setDescription(const QString &description);
+    QString tag() const { return m_tag; }
+    void setTag(const QString &tag);
     FileKind fileKind() const noexcept { return m_kind; }
     void setFileKind(FileKind kind);
 
@@ -155,6 +164,8 @@ protected:
 private:
     QString m_detail;
     QString m_keyHint;
+    QString m_description;
+    QString m_tag;
     FileKind m_kind = DocKind;
 };
 

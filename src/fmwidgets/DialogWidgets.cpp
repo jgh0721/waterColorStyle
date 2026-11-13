@@ -39,6 +39,8 @@ Token kindToken(ChoiceCard::FileKind kind)
     case ChoiceCard::PdfKind:     return Token::KPdf;
     case ChoiceCard::ArchiveKind: return Token::KZip;
     case ChoiceCard::SystemKind:  return Token::KSys;
+    case ChoiceCard::FolderKind:
+    case ChoiceCard::NoKind:      return Token::KDoc;
     }
     return Token::KDoc;
 }
@@ -52,7 +54,9 @@ QColor mix(const QColor &base, const QColor &over, qreal amount)
 
 void paintFileIcon(QPainter *p, const QRectF &r, ChoiceCard::FileKind kind, bool isDir, const fm::style::ThemeColors &tc)
 {
-    if (isDir)
+    if (kind == ChoiceCard::NoKind)
+        return;
+    if (isDir || kind == ChoiceCard::FolderKind)
         fm::style::paintGlyph(p, fm::style::Glyph::Folder, r, tc[Token::Folder]);
     else
         fm::style::paintGlyph(p, fm::style::Glyph::File, r, tc[Token::Fg3], tc[kindToken(kind)]);
@@ -347,14 +351,29 @@ void ChoiceCard::setFileKind(FileKind kind)
     update();
 }
 
+void ChoiceCard::setDescription(const QString &description)
+{
+    const bool resize = m_description.isEmpty() != description.isEmpty();
+    m_description = description;
+    if (resize)
+        updateGeometry();
+    update();
+}
+
+void ChoiceCard::setTag(const QString &tag)
+{
+    m_tag = tag;
+    update();
+}
+
 QSize ChoiceCard::sizeHint() const
 {
-    return QSize(220, 40);
+    return QSize(220, m_description.isEmpty() ? 40 : 48);
 }
 
 QSize ChoiceCard::minimumSizeHint() const
 {
-    return QSize(140, 40);
+    return QSize(140, m_description.isEmpty() ? 40 : 48);
 }
 
 bool ChoiceCard::hitButton(const QPoint &pos) const
@@ -386,8 +405,10 @@ void ChoiceCard::paintEvent(QPaintEvent *)
     style()->drawPrimitive(QStyle::PE_IndicatorRadioButton, &option, &p, this);
 
     qreal x = 12 + indicator + 10;
-    paintFileIcon(&p, QRectF(x, height() / 2.0 - 8, 16, 16), m_kind, false, tc);
-    x += 16 + 10;
+    if (m_kind != NoKind) {
+        paintFileIcon(&p, QRectF(x, height() / 2.0 - 8, 16, 16), m_kind, false, tc);
+        x += 16 + 10;
+    }
     qreal right = width() - 12;
     if (!m_keyHint.isEmpty()) {
         const QSize chip = fm::style::keyChipSize(m_keyHint);
@@ -404,11 +425,38 @@ void ChoiceCard::paintEvent(QPaintEvent *)
         right -= w + 10;
     }
     const QFont name = fm::style::pixelFont(font(), 13);
+    const QFont small = fm::style::pixelFont(font(), 11.5);
+    // 두 줄 카드: 이름 줄은 위 절반, 설명 줄은 아래 절반의 가운데에 둔다.
+    const bool twoLine = !m_description.isEmpty();
+    const QRectF nameBand = twoLine ? QRectF(0, 6, width(), 20) : QRectF(0, 0, width(), height());
+    const int available = int(right - x);
+    const QString label = text().remove(u'&');
+    // 칩이 있으면 이름을 먼저 줄이고 칩은 이름 바로 뒤에 둔다(칩이 칸보다 넓으면 칩을 뺀다).
+    QFont chipFont = fm::style::pixelFont(font(), 10.5);
+    chipFont.setWeight(QFont::DemiBold);
+    const qreal chipWidth = m_tag.isEmpty() ? 0 : QFontMetricsF(chipFont).horizontalAdvance(m_tag) + 10;
+    const bool showChip = chipWidth > 0 && chipWidth + 6 + 24 <= available;
+    const int nameRoom = showChip ? int(available - chipWidth - 6) : available;
+    const QString shown = QFontMetrics(name).elidedText(label, Qt::ElideRight, nameRoom);
     p.setFont(name);
     p.setPen(isEnabled() ? tc[Token::Fg] : tc[Token::Fg3]);
-    const int available = int(right - x);
-    p.drawText(QRectF(x, 0, available, height()), Qt::AlignLeft | Qt::AlignVCenter,
-               QFontMetrics(name).elidedText(text().remove(u'&'), Qt::ElideRight, available));
+    p.drawText(QRectF(x, nameBand.top(), nameRoom, nameBand.height()), Qt::AlignLeft | Qt::AlignVCenter, shown);
+    if (showChip) {
+        const qreal chipX = x + QFontMetricsF(name).horizontalAdvance(shown) + 6;
+        const QRectF chip(chipX, nameBand.center().y() - 7.5, chipWidth, 15);
+        p.setPen(QPen(on ? tc[Token::Accent] : tc[Token::Line], 1.0));
+        p.setBrush(on ? tc[Token::Surface] : tc[Token::Alt]);
+        p.drawRoundedRect(chip.adjusted(0.5, 0.5, -0.5, -0.5), wc ? 0 : 3, wc ? 0 : 3);
+        p.setFont(chipFont);
+        p.setPen(on ? tc[Token::AccentFg] : tc[Token::Fg2]);
+        p.drawText(chip, Qt::AlignCenter, m_tag);
+    }
+    if (twoLine) {
+        p.setFont(small);
+        p.setPen(tc[Token::Fg3]);
+        p.drawText(QRectF(x, 26, available, 16), Qt::AlignLeft | Qt::AlignVCenter,
+                   QFontMetrics(small).elidedText(m_description, Qt::ElideRight, available));
+    }
 
     if (hasFocus()) {
         QStyleOptionFocusRect focus;

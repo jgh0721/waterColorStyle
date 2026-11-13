@@ -1,6 +1,7 @@
 // 대화상자 공통 부품 — DialogFooter · KeyChip · Tag · Banner · setupDialogChrome (시안1 · 시안2 공통).
 
 #include "fmwidgets/Banner.h"
+#include "fmwidgets/Button.h"
 #include "fmwidgets/DialogChrome.h"
 #include "fmwidgets/DialogFooter.h"
 #include "fmwidgets/KeyChip.h"
@@ -15,6 +16,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
+#include <QVBoxLayout>
 
 namespace fm::ui {
 
@@ -194,11 +196,32 @@ Banner::Banner(Tone tone, glyph::Glyph glyph, const QString &text, QWidget *pare
 {
     auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(kBannerPadX + kBannerIcon + kBannerGap, kBannerPadY, kBannerPadX, kBannerPadY);
-    layout->setSpacing(0);
+    layout->setSpacing(6);
+    // 글 · 설명 · 단추 줄은 한 칸(세로)에 쌓고, 닫기 단추는 그 오른쪽 위에 둔다. 설명 · 단추 · 닫기를
+    // 쓰지 않으면 칸에는 글만 남아 예전 한 줄 배너와 같은 크기다.
+    auto *column = new QVBoxLayout;
+    column->setContentsMargins(0, 0, 0, 0);
+    column->setSpacing(2);
     m_label->setWordWrap(true);
     m_label->setTextFormat(Qt::AutoText);
     m_label->setFont(fs::pixelFont(QFont(), 12.5));
-    layout->addWidget(m_label, 1);
+    column->addWidget(m_label);
+    m_detail = new QLabel(this);
+    m_detail->setObjectName(QStringLiteral("bannerDetail"));
+    m_detail->setWordWrap(true);
+    m_detail->setTextFormat(Qt::PlainText);
+    m_detail->setFont(fs::pixelFont(QFont(), 11.5));
+    m_detail->hide();
+    column->addWidget(m_detail);
+    m_actions = new QWidget(this);
+    m_actions->setObjectName(QStringLiteral("bannerActions"));
+    m_actionLayout = new QHBoxLayout(m_actions);
+    m_actionLayout->setContentsMargins(0, 4, 0, 0);
+    m_actionLayout->setSpacing(6);
+    m_actionLayout->addStretch(1);
+    m_actions->hide();
+    column->addWidget(m_actions);
+    layout->addLayout(column, 1);
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
     setMinimumHeight(kBannerIcon + 2 * kBannerPadY);
     connect(&fs::ThemeManager::instance(), &fs::ThemeManager::changed, this, [this] {
@@ -236,14 +259,71 @@ void Banner::setIconAlignment(IconAlignment alignment)
     update();
 }
 
+QString Banner::detail() const
+{
+    return m_detail->text();
+}
+
+void Banner::setDetail(const QString &detail)
+{
+    m_detail->setText(detail);
+    m_detail->setVisible(!detail.isEmpty());
+}
+
+Button *Banner::addAction(const QString &text)
+{
+    auto *button = new Button(text, m_actions);
+    button->setCompact(true);
+    button->setAutoDefault(false);
+    // 늘임 칸 앞에 넣어 왼쪽부터 쌓는다.
+    m_actionLayout->insertWidget(m_actionLayout->count() - 1, button);
+    m_actions->show();
+    return button;
+}
+
+void Banner::clearActions()
+{
+    while (m_actionLayout->count() > 1) {
+        QLayoutItem *item = m_actionLayout->takeAt(0);
+        if (QWidget *w = item->widget())
+            w->deleteLater();
+        delete item;
+    }
+    m_actions->hide();
+}
+
+void Banner::setClosable(bool closable)
+{
+    m_closable = closable;
+    if (closable && !m_close) {
+        m_close = new Button(this);
+        m_close->setObjectName(QStringLiteral("bannerClose"));
+        m_close->setRole(Button::Subtle);
+        m_close->setCompact(true);
+        m_close->setGlyph(glyph::Close);
+        m_close->setAccessibleName(tr("알림 닫기"));
+        m_close->setToolTip(tr("닫기"));
+        m_close->setAutoDefault(false);
+        m_close->setFocusPolicy(Qt::TabFocus);
+        static_cast<QHBoxLayout *>(layout())->addWidget(m_close, 0, Qt::AlignTop);
+        connect(m_close, &QAbstractButton::clicked, this, &Banner::closeRequested);
+    }
+    if (m_close)
+        m_close->setVisible(closable);
+}
+
 void Banner::applyTextColor()
 {
     if (m_applying)
         return;
     m_applying = true;
+    const fs::ThemeColors &tc = fs::themeColorsFor(this);
     QPalette pal = m_label->palette();
-    pal.setColor(QPalette::WindowText, fs::themeColorsFor(this)[T::Fg]);
+    pal.setColor(QPalette::WindowText, tc[T::Fg]);
     m_label->setPalette(pal);
+    QPalette detail = m_detail->palette();
+    detail.setColor(QPalette::WindowText, tc[T::Fg2]);
+    m_detail->setPalette(detail);
     m_applying = false;
 }
 

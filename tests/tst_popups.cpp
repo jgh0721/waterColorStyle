@@ -4,7 +4,10 @@
 
 #include <fmstyle/StyleProps.h>
 #include <fmstyle/ThemeManager.h>
+#include <fmwidgets/Banner.h>
+#include <fmwidgets/Button.h>
 #include <fmwidgets/ContentDialog.h>
+#include <fmwidgets/DialogWidgets.h>
 #include <fmwidgets/Menu.h>
 #include <fmwidgets/ProgressRing.h>
 #include <fmwidgets/ToolTip.h>
@@ -307,6 +310,78 @@ private Q_SLOTS:
         });
         const auto r = ui::ContentDialog::ask(&window, u"제목"_s, u"글"_s, u"예"_s, u"아니요"_s);
         QCOMPARE(r, ui::ContentDialog::Secondary);
+    }
+
+    // ------------------------------------------------------------------ 배너 둘째 줄 · 단추 · 닫기
+
+    void bannerDetailActionsClose()
+    {
+        ui::Banner plain(ui::Banner::Info, ui::glyph::Info, u"한 줄"_s);
+        plain.resize(260, plain.sizeHint().height());
+        plain.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&plain));
+        const int single = plain.sizeHint().height();
+        // 쓰지 않은 부품은 숨어 있어 예전 한 줄 배너와 크기가 같다.
+        QVERIFY(!plain.findChild<QWidget *>(u"bannerDetail"_s)->isVisible());
+        QVERIFY(!plain.findChild<QWidget *>(u"bannerActions"_s)->isVisible());
+        QVERIFY(!plain.findChild<QWidget *>(u"bannerClose"_s));
+
+        ui::Banner banner(ui::Banner::Info, ui::glyph::Info, u"<b>세션을 가져왔습니다</b>"_s);
+        banner.setDetail(u"문서 3개 · 워크스페이스 밖 파일 1개"_s);
+        auto *undo = banner.addAction(u"되돌리기"_s);
+        banner.setClosable(true);
+        banner.resize(260, banner.sizeHint().height());
+        banner.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&banner));
+        QCOMPARE(banner.detail(), u"문서 3개 · 워크스페이스 밖 파일 1개"_s);
+        QVERIFY(banner.findChild<QWidget *>(u"bannerDetail"_s)->isVisible());
+        QVERIFY(banner.findChild<QWidget *>(u"bannerActions"_s)->isVisible());
+        QVERIFY(banner.sizeHint().height() > single);
+        QSignalSpy clicked(undo, &QAbstractButton::clicked);
+        undo->click();
+        QCOMPARE(clicked.count(), 1);
+        QSignalSpy closed(&banner, &ui::Banner::closeRequested);
+        auto *close = banner.findChild<QAbstractButton *>(u"bannerClose"_s);
+        QVERIFY(close && close->isVisible());
+        close->click();
+        QCOMPARE(closed.count(), 1);
+        banner.setClosable(false);
+        QVERIFY(!close->isVisible());
+        banner.clearActions();
+        QTRY_VERIFY(!banner.findChild<QWidget *>(u"bannerActions"_s)->isVisible());
+        banner.setDetail({});
+        QVERIFY(!banner.findChild<QWidget *>(u"bannerDetail"_s)->isVisible());
+    }
+
+    // ------------------------------------------------------------------ 두 줄 선택 카드
+
+    void choiceCardTwoLines()
+    {
+        QWidget host;
+        auto *layout = new QVBoxLayout(&host);
+        auto *one = new ui::ChoiceCard(u"한 줄"_s, &host);
+        auto *two = new ui::ChoiceCard(u"docs"_s, &host);
+        two->setDescription(u"D:\\Docs"_s);
+        two->setTag(u"최근 · 문서 5개"_s);
+        two->setFileKind(ui::ChoiceCard::NoKind);
+        auto *folder = new ui::ChoiceCard(u"guide"_s, &host);
+        folder->setFileKind(ui::ChoiceCard::FolderKind);
+        folder->setDescription(u"D:\\Docs\\guide"_s);
+        layout->addWidget(one);
+        layout->addWidget(two);
+        layout->addWidget(folder);
+        host.resize(240, 200);
+        host.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&host));
+        QCOMPARE(one->sizeHint().height(), 40);
+        QCOMPARE(two->sizeHint().height(), 48);
+        QCOMPARE(two->tag(), u"최근 · 문서 5개"_s);
+        two->setChecked(true);
+        // 그리기가 두 줄 · 칩 · 아이콘 없음 · 폴더 아이콘에서 문제없이 끝난다(체크 · 해제 둘 다).
+        QVERIFY(!two->grab().isNull());
+        QVERIFY(!folder->grab().isNull());
+        two->setDescription({});
+        QCOMPARE(two->sizeHint().height(), 40);
     }
 };
 
