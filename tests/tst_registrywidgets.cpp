@@ -1,4 +1,4 @@
-﻿#include <fmstyle/ThemeManager.h>
+#include <fmstyle/ThemeManager.h>
 #include <fmwidgets/BreadcrumbBar.h>
 #include <fmwidgets/ReorderList.h>
 #include <fmwidgets/ValueInputs.h>
@@ -8,6 +8,8 @@
 #include <fmwidgets/ScrollPanel.h>
 #include <fmwidgets/ContentStack.h>
 #include <fmwidgets/Label.h>
+#include <fmwidgets/SegmentedControl.h>
+#include <QPushButton>
 #include <QVBoxLayout>
 #include <QScrollBar>
 #include <QtEndian>
@@ -25,6 +27,26 @@ private slots:
     void initTestCase()
     {
         fm::style::ThemeManager::instance().install(*qobject_cast<QApplication*>(QCoreApplication::instance()));
+    }
+    void clearSegmentSelection()
+    {
+        fm::ui::SegmentedControl Control({"one", "two"});
+        QSignalSpy Changed(&Control, &fm::ui::SegmentedControl::currentIndexChanged);
+        Control.setCurrentIndex(1);
+        QCOMPARE(Control.currentIndex(), 1);
+        Control.setCurrentIndex(-1);
+        QCOMPARE(Control.currentIndex(), -1);
+        for (auto* Button : Control.findChildren<QPushButton*>())
+            QVERIFY(!Button->isChecked());
+        QCOMPARE(Changed.count(), 2);
+        Control.setCurrentIndex(-1);
+        QCOMPARE(Changed.count(), 2);
+        Control.setCurrentIndex(0);
+        QCOMPARE(Control.currentIndex(), 0);
+        int Checked = 0;
+        for (auto* Button : Control.findChildren<QPushButton*>())
+            Checked += Button->isChecked() ? 1 : 0;
+        QCOMPARE(Checked, 1);
     }
     void contentStackUsesCurrentPage()
     {

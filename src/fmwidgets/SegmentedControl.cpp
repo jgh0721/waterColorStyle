@@ -338,8 +338,17 @@ void SegmentedControl::setCurrentIndex(int index)
     }
     if (index < -1 || index >= m_items.size())
         return;
-    if (QAbstractButton *b = button(index))
+    if (index == -1) {
+        // An indeterminate setting has no selected segment. QButtonGroup's
+        // exclusive mode otherwise refuses to clear the last checked button.
+        const QSignalBlocker block(m_group);
+        m_group->setExclusive(false);
+        for (QAbstractButton *b : m_group->buttons())
+            b->setChecked(false);
+        m_group->setExclusive(true);
+    } else if (QAbstractButton *b = button(index)) {
         b->setChecked(true);
+    }
     if (m_current == index)
         return;
     m_current = index;
