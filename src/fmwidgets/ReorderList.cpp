@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <fmstyle/ThemeManager.h>
 #include <QKeyEvent>
+#include <QKeySequence>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPersistentModelIndex>
@@ -104,6 +105,13 @@ public:
         BindModel();
     }
     ~ReorderListInteraction() override { cancel(); delete overlay_; }
+    void SetMoveModifiers(Qt::KeyboardModifiers Modifiers)
+    {
+        modifiers_ = Modifiers;
+        const auto Keys = QKeySequence(Modifiers | Qt::Key_Up).toString(QKeySequence::NativeText);
+        view_->setToolTip(tr("끌기 핸들로 순서 변경 · %1/↓ · Esc로 끌기 취소").arg(Keys));
+        view_->setAccessibleDescription(view_->toolTip());
+    }
     void BindModel()
     {
         for (const auto& Connection : modelConnections_) disconnect(Connection);
@@ -137,7 +145,7 @@ protected:
         if (Object == view_ && Event->type() == QEvent::KeyPress) {
             auto* Key = static_cast<QKeyEvent*>(Event);
             if (Key->key() == Qt::Key_Escape && source_.isValid()) { cancel(); return true; }
-            if (Key->modifiers() == Qt::AltModifier && (Key->key() == Qt::Key_Up || Key->key() == Qt::Key_Down)) {
+            if (Key->modifiers() == modifiers_ && (Key->key() == Qt::Key_Up || Key->key() == Qt::Key_Down)) {
                 cancel(); MoveRow(view_->currentIndex().row(), view_->currentIndex().row() + (Key->key() == Qt::Key_Up ? -1 : 1)); return true;
             }
         }
@@ -201,6 +209,7 @@ private:
         if (overlay_) overlay_->hide();
         view_->viewport()->unsetCursor();
     }
+    Qt::KeyboardModifiers modifiers_ = Qt::AltModifier;
     QListView* view_;
     DragOverlay* overlay_ = nullptr;
     QTimer timer_;
@@ -212,11 +221,13 @@ private:
 };
 
 ReorderListView::ReorderListView(QWidget* Parent) : QListView(Parent), interaction_(new ReorderListInteraction(this)) {}
+void ReorderListView::SetMoveModifiers(Qt::KeyboardModifiers Modifiers) { interaction_->SetMoveModifiers(Modifiers); }
 ReorderListView::~ReorderListView() { delete interaction_; }
 void ReorderListView::setModel(QAbstractItemModel* Model) { QListView::setModel(Model); if (interaction_) interaction_->BindModel(); }
 QRect ReorderListView::HandleRect(int Row) const { return interaction_->HandleRect(Row); }
 bool ReorderListView::MoveRow(int From, int To) { return interaction_->MoveRow(From, To); }
 ReorderListWidget::ReorderListWidget(QWidget* Parent) : QListWidget(Parent), interaction_(new ReorderListInteraction(this)) { setSortingEnabled(false); }
+void ReorderListWidget::SetMoveModifiers(Qt::KeyboardModifiers Modifiers) { interaction_->SetMoveModifiers(Modifiers); }
 ReorderListWidget::~ReorderListWidget() { delete interaction_; }
 QRect ReorderListWidget::HandleRect(int Row) const { return interaction_->HandleRect(Row); }
 bool ReorderListWidget::MoveRow(int From, int To) { return interaction_->MoveRow(From, To); }

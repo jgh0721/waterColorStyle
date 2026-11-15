@@ -29,6 +29,11 @@ public:
     bool IsPaneActive() const { return paneActive_; }
     void SetPaneActive(bool Active) { paneActive_ = Active; update(); }
     void EditPath() { startEditing(); }
+    /// Opt-in editor navigation; file panels keep the existing double-click behavior.
+    void setSingleClickEdit(bool enabled) { m_singleClickEdit = enabled; }
+    bool singleClickEdit() const { return m_singleClickEdit; }
+    void setMiddleClickPaste(bool enabled) { m_middleClickPaste = enabled; }
+    bool middleClickPaste() const { return m_middleClickPaste; }
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
 
@@ -58,6 +63,8 @@ private:
     void startEditing();
     bool watercolor() const;
 
+    bool m_singleClickEdit = false;
+    bool m_middleClickPaste = false;
     bool fullPathMode_ = false;
     bool paneActive_ = false;
     QStringList m_segments;

@@ -1,4 +1,12 @@
 qt_add_library(fmwidgets STATIC
+    include/fmwidgets/PathEntryDelegate.h
+    PathEntryDelegate.cpp
+    include/fmwidgets/HexBufferEditor.h
+    HexBufferEditor.cpp
+    include/fmwidgets/DataInterpreter.h
+    DataInterpreter.cpp
+    include/fmwidgets/ValueInputs.h
+    ValueInputs.cpp
     include/fmwidgets/KeySequenceDelegate.h
     include/fmwidgets/RenameComparisonView.h
     include/fmwidgets/Banner.h

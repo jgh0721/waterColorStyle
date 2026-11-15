@@ -17,6 +17,7 @@ public:
     ~ReorderListView() override;
     QRect HandleRect(int Row) const;
     bool MoveRow(int From, int To);
+    void SetMoveModifiers(Qt::KeyboardModifiers Modifiers);
     void setModel(QAbstractItemModel* Model) override;
 private:
     ReorderListInteraction* interaction_ = nullptr;
@@ -30,6 +31,7 @@ public:
     ~ReorderListWidget() override;
     QRect HandleRect(int Row) const;
     bool MoveRow(int From, int To);
+    void SetMoveModifiers(Qt::KeyboardModifiers Modifiers);
 private:
     ReorderListInteraction* interaction_ = nullptr;
 };

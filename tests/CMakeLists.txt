@@ -122,3 +122,10 @@ endif()
 fm_set_compile_options(tst_dock_bench)
 add_test(NAME tst_dock_bench COMMAND tst_dock_bench)
 set_tests_properties(tst_dock_bench PROPERTIES ENVIRONMENT "${_testEnv}" LABELS "bench")
+
+# Registry editor reusable input widgets and opt-in navigation behavior.
+qt_add_executable(tst_registrywidgets tst_registrywidgets.cpp)
+target_link_libraries(tst_registrywidgets PRIVATE Fm::widgets Qt6::Test)
+fm_set_compile_options(tst_registrywidgets)
+add_test(NAME tst_registrywidgets COMMAND tst_registrywidgets)
+set_tests_properties(tst_registrywidgets PROPERTIES ENVIRONMENT "${_testEnv}")

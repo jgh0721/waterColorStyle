@@ -11,6 +11,8 @@
 #include <fmstyle/ThemeManager.h>
 #include <fmstyle/WatercolorChrome.h>
 
+#include <QApplication>
+#include <QClipboard>
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -468,6 +470,15 @@ void BreadcrumbBar::leaveEvent(QEvent *event)
 
 void BreadcrumbBar::mousePressEvent(QMouseEvent *event)
 {
+    if (m_middleClickPaste && event->button() == Qt::MiddleButton) {
+        const auto path = QApplication::clipboard()->text().trimmed();
+        if (!path.isEmpty()) Q_EMIT pathEntered(path);
+        event->accept(); return;
+    }
+    if (m_singleClickEdit && event->button() == Qt::LeftButton
+        && (fullPathMode_ || crumbAt(event->position().toPoint()) == -2)) {
+        startEditing(); event->accept(); return;
+    }
     if (event->button() != Qt::LeftButton)
         return;
     if (fullPathMode_) return;
