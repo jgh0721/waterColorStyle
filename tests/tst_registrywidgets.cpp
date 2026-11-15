@@ -6,6 +6,7 @@
 #include <fmwidgets/HexBufferEditor.h>
 #include <fmwidgets/PathEntryDelegate.h>
 #include <fmwidgets/ScrollPanel.h>
+#include <fmwidgets/ContentStack.h>
 #include <fmwidgets/Label.h>
 #include <QVBoxLayout>
 #include <QScrollBar>
@@ -24,6 +25,23 @@ private slots:
     void initTestCase()
     {
         fm::style::ThemeManager::instance().install(*qobject_cast<QApplication*>(QCoreApplication::instance()));
+    }
+    void contentStackUsesCurrentPage()
+    {
+        fm::ui::ScrollPanel Panel;
+        auto* Stack = new fm::ui::ContentStack;
+        auto* Small = new QWidget; Small->setMinimumSize(100, 40);
+        auto* Large = new QWidget; Large->setMinimumSize(100, 700);
+        Stack->addWidget(Small); Stack->addWidget(Large);
+        Panel.setContentWidget(Stack); Panel.resize(300, 200); Panel.show();
+        QTRY_COMPARE(Panel.verticalScrollBar()->maximum(), 0);
+        QCOMPARE(Stack->minimumSizeHint().height(), 40);
+        Stack->setCurrentWidget(Large);
+        QTRY_VERIFY(Panel.verticalScrollBar()->maximum() > 0);
+        Stack->setCurrentWidget(Small);
+        QTRY_COMPARE(Panel.verticalScrollBar()->maximum(), 0);
+        Large->setMinimumHeight(900);
+        QTRY_COMPARE(Panel.verticalScrollBar()->maximum(), 0);
     }
     void scrollPanelBounds()
     {

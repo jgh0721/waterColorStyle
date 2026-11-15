@@ -1,4 +1,6 @@
 qt_add_library(fmwidgets STATIC
+    include/fmwidgets/ContentStack.h
+    ContentStack.cpp
     include/fmwidgets/ScrollPanel.h
     ScrollPanel.cpp
     include/fmwidgets/PathEntryDelegate.h
