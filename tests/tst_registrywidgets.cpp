@@ -5,6 +5,9 @@
 #include <fmwidgets/DataInterpreter.h>
 #include <fmwidgets/HexBufferEditor.h>
 #include <fmwidgets/PathEntryDelegate.h>
+#include <fmwidgets/ScrollPanel.h>
+#include <fmwidgets/Label.h>
+#include <QVBoxLayout>
 #include <QScrollBar>
 #include <QtEndian>
 #include <limits>
@@ -21,6 +24,20 @@ private slots:
     void initTestCase()
     {
         fm::style::ThemeManager::instance().install(*qobject_cast<QApplication*>(QCoreApplication::instance()));
+    }
+    void scrollPanelBounds()
+    {
+        fm::ui::ScrollPanel Panel;
+        auto* Body = new QWidget; auto* Layout = new QVBoxLayout(Body);
+        auto* Text = new fm::ui::Label(QString("long detail line\n").repeated(200), fm::ui::Label::Description, Body);
+        Text->setWordWrap(true); Layout->addWidget(Text);
+        Panel.setContentWidget(Body); Panel.resize(300, 200); Panel.show();
+        QTRY_VERIFY(Panel.verticalScrollBar()->maximum() > 0);
+        QCOMPARE(Panel.minimumSizeHint(), QSize(0, 0)); QCOMPARE(Panel.size(), QSize(300, 200));
+        QCOMPARE(Panel.horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+        Panel.verticalScrollBar()->setValue(Panel.verticalScrollBar()->maximum());
+        QVERIFY(Panel.verticalScrollBar()->value() > 0);
+        Text->setText("short"); QTRY_COMPARE(Panel.verticalScrollBar()->maximum(), 0);
     }
     void breadcrumbOptions()
     {
