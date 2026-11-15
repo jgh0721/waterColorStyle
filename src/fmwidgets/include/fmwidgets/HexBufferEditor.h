@@ -12,6 +12,8 @@ public:
     explicit HexBufferEditor(QWidget* Parent = nullptr);
     bool setData(const QByteArray& Data);
     const QByteArray& data() const { return bytes_; }
+    void setInsertMode(bool Insert);
+    bool isInsertMode() const { return insert_; }
     void setReadOnly(bool ReadOnly) { readOnly_ = ReadOnly; viewport()->update(); }
     bool isReadOnly() const { return readOnly_; }
     qsizetype cursorOffset() const { return cursor_; }
@@ -24,6 +26,7 @@ public:
     void redo();
 signals:
     void dataChanged();
+    void insertModeChanged(bool Insert);
     void cursorChanged(qsizetype Offset);
     void editRejected(const QString& Reason);
 protected:
@@ -44,7 +47,7 @@ private:
     QByteArray bytes_;
     QUndoStack* undo_;
     qsizetype cursor_ = 0, anchor_ = 0, undoBytes_ = 0;
-    bool readOnly_ = false, ascii_ = false, lowNibble_ = false;
+    bool readOnly_ = false, ascii_ = false, lowNibble_ = false, insert_ = false;
     int cell_ = 9, rowHeight_ = 22;
 };
 }

@@ -82,6 +82,23 @@ private slots:
         Editor.setReadOnly(false); Editor.setCursorOffset(Editor.data().size()); QTest::keyClicks(&Editor, "10");
         QCOMPARE(Editor.data(), QByteArray::fromHex("affe0010"));
     }
+    void hexInsertMode()
+    {
+        fm::ui::HexBufferEditor Editor; QVERIFY(Editor.setData(QByteArray::fromHex("1234")));
+        QSignalSpy Mode(&Editor, &fm::ui::HexBufferEditor::insertModeChanged);
+        QTest::keyClick(&Editor, Qt::Key_Insert); QVERIFY(Editor.isInsertMode()); QCOMPARE(Mode.size(), 1);
+        QTest::keyClicks(&Editor, "AB"); QCOMPARE(Editor.data(), QByteArray::fromHex("ab1234"));
+        Editor.undo(); Editor.undo(); QCOMPARE(Editor.data(), QByteArray::fromHex("1234"));
+        QTest::keyClick(&Editor, Qt::Key_Insert); QVERIFY(!Editor.isInsertMode());
+        Editor.setCursorOffset(0); QTest::keyClicks(&Editor, "EF"); QCOMPARE(Editor.data(), QByteArray::fromHex("ef34"));
+        const auto Clipboard = QApplication::clipboard()->text();
+        Editor.setCursorOffset(0); QApplication::clipboard()->setText("AA BB CC");
+        QTest::keyClick(&Editor, Qt::Key_V, Qt::ControlModifier); const auto Overwrite = Editor.data();
+        Editor.setInsertMode(true); Editor.setCursorOffset(1); QApplication::clipboard()->setText("01");
+        QTest::keyClick(&Editor, Qt::Key_V, Qt::ControlModifier); const auto Insert = Editor.data();
+        QApplication::clipboard()->setText(Clipboard);
+        QCOMPARE(Overwrite, QByteArray::fromHex("aabbcc")); QCOMPARE(Insert, QByteArray::fromHex("aa01bbcc"));
+    }
     void hexLargeBuffer()
     {
         fm::ui::HexBufferEditor Editor; Editor.resize(800, 240); Editor.show();

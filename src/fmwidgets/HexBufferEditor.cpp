@@ -33,7 +33,13 @@ HexBufferEditor::HexBufferEditor(QWidget* Parent) : QAbstractScrollArea(Parent),
     connect(&fm::style::ThemeManager::instance(), &fm::style::ThemeManager::changed, this, [this] {
         setFont(fm::style::monoFont(12)); updateMetrics(); viewport()->update();
     });
-    updateMetrics();
+    setInsertMode(false); updateMetrics();
+}
+void HexBufferEditor::setInsertMode(bool Insert)
+{
+    const bool Changed = insert_ != Insert; insert_ = Insert; lowNibble_ = false;
+    setToolTip(tr("Ins: 삽입 / 덮어쓰기 전환 · 현재 %1").arg(insert_ ? tr("삽입") : tr("덮어쓰기")));
+    viewport()->update(); if (Changed) emit insertModeChanged(insert_);
 }
 bool HexBufferEditor::setData(const QByteArray& Data)
 {
@@ -70,7 +76,9 @@ void HexBufferEditor::paintEvent(QPaintEvent*)
             Painter.drawText(Hex, Qt::AlignCenter, Exists ? QString::number(Byte, 16).rightJustified(2, '0').toUpper() : "--");
             Painter.drawText(Character, Qt::AlignCenter, Exists && Byte >= 32 && Byte < 127 ? QString(QChar(ushort(Byte))) : Exists ? QStringLiteral("·") : QString());
             if (hasFocus() && Offset == cursor_) {
-                Painter.setPen(Palette.highlight().color()); Painter.drawRect((ascii_ ? Character : Hex).adjusted(0, 1, -1, -2));
+                Painter.setPen(Palette.highlight().color());
+                const auto Cursor = (ascii_ ? Character : Hex).adjusted(0, 1, -1, -2);
+                if (insert_) Painter.drawLine(Cursor.topLeft(), Cursor.bottomLeft()); else Painter.drawRect(Cursor);
             }
         }
     }
@@ -125,7 +133,10 @@ void HexBufferEditor::paste()
         if (High < 0) High = Digit; else { Parsed.append(char((High << 4) | Digit)); High = -1; }
     }
     if (High >= 0) { emit editRejected(tr("16진 숫자는 바이트마다 두 자리여야 합니다.")); return; }
-    if (!Parsed.isEmpty()) replaceSelection(Parsed);
+    if (!Parsed.isEmpty()) {
+        const auto Removed = selectionLength() ? selectionLength() : insert_ ? 0 : qMin(Parsed.size(), bytes_.size() - cursor_);
+        replaceRange(selectionOffset(), Removed, Parsed);
+    }
 }
 qsizetype HexBufferEditor::hit(const QPoint& Position, bool* Ascii) const
 {
@@ -155,6 +166,7 @@ void HexBufferEditor::keyPressEvent(QKeyEvent* Event)
     if (Event->matches(QKeySequence::Paste)) { if (!readOnly_) paste(); Event->accept(); return; }
     if (Event->matches(QKeySequence::Cut)) { if (!readOnly_) { copy(); if (selectionLength()) replaceSelection({}); else if (cursor_ < bytes_.size()) replaceRange(cursor_, 1, {}); } Event->accept(); return; }
     switch (Event->key()) {
+    case Qt::Key_Insert: if (Event->modifiers() == Qt::NoModifier) { setInsertMode(!insert_); Event->accept(); return; } break;
     case Qt::Key_Left: moveCursor(cursor_ - 1, Extend); return;
     case Qt::Key_Right: moveCursor(cursor_ + 1, Extend); return;
     case Qt::Key_Up: moveCursor(cursor_ - 16, Extend); return;
@@ -175,7 +187,7 @@ void HexBufferEditor::keyPressEvent(QKeyEvent* Event)
     if (Event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)) { QAbstractScrollArea::keyPressEvent(Event); return; }
     if (Event->text().size() == 1) {
         const auto Character = Event->text()[0];
-        const auto Start = selectionOffset(); const auto Removed = selectionLength() ? selectionLength() : qMin<qsizetype>(1, bytes_.size() - Start);
+        const auto Start = selectionOffset(); const auto Removed = selectionLength() ? selectionLength() : insert_ && !lowNibble_ ? 0 : qMin<qsizetype>(1, bytes_.size() - Start);
         if (ascii_ && Character.unicode() >= 32 && Character.unicode() <= 255) {
             replaceRange(Start, Removed, QByteArray(1, char(Character.unicode()))); Event->accept(); return;
         }
@@ -183,7 +195,7 @@ void HexBufferEditor::keyPressEvent(QKeyEvent* Event)
         const int Digit = C >= '0' && C <= '9' ? C - '0' : C >= 'a' && C <= 'f' ? C - 'a' + 10 : -1;
         if (!ascii_ && Digit >= 0) {
             const bool Low = lowNibble_ && !selectionLength();
-            const int Before = Start < bytes_.size() ? quint8(bytes_[Start]) : 0;
+            const int Before = Removed && Start < bytes_.size() ? quint8(bytes_[Start]) : 0;
             const char Byte = char(Low ? (Before & 0xf0) | Digit : (Digit << 4) | (Before & 0x0f));
             if (replaceRange(Start, Removed, QByteArray(1, Byte)) && !Low) { moveCursor(Start, false); lowNibble_ = true; }
             Event->accept(); return;
