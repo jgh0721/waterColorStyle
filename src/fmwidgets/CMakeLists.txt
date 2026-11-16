@@ -1,4 +1,6 @@
 qt_add_library(fmwidgets STATIC
+    include/fmwidgets/EnvironmentInputs.h
+    EnvironmentInputs.cpp
     include/fmwidgets/ContentStack.h
     ContentStack.cpp
     include/fmwidgets/ScrollPanel.h
