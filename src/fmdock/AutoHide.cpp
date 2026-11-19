@@ -111,12 +111,16 @@ QSize SideTab::sizeHint() const
     QStyleOptionTab opt;
     initStyleOption(&opt);
     const fs::DockMetrics metrics = metricsOf(this);
-    const QFontMetrics fm = fontMetrics();
-    int length = fm.horizontalAdvance(opt.text) + 2 * metrics.sideTabPad;
-    if (!opt.icon.isNull())
-        length += 16 + (opt.text.isEmpty() ? 0 : 6);
-    const int cross = std::max(16, metrics.sideBar - 4);
-    return m_bar->isVertical() ? QSize(cross, length) : QSize(length, cross);
+    QFont labelFont = font();
+    labelFont.setWeight(std::max(labelFont.weight(), QFont::DemiBold));
+    const QFontMetrics fm(labelFont);
+    const int hspace = style()->pixelMetric(QStyle::PM_TabBarTabHSpace, &opt, this);
+    const int vspace = style()->pixelMetric(QStyle::PM_TabBarTabVSpace, &opt, this);
+    const int length = fm.horizontalAdvance(opt.text) + std::max(hspace, 2 * metrics.sideTabPad)
+                       + (opt.icon.isNull() ? 0 : opt.iconSize.width() + (opt.text.isEmpty() ? 0 : 6));
+    const int cross = std::max(fm.height(), opt.iconSize.height()) + vspace;
+    const QSize contents = m_bar->isVertical() ? QSize(cross, length) : QSize(length, cross);
+    return contents.expandedTo(style()->sizeFromContents(QStyle::CT_TabBarTab, &opt, contents, this));
 }
 
 bool SideTab::event(QEvent *event)
@@ -224,9 +228,9 @@ SideBar::SideBar(DockManager *manager, SideBarLocation side)
                                                    : u"fmDockSideBarBottom"_s);
     m_layout = new QBoxLayout(isVertical() ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight, this);
     if (isVertical())
-        m_layout->setContentsMargins(0, 6, 0, 6);
+        m_layout->setContentsMargins(2, 6, 2, 6);
     else
-        m_layout->setContentsMargins(6, 0, 6, 0);
+        m_layout->setContentsMargins(6, 2, 6, 2);
     m_layout->setSpacing(4);
     m_layout->addStretch(1);
     setSizePolicy(isVertical() ? QSizePolicy::Fixed : QSizePolicy::Preferred,
@@ -287,14 +291,15 @@ void SideBar::updateVisibility()
 
 QSize SideBar::sizeHint() const
 {
+    const QSize size = m_layout->sizeHint();
     const int t = metricsOf(this).sideBar;
-    return isVertical() ? QSize(t, 100) : QSize(100, t);
+    return isVertical() ? QSize(std::max(t, size.width()), 100) : QSize(100, std::max(t, size.height()));
 }
 
 QSize SideBar::minimumSizeHint() const
 {
-    const int t = metricsOf(this).sideBar;
-    return isVertical() ? QSize(t, 20) : QSize(20, t);
+    const QSize size = sizeHint();
+    return isVertical() ? QSize(size.width(), 20) : QSize(20, size.height());
 }
 
 void SideBar::paintEvent(QPaintEvent *)
@@ -814,6 +819,8 @@ void DockManager::expandAutoHide(DockWidget *dock)
         return;
     positionFlyout(flyout);
     flyout->updateButtons();
+    // A dock moved here while closed is explicitly hidden by setParent().
+    dock->show();
     flyout->show();
     flyout->raise();
     if (detail::SideBar *bar = sideBar(dock->m_autoHideSide)) {
