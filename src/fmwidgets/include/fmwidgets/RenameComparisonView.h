@@ -2,6 +2,8 @@
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QResizeEvent>
+#include <QScopedValueRollback>
+#include <algorithm>
 #include <fmstyle/ThemeManager.h>
 
 namespace fm::ui {
@@ -17,13 +19,56 @@ public:
         horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
         connect(&style::ThemeManager::instance(), &style::ThemeManager::changed, this, [this] { rebuild(); });
     }
-    void SetRows(const QList<Row>& Rows) { rows_ = Rows; rebuild(); }
-    void SetMode(int Mode) { mode_ = Mode; rebuild(); }
+    void SetRows(const QList<Row>& Rows) {
+        rows_ = Rows;
+        measureNames();
+        rebuild();
+        updateMode();
+    }
+    void SetMode(int Mode) { mode_ = Mode; updateMode(); }
 protected:
-    void resizeEvent(QResizeEvent* Event) override { QTableWidget::resizeEvent(Event); if (mode_ == 2) rebuild(); }
+    void resizeEvent(QResizeEvent* Event) override {
+        QTableWidget::resizeEvent(Event);
+        updateMode();
+    }
+    void changeEvent(QEvent* Event) override {
+        QTableWidget::changeEvent(Event);
+        if (Event->type() == QEvent::FontChange || Event->type() == QEvent::StyleChange) {
+            measureNames();
+            rebuild();
+            updateMode();
+        }
+    }
 private:
+    void measureNames() {
+        const auto Metrics = fontMetrics();
+        const int Padding = 2 * (style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, this) + 1) + 1;
+        nameWidth_ = 0;
+        for (const auto& Row : rows_)
+            nameWidth_ = std::max({nameWidth_, Metrics.horizontalAdvance(Row.original_) + Padding,
+                Metrics.horizontalAdvance(Row.proposed_) + Padding});
+    }
+    bool autoNeedsTwoLines() const {
+        // Both name columns stretch equally. Reserve the actual space used by the other columns.
+        int Available = viewport()->width();
+        int StretchColumns = 2;
+        for (int Column = 2; Column < columnCount(); ++Column) {
+            if (isColumnHidden(Column)) continue;
+            if (horizontalHeader()->sectionResizeMode(Column) == QHeaderView::Stretch) ++StretchColumns;
+            else Available -= columnWidth(Column);
+        }
+        return nameWidth_ > std::max(0, Available) / StretchColumns;
+    }
+    void updateMode() {
+        if (rebuilding_) return;
+        const bool Paired = mode_ == 1 || (mode_ == 2 && autoNeedsTwoLines());
+        if (Paired == paired_) return;
+        paired_ = Paired;
+        rebuild();
+    }
     void rebuild() {
-        const bool Paired = mode_ == 1 || (mode_ == 2 && width() < 1000);
+        const QScopedValueRollback Guard(rebuilding_, true);
+        const bool Paired = paired_;
         setColumnHidden(1, Paired); setHorizontalHeaderItem(0, new QTableWidgetItem(Paired ? tr("원래 이름 → 새 이름") : tr("원래 이름")));
         setRowCount(rows_.size());
         const auto& Colors = style::ThemeManager::instance().colors();
@@ -39,6 +84,7 @@ private:
         }
     }
     QList<Row> rows_;
-    int mode_ = 2;
+    int mode_ = 2, nameWidth_ = 0;
+    bool paired_ = false, rebuilding_ = false;
 };
 }
